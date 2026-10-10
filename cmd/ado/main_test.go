@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -36,5 +38,32 @@ func TestRun(t *testing.T) {
 				t.Errorf("stderr = %q, want %q", errOut, tt.wantErrOut)
 			}
 		})
+	}
+}
+
+func TestNewFactoryHTTPClient(t *testing.T) {
+	var gotUA string
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+	}))
+	defer srv.Close()
+
+	ios, _, _, errOut := iostreams.Test()
+	f := newFactory(ios)
+	f.Debug = true // as set by --debug before the client is first built
+	c, err := f.HttpClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := c.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if gotUA != "ado-cli/"+version {
+		t.Errorf("User-Agent = %q", gotUA)
+	}
+	if !strings.Contains(errOut.String(), "> GET "+srv.URL) {
+		t.Errorf("debug log = %q", errOut)
 	}
 }

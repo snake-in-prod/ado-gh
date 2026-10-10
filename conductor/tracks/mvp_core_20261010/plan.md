@@ -56,45 +56,45 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement `-R/--repo` global flag and `Factory.BaseRepo`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Context Detection' (Protocol in workflow.md)
 
-## Phase 3: Authentication
+## Phase 3: Authentication [checkpoint: 51916f6]
 
-- [ ] Task: Prerequisite - Entra app registration and auth docs (manual)
-    - [ ] Register ado's multi-tenant public-client app ("Accounts in any organizational directory", "Allow public client flows" on, redirect `http://localhost` (mobile/desktop), delegated Azure DevOps `user_impersonation`) and record its client ID as the default constant
-    - [ ] Document the client ID and the `ADO_ENTRA_CLIENT_ID` / config override in README; README and `auth login` PAT guidance list the scopes "Code (Read & write)" + "Identity (Read)"
-- [ ] Task: Credential store (`internal/auth`)
-    - [ ] Write tests: keychain set/get/delete via `keyring.MockInit()`; PAT keys per org `ado:<host>/<org>` (e.g. `ado:dev.azure.com/<org>`) with per-host Entra token as fallback; env `ADO_TOKEN` / `AZURE_DEVOPS_EXT_PAT` precedence
-    - [ ] Write tests: timeout wrapper (60s, injectable in tests) around go-keyring Set/Get/Delete returning a timeout error; any Set error (incl. `ErrSetDataTooBig`, timeout, `keyring.MockInitWithError`) falls back to the 0600 config file with a stderr warning; Get: `ErrNotFound` = nothing stored, other error = unusable, both continue to the config source; token source (env / keychain / config) exposed for `auth status`
-    - [ ] Write tests: insecure-storage option skips the keychain and writes the 0600 plaintext file with the warning
-    - [ ] Implement token store and source resolution (env > keychain > config fallback) with the timeout wrapper, per-org keys and insecure-storage option
-- [ ] Task: Authenticated HTTP transport (`api`)
-    - [ ] Write tests: Basic header for PAT, Bearer for Entra, `User-Agent` overwritten in the RoundTripper (same for SDK and raw requests), `X-TFS-FedAuthRedirect: Suppress` always sent, `--debug` request log with `Authorization` redacted, 401 and 203 → `AuthError` (exit 4)
-    - [ ] Write tests: a typed SDK call (git `GetRepository` via httpmock with the OPTIONS `_apis` stub) carries the RoundTripper's Authorization / User-Agent and is logged
-    - [ ] Implement `RoundTripper` (on a cloned `http.DefaultTransport`, never the global one) and shared `http.Client`; pin `azuredevops/v7 v7.1.0`; build typed clients as `&<pkg>.ClientImpl{Client: *azuredevops.NewClientWithOptions(conn, baseURL, azuredevops.WithHTTPClient(shared))}` with an empty `AuthorizationString`, auth set only in the RoundTripper
-    - [ ] Live check that git/core/wit/build/pipelines live under the org URL on dev.azure.com and `*.visualstudio.com`; add a `GetResourceAreas` fallback through the shared client only if not
-- [ ] Task: PAT login (`ado auth login --with-token` + interactive PAT)
-    - [ ] Write tests: stdin token validated only via org-scoped `_apis/connectionData` (httpmock, no profile API), anonymous user id `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` rejected, 203 sign-in page rejected, invalid token rejected, no PAT length check, org required before validating (`--org`, git remote, `ADO_ORG`, prompt) and non-TTY without an org fails, masked TTY prompt, non-TTY without `--with-token` fails, `--insecure-storage` stores the PAT in plaintext 0600 with a warning, help/error text mentions the 2026-12-01 global-PAT cutoff (use an org-scoped PAT or Entra)
-    - [ ] Implement PAT login flow, org selection and a shared `validate(org, transport)` helper; add `--insecure-storage` to `ado auth login`
-    - [ ] Update spec.md FR4 (spec.md:37): PAT validation via `connectionData` only (drop "profile"); PAT credential key per org
-- [ ] Task: Entra ID login via MSAL
-    - [ ] Write tests: tenant discovery - unauthenticated HEAD `https://dev.azure.com/{org}` → `WWW-Authenticate` `authorization_uri` tenant, then `X-VSS-ResourceTenant` (first non-zero); cached per org; fake-server cases: normal tenant, all-zeros (MSA-backed) tenant → error pointing to a PAT, 404 → "org not found", unknown → `organizations`
-    - [ ] Write tests: one MSAL `public.Client` with `organizations` authority and `WithTenantID` on device-code, interactive and silent calls; default client ID overridable via `ADO_ENTRA_CLIENT_ID` / config; `HomeAccountID` stored in per-host config; silent refresh via `AcquireTokenSilent(WithSilentAccount)`; silent errors → `AuthError` (exit 4) "run: ado auth login" (MSAL client behind interface, faked)
-    - [ ] Write tests: login-method selection (env-driven) - default interactive browser via `WithOpenURL` backed by the ado browser resolver; `--device` forces device code; `SSH_CONNECTION`/`SSH_TTY`, or Linux outside WSL without `DISPLAY`/`WAYLAND_DISPLAY` → device code; openURL error → device-code fallback; device-code messages to stderr; interactive login runs in a cancellable ctx with a timeout
-    - [ ] Write tests: interactive `ado auth login` menu offers Entra ID first, PAT second
-    - [ ] Write tests: MSAL cache accessor - cache AES-GCM-encrypted in a 0600 file with only its 32-byte key in go-keyring; `keyring.MockInit` round-trip; undecryptable cache → empty; no keyring → Export falls back to a plaintext 0600 file with a one-time warning instead of failing the login; default ctx timeout; atomic write (temp + rename)
-    - [ ] Write tests: org selection - `profile/me` → `accounts?memberId`, org URL built as `https://dev.azure.com/{accountName}`, manual entry fallback on error or empty list
-    - [ ] Write tests: error/help text - device code blocked by Conditional Access (suggest browser or PAT), MSA-backed org (suggest PAT)
-    - [ ] Implement tenant discovery
-    - [ ] Implement MSAL public client (interactive browser by default, device-code fallback and `--device`), login-method selection and login menu, token provider used by transport
-    - [ ] Implement encrypted MSAL cache accessor
-    - [ ] Implement Entra org selection
-    - [ ] Measure `len(Marshal())` of the MSAL cache once against a real org
-    - [ ] Update spec.md FR4 (spec.md:39): MSAL cache AES-GCM-encrypted in a 0600 file with its key in go-keyring (plaintext 0600 + warning without a keyring); interactive browser is the default flow with device-code fallback; Entra first in the login menu
-    - [ ] Update tech-stack.md:21: MSAL cache stored as an encrypted 0600 file, only its key in go-keyring
-- [ ] Task: `ado auth status`, `logout`, `token`
-    - [ ] Write tests: status shows user/method/source with masked token and reuses the shared `connectionData` validation, exit 4 when not logged in, logout clears store (Entra: `RemoveAccount`, delete cache file and keyring key), token prints raw token only
-    - [ ] Implement commands
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Authentication' (Protocol in workflow.md)
-    - [ ] Manual huh v2 prompt check in Windows cmd.exe and PowerShell (carried over from Phase 1)
+- [x] Task: Prerequisite - Entra app registration and auth docs (manual) `51916f6`
+    - [~] Register ado's multi-tenant public-client app ("Accounts in any organizational directory", "Allow public client flows" on, redirect `http://localhost` (mobile/desktop), delegated Azure DevOps `user_impersonation`) and record its client ID as the default constant (deferred: app not registered yet; `ADO_ENTRA_CLIENT_ID` / config override in place)
+    - [x] Document the client ID and the `ADO_ENTRA_CLIENT_ID` / config override in README; README and `auth login` PAT guidance list the scopes "Code (Read & write)" + "Identity (Read)"
+- [x] Task: Credential store (`internal/auth`) `51916f6`
+    - [x] Write tests: keychain set/get/delete via `keyring.MockInit()`; PAT keys per org `ado:<host>/<org>` (e.g. `ado:dev.azure.com/<org>`) with per-host Entra token as fallback; env `ADO_TOKEN` / `AZURE_DEVOPS_EXT_PAT` precedence
+    - [x] Write tests: timeout wrapper (60s, injectable in tests) around go-keyring Set/Get/Delete returning a timeout error; any Set error (incl. `ErrSetDataTooBig`, timeout, `keyring.MockInitWithError`) falls back to the 0600 config file with a stderr warning; Get: `ErrNotFound` = nothing stored, other error = unusable, both continue to the config source; token source (env / keychain / config) exposed for `auth status`
+    - [x] Write tests: insecure-storage option skips the keychain and writes the 0600 plaintext file with the warning
+    - [x] Implement token store and source resolution (env > keychain > config fallback) with the timeout wrapper, per-org keys and insecure-storage option
+- [x] Task: Authenticated HTTP transport (`api`) `51916f6`
+    - [x] Write tests: Basic header for PAT, Bearer for Entra, `User-Agent` overwritten in the RoundTripper (same for SDK and raw requests), `X-TFS-FedAuthRedirect: Suppress` always sent, `--debug` request log with `Authorization` redacted, 401 and 203 → `AuthError` (exit 4)
+    - [x] Write tests: a typed SDK call (git `GetRepository` via httpmock with the OPTIONS `_apis` stub) carries the RoundTripper's Authorization / User-Agent and is logged
+    - [x] Implement `RoundTripper` (on a cloned `http.DefaultTransport`, never the global one) and shared `http.Client`; pin `azuredevops/v7 v7.1.0`; build typed clients as `&<pkg>.ClientImpl{Client: *azuredevops.NewClientWithOptions(conn, baseURL, azuredevops.WithHTTPClient(shared))}` with an empty `AuthorizationString`, auth set only in the RoundTripper
+    - [~] Live check that git/core/wit/build/pipelines live under the org URL on dev.azure.com and `*.visualstudio.com`; add a `GetResourceAreas` fallback through the shared client only if not (deferred to Phase 5 verification: first SDK use is `pr list`)
+- [x] Task: PAT login (`ado auth login --with-token` + interactive PAT) `51916f6`
+    - [x] Write tests: stdin token validated only via org-scoped `_apis/connectionData` (httpmock, no profile API), anonymous user id `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` rejected, 203 sign-in page rejected, invalid token rejected, no PAT length check, org required before validating (`--org`, git remote, `ADO_ORG`, prompt) and non-TTY without an org fails, masked TTY prompt, non-TTY without `--with-token` fails, `--insecure-storage` stores the PAT in plaintext 0600 with a warning, help/error text mentions the 2026-12-01 global-PAT cutoff (use an org-scoped PAT or Entra)
+    - [x] Implement PAT login flow, org selection and a shared `validate(org, transport)` helper; add `--insecure-storage` to `ado auth login`
+    - [x] Update spec.md FR4 (spec.md:37): PAT validation via `connectionData` only (drop "profile"); PAT credential key per org
+- [x] Task: Entra ID login via MSAL `51916f6`
+    - [x] Write tests: tenant discovery - unauthenticated HEAD `https://dev.azure.com/{org}` → `WWW-Authenticate` `authorization_uri` tenant, then `X-VSS-ResourceTenant` (first non-zero); cached per org; fake-server cases: normal tenant, all-zeros (MSA-backed) tenant → error pointing to a PAT, 404 → "org not found", unknown → `organizations`
+    - [x] Write tests: one MSAL `public.Client` with `organizations` authority and `WithTenantID` on device-code, interactive and silent calls; default client ID overridable via `ADO_ENTRA_CLIENT_ID` / config; `HomeAccountID` stored in per-host config; silent refresh via `AcquireTokenSilent(WithSilentAccount)`; silent errors → `AuthError` (exit 4) "run: ado auth login" (MSAL client behind interface, faked)
+    - [x] Write tests: login-method selection (env-driven) - default interactive browser via `WithOpenURL` backed by the ado browser resolver; `--device` forces device code; `SSH_CONNECTION`/`SSH_TTY`, or Linux outside WSL without `DISPLAY`/`WAYLAND_DISPLAY` → device code; openURL error → device-code fallback; device-code messages to stderr; interactive login runs in a cancellable ctx with a timeout
+    - [x] Write tests: interactive `ado auth login` menu offers Entra ID first, PAT second
+    - [x] Write tests: MSAL cache accessor - cache AES-GCM-encrypted in a 0600 file with only its 32-byte key in go-keyring; `keyring.MockInit` round-trip; undecryptable cache → empty; no keyring → Export falls back to a plaintext 0600 file with a one-time warning instead of failing the login; default ctx timeout; atomic write (temp + rename)
+    - [x] Write tests: org selection - `profile/me` → `accounts?memberId`, org URL built as `https://dev.azure.com/{accountName}`, manual entry fallback on error or empty list
+    - [x] Write tests: error/help text - device code blocked by Conditional Access (suggest browser or PAT), MSA-backed org (suggest PAT)
+    - [x] Implement tenant discovery
+    - [x] Implement MSAL public client (interactive browser by default, device-code fallback and `--device`), login-method selection and login menu, token provider used by transport
+    - [x] Implement encrypted MSAL cache accessor
+    - [x] Implement Entra org selection
+    - [~] Measure `len(Marshal())` of the MSAL cache once against a real org (deferred until the Entra app is registered)
+    - [x] Update spec.md FR4 (spec.md:39): MSAL cache AES-GCM-encrypted in a 0600 file with its key in go-keyring (plaintext 0600 + warning without a keyring); interactive browser is the default flow with device-code fallback; Entra first in the login menu
+    - [x] Update tech-stack.md:21: MSAL cache stored as an encrypted 0600 file, only its key in go-keyring
+- [x] Task: `ado auth status`, `logout`, `token` `51916f6`
+    - [x] Write tests: status shows user/method/source with masked token and reuses the shared `connectionData` validation, exit 4 when not logged in, logout clears store (Entra: `RemoveAccount`, delete cache file and keyring key), token prints raw token only
+    - [x] Implement commands
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Authentication' (Protocol in workflow.md)
+    - [x] Manual huh v2 prompt check in Windows cmd.exe and PowerShell (carried over from Phase 1)
 
 ## Phase 4: Output & `ado api`
 
@@ -141,3 +141,4 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [ ] Task: gh-differences doc
     - [ ] Write `docs/gh-differences.md` covering work items vs issues, votes vs reviews, merge→complete, `-R` hierarchy, no PR head ref (checkout fetches the source branch), fork pushes depend on fork permissions (no maintainer-can-modify), `ado api --paginate` output (merged `value` envelope vs gh's per-page / `--slurp`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Pull Request Commands' (Protocol in workflow.md)
+    - [ ] Live check (from Phase 3) that git/core/wit/build/pipelines SDK clients work under the org URL on dev.azure.com and `*.visualstudio.com`; add a `GetResourceAreas` fallback only if not

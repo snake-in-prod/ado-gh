@@ -19,7 +19,8 @@
 
 ## Auth & Credentials
 - **PAT** via `ado auth login --with-token` / prompt; env `ADO_TOKEN`, `AZURE_DEVOPS_EXT_PAT`.
-- **Microsoft Entra ID** via **`AzureAD/microsoft-authentication-library-for-go`** (MSAL). Device-code and interactive browser flows, Azure DevOps resource scope `499b84ac-1321-427f-aa17-267ca6975798/.default`, MSAL token cache persisted in the keychain.
+- **Microsoft Entra ID** via **`AzureAD/microsoft-authentication-library-for-go`** (MSAL). Device-code and interactive browser flows, Azure DevOps resource scope `499b84ac-1321-427f-aa17-267ca6975798/.default`, MSAL token cache stored AES-GCM-encrypted in a 0600 file with only its key in the keychain.
+  - *2026-10-10:* keychains cap item size (Windows 2560 B, macOS ~3 KB), so the cache can't live in one keychain item; see `tracks/mvp_core_20261010/research.md` q2/o4.
 - **`zalando/go-keyring`**: OS keychain storage (Windows Credential Manager, macOS Keychain, Secret Service).
 
 ## Config & Context

@@ -32,7 +32,7 @@ func TestHelpListsGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Core commands", "Additional commands", "completion", "config", "--debug", "--version"} {
+	for _, want := range []string{"Core commands", "Additional commands", "completion", "auth", "config", "--debug", "--version"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help missing %q:\n%s", want, out)
 		}

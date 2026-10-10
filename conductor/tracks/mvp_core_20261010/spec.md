@@ -40,13 +40,14 @@ Build the first usable version of `ado`, a `gh`-style CLI for Azure DevOps Servi
 ### FR4: Authentication
 - `ado auth login`:
   - `--with-token` reads PAT from stdin (non-interactive).
-  - Interactive TTY: choose PAT (masked prompt) or Microsoft Entra ID.
-  - `--org` selects org; validates credentials with a call to the connection data / profile API before saving.
-- **PAT:** stored in OS keychain via go-keyring (service `ado:<host>`). Sent as Basic auth (`:<pat>` base64).
-- **Entra ID:** MSAL public client, device-code flow (default on non-GUI / `--device`) and interactive browser flow; scope `499b84ac-1321-427f-aa17-267ca6975798/.default`; token cache persisted in keychain; silent refresh on use. Sent as Bearer token.
+  - Interactive TTY: choose Microsoft Entra ID (listed first) or PAT (masked prompt).
+  - `--org` selects org (else git remote, `ADO_ORG`, prompt); validates credentials with the org-scoped `_apis/connectionData` call before saving (anonymous user and 203 sign-in pages rejected).
+  - `--insecure-storage` skips the keychain and stores credentials in the 0600 config file with a warning (gh parity).
+- **PAT:** stored per org in the OS keychain via go-keyring (service `ado:<host>/<org>`, the original remote host). Sent as Basic auth (`:<pat>` base64). Global PATs stop working on 2026-12-01; help text points to org-scoped PATs or Entra ID.
+- **Entra ID:** MSAL public client with `organizations` authority and the org's tenant (discovered from response headers); interactive browser flow by default, device-code fallback when no browser opener works and with `--device`; scope `499b84ac-1321-427f-aa17-267ca6975798/.default`; client ID from `ADO_ENTRA_CLIENT_ID` / config `entra_client_id` until the app registration is done; token cache AES-GCM-encrypted in a 0600 file with only its key in the keychain (plaintext 0600 + warning without a keychain); silent refresh on use. Orgs backed by personal Microsoft accounts get a hint to use a PAT. Sent as Bearer token.
 - Env overrides for CI: `ADO_TOKEN` and `AZURE_DEVOPS_EXT_PAT` (PAT) take precedence over stored credentials.
 - `ado auth status` (per host: user, method, token source, validity; masked token), `ado auth logout`, `ado auth token` (prints token only on explicit call).
-- Plaintext fallback (config file) only when keychain unavailable, with a warning.
+- Plaintext fallback (config file) only when the keychain is unavailable or times out (60 s), with a warning.
 - Authenticated `http.RoundTripper` shared by SDK and raw client: sets auth header, `User-Agent: ado-cli/<version>`, and with `--debug` logs requests to stderr with `Authorization` redacted.
 
 ### FR5: `ado api`

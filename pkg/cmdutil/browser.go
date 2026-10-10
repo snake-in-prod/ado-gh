@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/exec"
+	"runtime"
 
 	clibrowser "github.com/cli/browser"
 	ghbrowser "github.com/cli/go-gh/v2/pkg/browser"
@@ -40,12 +42,44 @@ func NewBrowser(launcher string, stdout, stderr io.Writer) Browser {
 	return ghbrowser.New(launcher, stdout, stderr)
 }
 
-type systemBrowser struct{}
+// systemBrowser opens URLs with the OS default browser. Zero fields mean the real
+// OS; tests set them.
+type systemBrowser struct {
+	goos     string
+	getenv   func(string) string
+	lookPath func(string) (string, error)
+	run      func(name string, args ...string) error
+	openURL  func(string) error
+}
 
-func (systemBrowser) Browse(u string) error {
+func (b systemBrowser) Browse(u string) error {
 	p, err := url.Parse(u)
 	if err != nil || (p.Scheme != "http" && p.Scheme != "https") {
 		return fmt.Errorf("opening unsupported URL: %s", u)
 	}
-	return clibrowser.OpenURL(p.String())
+	goos, getenv, lookPath, run, openURL := b.goos, b.getenv, b.lookPath, b.run, b.openURL
+	if goos == "" {
+		goos = runtime.GOOS
+	}
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	if run == nil {
+		run = func(name string, args ...string) error { return exec.Command(name, args...).Run() }
+	}
+	if openURL == nil {
+		openURL = clibrowser.OpenURL
+	}
+	// In WSL, xdg-open may open the Windows browser yet exit non-zero, which made MSAL
+	// abandon its localhost listener. Open the Windows browser directly, like az does.
+	if goos == "linux" && (getenv("WSL_DISTRO_NAME") != "" || getenv("WSL_INTEROP") != "") {
+		if _, err := lookPath("wslview"); err == nil {
+			return run("wslview", p.String())
+		}
+		return run("rundll32.exe", "url.dll,FileProtocolHandler", p.String())
+	}
+	return openURL(p.String())
 }

@@ -90,3 +90,51 @@ func TestFactoryBrowserUsesResolvedLauncher(t *testing.T) {
 		t.Errorf("err = %v, want config launcher used", err)
 	}
 }
+
+func TestSystemBrowserWSL(t *testing.T) {
+	const u = "https://login.microsoftonline.com/x?a=1&b=2"
+	tests := []struct {
+		name    string
+		env     map[string]string
+		goos    string
+		paths   map[string]bool
+		wantCmd []string // nil: not a WSL launch
+	}{
+		{name: "wslview when installed", env: map[string]string{"WSL_DISTRO_NAME": "Ubuntu"}, goos: "linux",
+			paths: map[string]bool{"wslview": true}, wantCmd: []string{"wslview", u}},
+		{name: "rundll32 without wslview", env: map[string]string{"WSL_INTEROP": "/run/WSL/1_interop"}, goos: "linux",
+			wantCmd: []string{"rundll32.exe", "url.dll,FileProtocolHandler", u}},
+		{name: "plain linux uses the system opener", goos: "linux"},
+		{name: "WSL vars ignored off linux", env: map[string]string{"WSL_DISTRO_NAME": "Ubuntu"}, goos: "windows"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got []string
+			opened := false
+			b := systemBrowser{
+				goos:   tt.goos,
+				getenv: func(k string) string { return tt.env[k] },
+				lookPath: func(f string) (string, error) {
+					if tt.paths[f] {
+						return f, nil
+					}
+					return "", os.ErrNotExist
+				},
+				run:     func(name string, args ...string) error { got = append([]string{name}, args...); return nil },
+				openURL: func(string) error { opened = true; return nil },
+			}
+			if err := b.Browse(u); err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantCmd == nil {
+				if !opened || got != nil {
+					t.Errorf("want system opener, ran %v", got)
+				}
+				return
+			}
+			if opened || strings.Join(got, " ") != strings.Join(tt.wantCmd, " ") {
+				t.Errorf("ran %q (system opener %v), want %q", got, opened, tt.wantCmd)
+			}
+		})
+	}
+}

@@ -38,6 +38,11 @@ type ClientOptions struct {
 // 401 and 203 (sign-in page) responses into *cmdutil.AuthError.
 func NewHTTPClient(opts ClientOptions) *http.Client {
 	base := opts.Transport
+	// Wrapping another ado transport would run it too: it strips Authorization (it has
+	// no token) and logs every request twice. Use the transport underneath instead.
+	if inner, ok := base.(*transport); ok {
+		base = inner.base
+	}
 	if base == nil {
 		// Never the global transport: MSAL uses it and must not get ADO headers.
 		base = http.DefaultTransport.(*http.Transport).Clone()

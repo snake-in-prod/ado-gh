@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -218,5 +219,36 @@ func TestSDKClientAuthError(t *testing.T) {
 	var authErr *cmdutil.AuthError
 	if !errors.As(err, &authErr) {
 		t.Errorf("err = %v (%T), want AuthError", err, err)
+	}
+}
+
+// Regression: the authenticated client wraps the Factory's client, which is itself an
+// ado transport without a token. The inner transport must not strip Authorization.
+func TestNewHTTPClientOverAdoTransportKeepsAuth(t *testing.T) {
+	var gotAuth []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = append(gotAuth, r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	var log bytes.Buffer
+	plain := NewHTTPClient(ClientOptions{AppVersion: "1", Log: &log})
+	authed := NewHTTPClient(ClientOptions{
+		AppVersion: "1",
+		Log:        &log,
+		Transport:  plain.Transport,
+		Token:      func(*http.Request) (Token, error) { return Token{Value: "jwt", Bearer: true}, nil },
+	})
+	resp, err := authed.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if len(gotAuth) != 1 || gotAuth[0] != "Bearer jwt" {
+		t.Errorf("server saw Authorization %q, want one request with Bearer jwt", gotAuth)
+	}
+	if n := strings.Count(log.String(), "> GET"); n != 1 {
+		t.Errorf("request logged %d times, want 1:\n%s", n, log.String())
 	}
 }

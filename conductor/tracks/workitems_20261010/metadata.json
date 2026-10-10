@@ -1,0 +1,8 @@
+{
+  "track_id": "workitems_20261010",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-10T16:46:25Z",
+  "updated_at": "2026-10-10T16:46:25Z",
+  "description": "Add work item and boards support as the Azure DevOps equivalent of gh issues: ado workitem (aliases wi, issue) create/list/view/edit/close/reopen/comment/assign/link/unlink/delete, ado workitem query (WIQL and saved queries), ado sprint and ado board views; process-aware types and states (Agile, Scrum, Basic, CMMI); --json/--jq/--template on read commands"
+}

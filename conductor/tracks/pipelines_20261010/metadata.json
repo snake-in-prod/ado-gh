@@ -1,0 +1,8 @@
+{
+  "track_id": "pipelines_20261010",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-10T16:59:53Z",
+  "updated_at": "2026-10-10T16:59:53Z",
+  "description": "Add pipeline commands mirroring gh run/workflow: ado pipeline (alias run) list/run/view/watch/logs/cancel/rerun plus download, approve/reject, enable/disable; YAML and classic build pipelines via Pipelines and Build APIs; default pipeline for the current repo; separate ado release group for Classic Release pipelines; --json/--jq/--template on read commands"
+}

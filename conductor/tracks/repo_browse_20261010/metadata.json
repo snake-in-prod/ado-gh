@@ -1,0 +1,8 @@
+{
+  "track_id": "repo_browse_20261010",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-10T16:34:53Z",
+  "updated_at": "2026-10-10T16:34:53Z",
+  "description": "Add repository commands and browsing with gh parity: ado repo list/view/clone/create/delete/set-default, top-level ado browse (repo, file:line, branch, commit, !PR, #work item, --no-browser), and -w/--web on every command with a web page"
+}

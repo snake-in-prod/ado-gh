@@ -30,24 +30,24 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement `pr ready`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: PR State Changes (close, reopen, ready)' (Protocol in workflow.md)
 
-## Phase 2: `ado pr edit`
+## Phase 2: `ado pr edit` [checkpoint: 4f3ae83]
 
-- [ ] Task: Field edits (title, body, base)
-    - [ ] Write tests: `-t`, `-b`, `-F` (file and stdin), body over 4000 characters rejected, `-B` sends only `TargetRefName` (`refs/heads/` prefix) after checking the branch exists and isn't the source branch, unchanged `TargetRefName` in the response → error (retargeting disabled), no merge-status polling after retarget, only changed fields sent in PATCH (never reviewers/labels/work items)
-    - [ ] Implement core edit command
-- [ ] Task: Reviewers
-    - [ ] Write tests: `--add-reviewer`/`--remove-reviewer` (repeatable + comma lists), users and `[Project]\Team` groups resolved via MVP identity resolver, `--add-required-reviewer` adds new and promotes existing optional (added vs promoted from `pr.Reviewers`), promotion body has `isRequired:true` and no `vote`, promotion that resets an existing vote → promoted with a warning that the vote was reset, removing a non-reviewer → local warning, policy-required reviewer removal → partial failure, unknown identity error
-    - [ ] Implement reviewer add/remove/required via PR reviewers API: single-reviewer `CreatePullRequestReviewer` method (`IsRequired: true`, no `Vote`) and `RemoveReviewer` (`DeletePullRequestReviewer`) in `api/pr.go`
-- [ ] Task: Work items and labels
-    - [ ] Write tests: `--add-work-item` adds an ArtifactLink relation (`vstfs:///Git/PullRequestId/{projectGUID}%2F{repoGUID}%2F{prId}` from `pr.Repository`), "Relation already exists." = success; `--remove-work-item` removes only the PR ArtifactLink (branch/commit links kept) via `GetWorkItem` `Expand=Relations`, first case-insensitive match, `test /rev` + `remove /relations/{i}`; `--add-label` (creates tag on demand)/`--remove-label`, not-found label removal warns (from `pr.Labels`)
-    - [ ] Implement via a work item tracking client on the org URL (same SDK module) + PR labels APIs (`CreatePullRequestLabel`/`DeletePullRequestLabels`)
-- [ ] Task: Interactive mode and partial failure reporting
-    - [ ] Write tests: `Prompter.MultiSelect` in accessible mode (toggle numbers, finish with `0`)
-    - [ ] Write tests: TTY with no flags → multi-select prefilled with current values, non-TTY with no flags → error listing flags, partial failure exits 1 naming applied vs failed edits, prints PR URL
-    - [ ] Implement `Prompter.MultiSelect`
-    - [ ] Implement prompts and result reporting
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: ado pr edit' (Protocol in workflow.md)
-    - [ ] Mandatory live check: promote an existing optional reviewer who has voted to required; confirm it becomes required and whether the vote is kept (the reset warning must fire only if it is not)
+- [x] Task: Field edits (title, body, base) `4f3ae83`
+    - [x] Write tests: `-t`, `-b`, `-F` (file and stdin), body over 4000 characters rejected, `-B` sends only `TargetRefName` (`refs/heads/` prefix) after checking the branch exists and isn't the source branch, unchanged `TargetRefName` in the response → error (retargeting disabled), no merge-status polling after retarget, only changed fields sent in PATCH (never reviewers/labels/work items)
+    - [x] Implement core edit command
+- [x] Task: Reviewers `4f3ae83`
+    - [x] Write tests: `--add-reviewer`/`--remove-reviewer` (repeatable + comma lists), users and `[Project]\Team` groups resolved via MVP identity resolver, `--add-required-reviewer` adds new and promotes existing optional (added vs promoted from `pr.Reviewers`), promotion body has `isRequired:true` and no `vote`, promotion that resets an existing vote → promoted with a warning that the vote was reset, removing a non-reviewer → local warning, policy-required reviewer removal → partial failure, unknown identity error
+    - [x] Implement reviewer add/remove/required via PR reviewers API: single-reviewer `CreatePullRequestReviewer` method (`IsRequired: true`, no `Vote`) and `RemoveReviewer` (`DeletePullRequestReviewer`) in `api/pr.go`
+- [x] Task: Work items and labels `4f3ae83`
+    - [x] Write tests: `--add-work-item` adds an ArtifactLink relation (`vstfs:///Git/PullRequestId/{projectGUID}%2F{repoGUID}%2F{prId}` from `pr.Repository`), "Relation already exists." = success; `--remove-work-item` removes only the PR ArtifactLink (branch/commit links kept) via `GetWorkItem` `Expand=Relations`, first case-insensitive match, `test /rev` + `remove /relations/{i}`; `--add-label` (creates tag on demand)/`--remove-label`, not-found label removal warns (from `pr.Labels`)
+    - [x] Implement via a work item tracking client on the org URL (same SDK module) + PR labels APIs (`CreatePullRequestLabel`/`DeletePullRequestLabels`)
+- [x] Task: Interactive mode and partial failure reporting `4f3ae83`
+    - [x] Write tests: `Prompter.MultiSelect` in accessible mode (toggle numbers, finish with `0`)
+    - [x] Write tests: TTY with no flags → multi-select prefilled with current values, non-TTY with no flags → error listing flags, partial failure exits 1 naming applied vs failed edits, prints PR URL
+    - [x] Implement `Prompter.MultiSelect`
+    - [x] Implement prompts and result reporting
+- [x] Task: Conductor - User Manual Verification 'Phase 2: ado pr edit' (Protocol in workflow.md)
+    - [x] Mandatory live check: promote an existing optional reviewer who has voted to required; confirm it becomes required and whether the vote is kept (the reset warning must fire only if it is not) — verified 2026-10-11: promotion resets the vote, warning is correct
 
 ## Phase 3: `ado pr comment` and Thread Visibility
 

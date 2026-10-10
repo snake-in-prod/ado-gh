@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
@@ -18,7 +19,9 @@ func TestPrompterRefusesWithoutTTY(t *testing.T) {
 	_, err2 := p.Password("Token")
 	_, err3 := p.Confirm("Sure?", false)
 	_, err4 := p.Select("Pick", []string{"a", "b"})
-	for i, err := range []error{err1, err2, err3, err4} {
+	_, err5 := p.MultiSelect("Pick", nil, []string{"a", "b"})
+	_, err6 := p.Text("Body", "")
+	for i, err := range []error{err1, err2, err3, err4, err5, err6} {
 		if !errors.Is(err, ErrNoPrompt) {
 			t.Errorf("prompt %d: err = %v, want ErrNoPrompt", i, err)
 		}
@@ -78,6 +81,32 @@ func TestPrompterAccessible(t *testing.T) {
 		got, err := p.Confirm("Sure?", true)
 		if err != nil || !got {
 			t.Errorf("got %v, %v", got, err)
+		}
+	})
+	t.Run("multi select", func(t *testing.T) {
+		p, out := ttyPrompter("1\n2\n3\n0\n")
+		// Each prompt line is read by a new scanner, so feed one byte at a time.
+		p.IO.In = iotest.OneByteReader(p.IO.In)
+		got, err := p.MultiSelect("Edit", []string{"b"}, []string{"a", "b", "c"})
+		if err != nil || len(got) != 2 || got[0] != 0 || got[1] != 2 {
+			t.Errorf("got %v, %v; want [0 2]", got, err)
+		}
+		if !strings.Contains(out.String(), "Edit") {
+			t.Errorf("prompt not written to stdout: %q", out)
+		}
+	})
+	t.Run("multi select defaults", func(t *testing.T) {
+		p, _ := ttyPrompter("0\n")
+		got, err := p.MultiSelect("Edit", []string{"c", "a"}, []string{"a", "b", "c"})
+		if err != nil || len(got) != 2 || got[0] != 0 || got[1] != 2 {
+			t.Errorf("got %v, %v; want [0 2]", got, err)
+		}
+	})
+	t.Run("text default", func(t *testing.T) {
+		p, _ := ttyPrompter("\n")
+		got, err := p.Text("Body", "old")
+		if err != nil || got != "old" {
+			t.Errorf("got %q, %v", got, err)
 		}
 	})
 }

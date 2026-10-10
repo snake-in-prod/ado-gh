@@ -5,6 +5,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/checkout"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/close"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/create"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/edit"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/merge"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/ready"
@@ -26,6 +27,7 @@ func NewCmdPR(f *cmdutil.Factory) *cobra.Command {
 		checkout.NewCmdCheckout(f),
 		close.NewCmdClose(f),
 		create.NewCmdCreate(f),
+		edit.NewCmdEdit(f),
 		list.NewCmdList(f),
 		merge.NewCmdMerge(f),
 		ready.NewCmdReady(f),

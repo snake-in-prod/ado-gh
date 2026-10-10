@@ -5,9 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 
@@ -79,7 +77,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	if o.bodyFile != "" {
-		if o.body, err = readBody(f, o.bodyFile); err != nil {
+		if o.body, err = shared.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
 			return err
 		}
 	}
@@ -196,20 +194,6 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	fmt.Fprintln(ios.Out, prURL)
 	return nil
-}
-
-func readBody(f *cmdutil.Factory, path string) (string, error) {
-	var b []byte
-	var err error
-	if path == "-" {
-		b, err = io.ReadAll(f.IOStreams.In)
-	} else {
-		b, err = os.ReadFile(path)
-	}
-	if err != nil {
-		return "", fmt.Errorf("reading the description: %w", err)
-	}
-	return string(b), nil
 }
 
 // findRemote returns the name of the git remote pointing at repo, else "origin".

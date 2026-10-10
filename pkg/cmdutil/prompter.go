@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"errors"
+	"slices"
 
 	"charm.land/huh/v2"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -62,5 +63,26 @@ func (p *Prompter) Select(prompt string, options []string) (int, error) {
 	}
 	var v int
 	err := p.run(huh.NewSelect[int]().Title(prompt).Options(opts...).Value(&v))
+	return v, err
+}
+
+// Text asks for multi-line text prefilled with defaultValue; in accessible mode it reads one
+// line and an empty answer yields defaultValue.
+func (p *Prompter) Text(prompt, defaultValue string) (string, error) {
+	v := defaultValue
+	err := p.run(huh.NewText().Title(prompt).Value(&v))
+	return v, err
+}
+
+// MultiSelect asks to pick any of options, with those in defaults selected at first, and
+// returns the indexes of the picked options in ascending order.
+func (p *Prompter) MultiSelect(prompt string, defaults, options []string) ([]int, error) {
+	opts := make([]huh.Option[int], len(options))
+	for i, o := range options {
+		opts[i] = huh.NewOption(o, i).Selected(slices.Contains(defaults, o))
+	}
+	var v []int
+	err := p.run(huh.NewMultiSelect[int]().Title(prompt).Options(opts...).Value(&v))
+	slices.Sort(v)
 	return v, err
 }

@@ -245,6 +245,21 @@ func TestPRMutations(t *testing.T) {
 	assert.Len(t, threads, 2)
 }
 
+func TestPRWorkItems(t *testing.T) {
+	org := "wiorg"
+	c, reg := newTestPRClient(t, org)
+	reg.Register(httpmock.REST(http.MethodGet, org+prBase+"/9/workitems"),
+		page([]map[string]any{{"id": "42"}, {"id": "x"}, {"id": "43"}}))
+	reg.Register(httpmock.REST(http.MethodGet, org+prBase+"/8/workitems"),
+		httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "gone"}))
+
+	ids, err := c.WorkItems(context.Background(), 9)
+	require.NoError(t, err)
+	assert.Equal(t, []int{42, 43}, ids)
+	_, err = c.WorkItems(context.Background(), 8)
+	assert.Error(t, err)
+}
+
 func TestPRMutationErrors(t *testing.T) {
 	org := "muterrorg"
 	c, reg := newTestPRClient(t, org)

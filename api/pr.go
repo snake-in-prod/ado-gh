@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/core"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/policy"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/workitemtracking"
 )
 
 // prPageSize is the $top sent per pull request list page.
@@ -56,8 +60,10 @@ func mapErr(err error) error {
 
 // PRClient calls the Git pull request APIs of one repository.
 type PRClient struct {
-	Git     git.Client
-	Policy  policy.Client
+	Git    git.Client
+	Policy policy.Client
+	// Wit links work items, which have no pull request side write API.
+	Wit     workitemtracking.Client
 	Project string
 	// Repo is the repository name or ID.
 	Repo string
@@ -67,7 +73,7 @@ type PRClient struct {
 // requests through hc.
 func NewPRClient(hc *http.Client, orgURL, project, repo string) *PRClient {
 	sdk := NewSDKClient(hc, orgURL)
-	return &PRClient{Git: &git.ClientImpl{Client: *sdk}, Policy: &policy.ClientImpl{Client: *sdk}, Project: project, Repo: repo}
+	return &PRClient{Git: &git.ClientImpl{Client: *sdk}, Policy: &policy.ClientImpl{Client: *sdk}, Wit: &workitemtracking.ClientImpl{Client: *sdk}, Project: project, Repo: repo}
 }
 
 // PullRequest fetches one pull request with its full description.
@@ -136,6 +142,27 @@ func (c *PRClient) AddReviewers(ctx context.Context, id int, ids []string) ([]gi
 		return nil, mapErr(err)
 	}
 	return *out, nil
+}
+
+// AddReviewer adds reviewerID to pull request id, as required when required is set; an
+// existing optional reviewer is promoted. No vote is sent, so an existing vote isn't overwritten.
+func (c *PRClient) AddReviewer(ctx context.Context, id int, reviewerID string, required bool) (*git.IdentityRefWithVote, error) {
+	r := &git.IdentityRefWithVote{Id: &reviewerID}
+	if required {
+		r.IsRequired = &required
+	}
+	out, err := c.Git.CreatePullRequestReviewer(ctx, git.CreatePullRequestReviewerArgs{
+		Reviewer: r, RepositoryId: &c.Repo, PullRequestId: &id, ReviewerId: &reviewerID, Project: &c.Project,
+	})
+	return out, mapErr(err)
+}
+
+// RemoveReviewer removes reviewerID (a user or team) from pull request id. Reviewers required
+// by a branch policy can't be removed.
+func (c *PRClient) RemoveReviewer(ctx context.Context, id int, reviewerID string) error {
+	return mapErr(c.Git.DeletePullRequestReviewer(ctx, git.DeletePullRequestReviewerArgs{
+		RepositoryId: &c.Repo, PullRequestId: &id, ReviewerId: &reviewerID, Project: &c.Project,
+	}))
 }
 
 // CreateThread adds an active comment thread with one text comment to pull request id.
@@ -240,4 +267,86 @@ func (c *PRClient) DeleteRef(ctx context.Context, branch, oldObjectID string) er
 		msg += ": " + *res.CustomMessage
 	}
 	return fmt.Errorf("cannot delete branch %s: %s", branch, msg)
+}
+
+// AddLabel adds the label name to pull request id, creating the tag when it doesn't exist.
+func (c *PRClient) AddLabel(ctx context.Context, id int, name string) error {
+	_, err := c.Git.CreatePullRequestLabel(ctx, git.CreatePullRequestLabelArgs{
+		Label: &core.WebApiCreateTagRequestData{Name: &name}, RepositoryId: &c.Repo, PullRequestId: &id, Project: &c.Project,
+	})
+	return mapErr(err)
+}
+
+// RemoveLabel removes label (a name or ID) from pull request id; the tag itself is kept.
+func (c *PRClient) RemoveLabel(ctx context.Context, id int, label string) error {
+	return mapErr(c.Git.DeletePullRequestLabels(ctx, git.DeletePullRequestLabelsArgs{
+		RepositoryId: &c.Repo, PullRequestId: &id, LabelIdOrName: &label, Project: &c.Project,
+	}))
+}
+
+// WorkItems returns the IDs of the work items linked to pull request id.
+func (c *PRClient) WorkItems(ctx context.Context, id int) ([]int, error) {
+	refs, err := c.Git.GetPullRequestWorkItemRefs(ctx, git.GetPullRequestWorkItemRefsArgs{RepositoryId: &c.Repo, PullRequestId: &id, Project: &c.Project})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	var ids []int
+	for _, r := range *refs {
+		if r.Id == nil {
+			continue
+		}
+		if n, err := strconv.Atoi(*r.Id); err == nil {
+			ids = append(ids, n)
+		}
+	}
+	return ids, nil
+}
+
+// PullRequestArtifactURL is the artifact URL work items link to for pull request id of the
+// repository repoID in the project projectID (both GUIDs).
+func PullRequestArtifactURL(projectID, repoID string, id int) string {
+	return fmt.Sprintf("vstfs:///Git/PullRequestId/%s%%2F%s%%2F%d", projectID, repoID, id)
+}
+
+// LinkWorkItem adds an ArtifactLink from work item wi to artifactURL. An existing link is
+// success.
+func (c *PRClient) LinkWorkItem(ctx context.Context, wi int, artifactURL string) error {
+	op, path := webapi.OperationValues.Add, "/relations/-"
+	_, err := c.Wit.UpdateWorkItem(ctx, workitemtracking.UpdateWorkItemArgs{Id: &wi, Document: &[]webapi.JsonPatchOperation{{
+		Op: &op, Path: &path,
+		Value: map[string]any{"rel": "ArtifactLink", "url": artifactURL, "attributes": map[string]any{"name": "Pull Request"}},
+	}}})
+	if err = mapErr(err); err != nil && strings.Contains(err.Error(), "Relation already exists.") {
+		return nil
+	}
+	return err
+}
+
+// UnlinkWorkItem removes the first link of work item wi whose URL matches artifactURL (case
+// insensitively); its other links are kept. It returns false when there is no such link.
+func (c *PRClient) UnlinkWorkItem(ctx context.Context, wi int, artifactURL string) (bool, error) {
+	item, err := c.Wit.GetWorkItem(ctx, workitemtracking.GetWorkItemArgs{Id: &wi, Expand: &workitemtracking.WorkItemExpandValues.Relations})
+	if err != nil {
+		return false, mapErr(err)
+	}
+	var rels []workitemtracking.WorkItemRelation
+	if item.Relations != nil {
+		rels = *item.Relations
+	}
+	i := slices.IndexFunc(rels, func(r workitemtracking.WorkItemRelation) bool {
+		return r.Url != nil && strings.EqualFold(*r.Url, artifactURL)
+	})
+	if i < 0 {
+		return false, nil
+	}
+	// The rev test fails the patch if the work item changed since it was read.
+	test, remove, revPath, relPath := webapi.OperationValues.Test, webapi.OperationValues.Remove, "/rev", fmt.Sprintf("/relations/%d", i)
+	_, err = c.Wit.UpdateWorkItem(ctx, workitemtracking.UpdateWorkItemArgs{Id: &wi, Document: &[]webapi.JsonPatchOperation{
+		{Op: &test, Path: &revPath, Value: item.Rev},
+		{Op: &remove, Path: &relPath},
+	}})
+	if err != nil {
+		return false, mapErr(err)
+	}
+	return true, nil
 }

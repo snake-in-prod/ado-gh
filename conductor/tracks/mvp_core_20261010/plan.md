@@ -111,34 +111,34 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Live check that PR list sends no continuation header
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Output & ado api' (Protocol in workflow.md)
 
-## Phase 5: Pull Request Commands
+## Phase 5: Pull Request Commands [checkpoint: 6409b2a]
 
-- [ ] Task: PR API layer and reference resolution (`api/pr.go`, `pkg/cmd/pr/shared`)
-    - [ ] Write tests: resolve PR by number, `!123`, URL, branch name, current branch; not-found error; list wrapper sends `$top` and loops `$skip` until `--limit` or an empty page; client-side `--draft` filter; single-PR fetch via `GetPullRequestById`; error mapping handles both `WrappedError` and `*WrappedError`; PR model exposes `ForkSource`, `SourceRefName`, `LastMergeSourceCommit`; repo-by-id lookup (httpmock with OPTIONS `_apis` stubs)
-    - [ ] Implement SDK wrappers (git client: get/list/create/update PR, reviewers, threads, repo by id) and finder; no created/closed date filters in MVP
-- [ ] Task: Identity resolver (`api/identity.go`)
-    - [ ] Write tests: GUID passthrough, `@me` via connectionData, IMS `General` lookup via SDK `ReadIdentities` (stubbed ResourceAreas + OPTIONS + identities), `DirectoryAlias`/`AccountName` fallback, same-domain disambiguation; ambiguous → prompt to pick on TTY, error listing candidates on non-TTY; no match → error "could not resolve <x>: user must be added to the organization"; `[Project]\Team` resolves (verify live); bare team name rejected with a hint to use `[Project]\Team` or a GUID; 401/403 → "Identity (Read)" scope hint; duplicate ids removed
-    - [ ] Implement identity resolver shared by `pr create -r`, `pr list --author/--reviewer` and pr_parity `pr edit`
-- [ ] Task: `ado pr list`
-    - [ ] Write tests: state/author/base/head/reviewer/draft filters map to search criteria (author/reviewer via the identity resolver), `--limit`, TTY table, non-TTY TSV, `--json` fields, `--web` opens URL, empty-result message
-    - [ ] Implement `pr list`
-- [ ] Task: `ado pr view`
-    - [ ] Write tests: current-branch default, reviewers with vote labels (teams shown as non-voting with `votedFor`), policy summary, `--comments`, `--json`, `--web`
-    - [ ] Implement `pr view`
-- [ ] Task: `ado pr create`
-    - [ ] Write tests: flags-only creation, `--fill` from commits, default base = repo default branch, `--draft`, `-r` reviewers resolved via the identity resolver (optional reviewers only; required reviewers via pr_parity `pr edit`), `--work-item` links, `--auto` = create then `UpdatePullRequest` with `AutoCompleteSetBy` + `CompletionOptions` (assert the second call), push prompt when branch not on remote, TTY prompts, non-TTY missing `--title` error, prints URL
-    - [ ] Implement `pr create`
-    - [ ] Update spec.md `ado pr create` row: add `--auto` (set auto-complete after create)
-- [ ] Task: `ado pr checkout`
-    - [ ] Write tests (stubbed git runner): same-repo fetch `+refs/heads/<b>:refs/remotes/<remote>/<b> --no-tags` + `checkout -b <local> --track`; fork PR with a matching local remote uses the same-repo path; fork without a remote fetches by URL and sets `branch.<b>.remote`/`pushRemote`/`merge`; local name = source branch, prefixed `<forkRepo>/` only when it equals the default branch; unreadable fork → clear access error; existing branch fast-forward, `--branch` override, `--force` reset; branch names starting with `-` rejected; only `-b`/`-f` flags; never fetches `refs/pull/<id>/head`
-    - [ ] Implement `pr checkout`
-- [ ] Task: `ado pr review`
-    - [ ] Write tests: each vote flag maps to correct value (10/5/-5/-10/0), `--comment` + `--body` creates thread, mutually exclusive flags, non-TTY with no flag errors
-    - [ ] Implement `pr review`
-- [ ] Task: `ado pr merge` (alias `complete`)
-    - [ ] Write tests: strategy flags map to an explicit `MergeStrategy` (never `SquashMerge`), `Status: completed` sent with `LastMergeSourceCommit` from the fetched PR and existing completion options carried over, `--delete-branch`, `--auto` sets auto-complete, merge message, `--bypass-policy` requires `--bypass-reason`, completion blocked by policy → fails with a hint to use `--auto` or `--bypass-policy`, TTY confirmation, non-TTY without `--yes` refuses, cancel → exit 2
-    - [ ] Implement `pr merge`
-- [ ] Task: gh-differences doc
-    - [ ] Write `docs/gh-differences.md` covering work items vs issues, votes vs reviews, merge→complete, `-R` hierarchy, no PR head ref (checkout fetches the source branch), fork pushes depend on fork permissions (no maintainer-can-modify), `ado api --paginate` output (merged `value` envelope vs gh's per-page / `--slurp`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Pull Request Commands' (Protocol in workflow.md)
-    - [ ] Live check (from Phase 3) that git/core/wit/build/pipelines SDK clients work under the org URL on dev.azure.com and `*.visualstudio.com`; add a `GetResourceAreas` fallback only if not
+- [x] Task: PR API layer and reference resolution (`api/pr.go`, `pkg/cmd/pr/shared`) `6409b2a`
+    - [x] Write tests: resolve PR by number, `!123`, URL, branch name, current branch; not-found error; list wrapper sends `$top` and loops `$skip` until `--limit` or an empty page; client-side `--draft` filter; single-PR fetch via `GetPullRequestById`; error mapping handles both `WrappedError` and `*WrappedError`; PR model exposes `ForkSource`, `SourceRefName`, `LastMergeSourceCommit`; repo-by-id lookup (httpmock with OPTIONS `_apis` stubs)
+    - [x] Implement SDK wrappers (git client: get/list/create/update PR, reviewers, threads, repo by id) and finder; no created/closed date filters in MVP
+- [x] Task: Identity resolver (`api/identity.go`) `6409b2a`
+    - [x] Write tests: GUID passthrough, `@me` via connectionData, IMS `General` lookup via SDK `ReadIdentities` (stubbed ResourceAreas + OPTIONS + identities), `DirectoryAlias`/`AccountName` fallback, same-domain disambiguation; ambiguous → prompt to pick on TTY, error listing candidates on non-TTY; no match → error "could not resolve <x>: user must be added to the organization"; `[Project]\Team` resolves (verify live); bare team name rejected with a hint to use `[Project]\Team` or a GUID; 401/403 → "Identity (Read)" scope hint; duplicate ids removed
+    - [x] Implement identity resolver shared by `pr create -r`, `pr list --author/--reviewer` and pr_parity `pr edit`
+- [x] Task: `ado pr list` `6409b2a`
+    - [x] Write tests: state/author/base/head/reviewer/draft filters map to search criteria (author/reviewer via the identity resolver), `--limit`, TTY table, non-TTY TSV, `--json` fields, `--web` opens URL, empty-result message
+    - [x] Implement `pr list`
+- [x] Task: `ado pr view` `6409b2a`
+    - [x] Write tests: current-branch default, reviewers with vote labels (teams shown as non-voting with `votedFor`), policy summary, `--comments`, `--json`, `--web`
+    - [x] Implement `pr view`
+- [x] Task: `ado pr create` `6409b2a`
+    - [x] Write tests: flags-only creation, `--fill` from commits, default base = repo default branch, `--draft`, `-r` reviewers resolved via the identity resolver (optional reviewers only; required reviewers via pr_parity `pr edit`), `--work-item` links, `--auto` = create then `UpdatePullRequest` with `AutoCompleteSetBy` + `CompletionOptions` (assert the second call), push prompt when branch not on remote, TTY prompts, non-TTY missing `--title` error, prints URL
+    - [x] Implement `pr create`
+    - [x] Update spec.md `ado pr create` row: add `--auto` (set auto-complete after create)
+- [x] Task: `ado pr checkout` `6409b2a`
+    - [x] Write tests (stubbed git runner): same-repo fetch `+refs/heads/<b>:refs/remotes/<remote>/<b> --no-tags` + `checkout -b <local> --track`; fork PR with a matching local remote uses the same-repo path; fork without a remote fetches by URL and sets `branch.<b>.remote`/`pushRemote`/`merge`; local name = source branch, prefixed `<forkRepo>/` only when it equals the default branch; unreadable fork → clear access error; existing branch fast-forward, `--branch` override, `--force` reset; branch names starting with `-` rejected; only `-b`/`-f` flags; never fetches `refs/pull/<id>/head`
+    - [x] Implement `pr checkout`
+- [x] Task: `ado pr review` `6409b2a`
+    - [x] Write tests: each vote flag maps to correct value (10/5/-5/-10/0), `--comment` + `--body` creates thread, mutually exclusive flags, non-TTY with no flag errors
+    - [x] Implement `pr review`
+- [x] Task: `ado pr merge` (alias `complete`) `6409b2a`
+    - [x] Write tests: strategy flags map to an explicit `MergeStrategy` (never `SquashMerge`), `Status: completed` sent with `LastMergeSourceCommit` from the fetched PR and existing completion options carried over, `--delete-branch`, `--auto` sets auto-complete, merge message, `--bypass-policy` requires `--bypass-reason`, completion blocked by policy → fails with a hint to use `--auto` or `--bypass-policy`, TTY confirmation, non-TTY without `--yes` refuses, cancel → exit 2
+    - [x] Implement `pr merge`
+- [x] Task: gh-differences doc `6409b2a`
+    - [x] Write `docs/gh-differences.md` covering work items vs issues, votes vs reviews, merge→complete, `-R` hierarchy, no PR head ref (checkout fetches the source branch), fork pushes depend on fork permissions (no maintainer-can-modify), `ado api --paginate` output (merged `value` envelope vs gh's per-page / `--slurp`)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Pull Request Commands' (Protocol in workflow.md)
+    - [x] Live check (from Phase 3) that git/core/wit/build/pipelines SDK clients work under the org URL on dev.azure.com and `*.visualstudio.com`; add a `GetResourceAreas` fallback only if not

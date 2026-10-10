@@ -164,11 +164,14 @@ func WithHeader(responder Responder, header, value string) Responder {
 	}
 }
 
-func httpResponse(status int, req *http.Request, body io.Reader, header http.Header) *http.Response {
+func httpResponse(status int, req *http.Request, body *bytes.Buffer, header http.Header) *http.Response {
 	return &http.Response{
+		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
 		StatusCode: status,
 		Request:    req,
 		Body:       io.NopCloser(body),
-		Header:     header,
+		// The SDK skips reading error bodies when ContentLength is 0.
+		ContentLength: int64(body.Len()),
+		Header:        header,
 	}
 }

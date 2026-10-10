@@ -5,6 +5,7 @@ import (
 	apiCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/api"
 	authCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/auth"
 	configCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/config"
+	prCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pr"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
 )
@@ -35,7 +36,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), configCmd.NewCmdConfig(f))
+	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f))
 	return cmd
 }
 

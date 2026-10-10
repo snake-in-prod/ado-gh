@@ -1,6 +1,9 @@
 package httpmock
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // Location is one API resource location served by the SDK's OPTIONS {base}/_apis discovery call.
 type Location struct {
@@ -39,15 +42,16 @@ type collection[T any] struct {
 }
 
 // StubLocations registers the OPTIONS {basePath}/_apis call every SDK client makes before its
-// first request. basePath has no leading slash, e.g. "org". The SDK caches the result per base
-// URL for the whole process, so tests that register this stub must use a base URL of their own.
+// first request. basePath has no leading slash, e.g. "org", or is "" for a root base URL such as
+// https://{org}.visualstudio.com/. The SDK caches the result per base URL for the whole process,
+// so tests that register this stub must use a base URL of their own.
 func (r *Registry) StubLocations(basePath string, locs ...Location) {
 	out := make([]sdkLocation, len(locs))
 	for i, l := range locs {
 		// The SDK dereferences these during API version negotiation.
 		out[i] = sdkLocation{Location: l, ResourceVersion: 3, MinVersion: "1.0", MaxVersion: "7.2", ReleasedVersion: "7.1"}
 	}
-	r.Register(REST(http.MethodOptions, basePath+"/_apis"), JSONResponse(collection[sdkLocation]{len(out), out}))
+	r.Register(REST(http.MethodOptions, strings.TrimPrefix(basePath+"/_apis", "/")), JSONResponse(collection[sdkLocation]{len(out), out}))
 }
 
 // StubResourceAreas registers GET {basePath}/_apis/ResourceAreas, which the SDK's NewClient

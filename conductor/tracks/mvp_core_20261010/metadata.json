@@ -1,0 +1,8 @@
+{
+  "track_id": "mvp_core_20261010",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-10T16:03:00Z",
+  "updated_at": "2026-10-10T16:03:00Z",
+  "description": "Build the ado CLI foundation and core PR loop: scaffolding, PAT + Entra ID auth, git-remote context detection, ado api, --json/--jq/--template output, and ado pr create/list/view/checkout/review/merge"
+}

@@ -1,12 +1,15 @@
 package cmdutil
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
+	"github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
 
@@ -31,6 +34,11 @@ type Factory struct {
 	HttpClient func() (*http.Client, error) //nolint:revive // gh naming, as in the plan
 	Browser    Browser
 	Prompter   *Prompter
+	GitClient  *git.Client
+	// RepoOverride is the -R/--repo flag value.
+	RepoOverride string
+	// BaseRepo resolves the target repo: -R > ADO_REPO > git remotes.
+	BaseRepo func() (adocontext.Repo, error)
 }
 
 // NewFactory returns the production Factory for the given version and streams.
@@ -50,7 +58,13 @@ func NewFactory(appVersion string, ios *iostreams.IOStreams) *Factory {
 			// Auth, User-Agent and debug logging are layered on in the api package.
 			return &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()}, nil
 		}),
-		Prompter: &Prompter{IO: ios},
+		Prompter:  &Prompter{IO: ios},
+		GitClient: &git.Client{},
+	}
+	f.BaseRepo = func() (adocontext.Repo, error) {
+		return adocontext.ResolveBaseRepo(f.RepoOverride, func() ([]git.Remote, error) {
+			return f.GitClient.Remotes(context.Background())
+		})
 	}
 	f.Browser = browserFunc(func(url string) error {
 		cfg, err := f.Config()

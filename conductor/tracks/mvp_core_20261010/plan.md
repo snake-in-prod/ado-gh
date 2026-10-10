@@ -37,24 +37,24 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Scaffolding & Core Infrastructure' (Protocol in workflow.md)
     - [x] Include a manual huh v2 prompt check in Windows cmd.exe and PowerShell (moved to Phase 3: no command prompts before `auth login`)
 
-## Phase 2: Context Detection
+## Phase 2: Context Detection [checkpoint: 72f054b]
 
-- [ ] Task: Remote URL parser (`internal/adocontext`)
-    - [ ] Write table-driven tests (accepted forms): `dev.azure.com` HTTPS (with/without `user[:secret]@`; userinfo dropped and never echoed), `ssh.dev.azure.com:v3` scp-style, `ssh://git@ssh.dev.azure.com[:22]/v3/...`, `{org}@vs-ssh.visualstudio.com:v3/...` (org from the path, not the username), `*.visualstudio.com` (with/without `DefaultCollection`, case-insensitive), project omitted (`dev.azure.com/{org}/_git/{repo}`, `{org}.visualstudio.com/[DefaultCollection/]_git/{repo}` → project = repo), `_git/_full|_optimized/{repo}` (also in SSH v3), visualstudio.com team segment (dropped), SSH v3 team segment (take project, drop team), per-segment `url.PathUnescape` (no double decode, `%2F` can't fake a segment), `.git` suffix kept, trailing slash tolerated, case-insensitive host and `_git`/`v3`/`_ssh` markers
-    - [ ] Write tests: legacy v1/v2 SSH `ssh://{org}@vs-ssh.visualstudio.com[:22]/{project}/_ssh/{repo}` and `{org}/{project}/_ssh/{repo}` accepted with the org from the SSH username, like az devops
-    - [ ] Write tests (reject list): lookalike hosts (`dev.azure.com.evil.com`, `notvisualstudio.com`), `vs-ssh.visualstudio.com` as an HTTPS host, empty segments, control chars / backslash, ports other than 443/22, team segment on dev.azure.com, SSH v3 without a project, non-ADO remotes
-    - [ ] Write tests: `Repo.Host` keeps the original host (no normalization to dev.azure.com); per-host config lookup keyed by the original host (e.g. `{org}.visualstudio.com`)
-    - [ ] Write tests: SSH host alias (unknown host, path starts with `v3/`, e.g. `git@devops_fabrikam:v3/...`) resolved via go-gh `pkg/ssh` `ssh -G` (stubbed)
-    - [ ] Implement `ParseRemoteURL(string) (Repo, error)` returning `{Host, Org, Project, Name}`, with go-gh's scp-style → `ssh://` rewrite pattern and per-segment unescape
-    - [ ] Implement SSH alias translation via go-gh `pkg/ssh` for unknown hosts with `v3/` paths
-    - [ ] Update spec.md FR3 (spec.md:25-29) with the accepted forms, the reject list, the original-host rule, legacy `_ssh` acceptance and SSH alias resolution
-- [ ] Task: Git remotes reader (`internal/git`)
-    - [ ] Write tests: parse `git remote -v` output, current branch, not-a-git-repo error (via stubbed command runner)
-    - [ ] Implement git command runner and remote/branch helpers
-- [ ] Task: Base repo resolution
-    - [ ] Write tests: precedence `-R` > `ADO_REPO` > origin > upstream > first ADO remote; partial `-R` filled by `ADO_ORG`/`ADO_PROJECT`; actionable error when nothing resolves
-    - [ ] Implement `-R/--repo` global flag and `Factory.BaseRepo`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Context Detection' (Protocol in workflow.md)
+- [x] Task: Remote URL parser (`internal/adocontext`) `72f054b`
+    - [x] Write table-driven tests (accepted forms): `dev.azure.com` HTTPS (with/without `user[:secret]@`; userinfo dropped and never echoed), `ssh.dev.azure.com:v3` scp-style, `ssh://git@ssh.dev.azure.com[:22]/v3/...`, `{org}@vs-ssh.visualstudio.com:v3/...` (org from the path, not the username), `*.visualstudio.com` (with/without `DefaultCollection`, case-insensitive), project omitted (`dev.azure.com/{org}/_git/{repo}`, `{org}.visualstudio.com/[DefaultCollection/]_git/{repo}` → project = repo), `_git/_full|_optimized/{repo}` (also in SSH v3), visualstudio.com team segment (dropped), SSH v3 team segment (take project, drop team), per-segment `url.PathUnescape` (no double decode, `%2F` can't fake a segment), `.git` suffix kept, trailing slash tolerated, case-insensitive host and `_git`/`v3`/`_ssh` markers
+    - [x] Write tests: legacy v1/v2 SSH `ssh://{org}@vs-ssh.visualstudio.com[:22]/{project}/_ssh/{repo}` and `{org}/{project}/_ssh/{repo}` accepted with the org from the SSH username, like az devops
+    - [x] Write tests (reject list): lookalike hosts (`dev.azure.com.evil.com`, `notvisualstudio.com`), `vs-ssh.visualstudio.com` as an HTTPS host, empty segments, control chars / backslash, ports other than 443/22, team segment on dev.azure.com, SSH v3 without a project, non-ADO remotes
+    - [x] Write tests: `Repo.Host` keeps the original host (no normalization to dev.azure.com); per-host config lookup keyed by the original host (e.g. `{org}.visualstudio.com`)
+    - [x] Write tests: SSH host alias (unknown host, path starts with `v3/`, e.g. `git@devops_fabrikam:v3/...`) resolved via go-gh `pkg/ssh` `ssh -G` (stubbed)
+    - [x] Implement `ParseRemoteURL(string) (Repo, error)` returning `{Host, Org, Project, Name}`, with go-gh's scp-style → `ssh://` rewrite pattern and per-segment unescape
+    - [x] Implement SSH alias translation via go-gh `pkg/ssh` for unknown hosts with `v3/` paths
+    - [x] Update spec.md FR3 (spec.md:25-29) with the accepted forms, the reject list, the original-host rule, legacy `_ssh` acceptance and SSH alias resolution
+- [x] Task: Git remotes reader (`internal/git`) `72f054b`
+    - [x] Write tests: parse `git remote -v` output, current branch, not-a-git-repo error (via stubbed command runner)
+    - [x] Implement git command runner and remote/branch helpers
+- [x] Task: Base repo resolution `72f054b`
+    - [x] Write tests: precedence `-R` > `ADO_REPO` > origin > upstream > first ADO remote; partial `-R` filled by `ADO_ORG`/`ADO_PROJECT`; actionable error when nothing resolves
+    - [x] Implement `-R/--repo` global flag and `Factory.BaseRepo`
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Context Detection' (Protocol in workflow.md)
 
 ## Phase 3: Authentication
 

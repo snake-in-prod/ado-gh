@@ -65,6 +65,15 @@ func TestDebugFlag(t *testing.T) {
 	}
 }
 
+func TestRepoFlag(t *testing.T) {
+	for _, flag := range []string{"-R", "--repo"} {
+		f, _, err := run(t, flag, "o/p/r", "completion", "bash")
+		if err != nil || f.RepoOverride != "o/p/r" {
+			t.Errorf("%s: RepoOverride = %q, err = %v", flag, f.RepoOverride, err)
+		}
+	}
+}
+
 func TestDebugFlagDefaultsToFactory(t *testing.T) {
 	ios, _, _, _ := iostreams.Test()
 	f := cmdutil.NewFactory("1.2.3", ios)

@@ -22,11 +22,18 @@ Build the first usable version of `ado`, a `gh`-style CLI for Azure DevOps Servi
 - `ado config get/set/list`.
 
 ### FR3: Context Detection
-- Parse Azure DevOps remotes:
-  - `https://dev.azure.com/{org}/{project}/_git/{repo}` (with optional `{user}@`)
-  - `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`
-  - `https://{org}.visualstudio.com/[DefaultCollection/]{project}/_git/{repo}`
-  - URL-encoded names (spaces → `%20`)
+- Parse Azure DevOps remotes (see research.md q9, o21–o23):
+  - `https://dev.azure.com/{org}/{project}/_git/{repo}` (optional `{user}[:{secret}]@`, dropped and never echoed)
+  - `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}` and `ssh://git@ssh.dev.azure.com[:22]/v3/...`
+  - `{org}@vs-ssh.visualstudio.com:v3/{org}/{project}/{repo}` (org from the path)
+  - `https://{org}.visualstudio.com/[DefaultCollection/]{project}/_git/{repo}` (team segment dropped)
+  - Project omitted (`dev.azure.com/{org}/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}`): project = repo
+  - `_git/_full/` and `_git/_optimized/` segments; SSH v3 team segment (project kept, team dropped)
+  - Legacy v1/v2 SSH `ssh://{org}@vs-ssh.visualstudio.com[:22]/{project}/_ssh/{repo}` (org from the SSH username, like az devops)
+  - SSH host aliases from `~/.ssh/config` (unknown host with a `v3/` path) resolved via `ssh -G`
+  - URL-encoded names decoded per segment (`%20` → space; `%2F` cannot fake a segment)
+- Rejected: lookalike hosts, `vs-ssh.visualstudio.com` over HTTPS, empty segments, control characters / backslash, ports other than 443/22, a team segment on dev.azure.com, SSH v3 without a project, non-ADO remotes.
+- `Repo.Host` keeps the original host (no normalization to dev.azure.com); per-host config is keyed by it.
 - Resolution precedence: `-R` flag > `ADO_REPO` env > git remotes (prefer `origin`, then `upstream`, then first ADO remote) > error "not an Azure DevOps repository; use -R".
 - `ADO_ORG` / `ADO_PROJECT` fill partial `-R` values.
 

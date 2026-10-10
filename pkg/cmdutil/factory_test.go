@@ -1,14 +1,38 @@
 package cmdutil
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestNewFactoryBaseRepo(t *testing.T) {
+	t.Setenv("ADO_REPO", "")
+	ios, _, _, _ := iostreams.Test()
+	f := NewFactory("1.0.0", ios)
+	var gitArgs []string
+	f.GitClient.Run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		gitArgs = args
+		return []byte("origin\thttps://dev.azure.com/o/p/_git/r (fetch)\n"), nil
+	}
+	repo, err := f.BaseRepo()
+	require.NoError(t, err)
+	assert.Equal(t, adocontext.Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "r"}, repo)
+	assert.Equal(t, []string{"remote", "-v"}, gitArgs)
+
+	f.RepoOverride = "a/b/c" // set by -R after construction
+	repo, err = f.BaseRepo()
+	require.NoError(t, err)
+	assert.Equal(t, adocontext.Repo{Host: "dev.azure.com", Org: "a", Project: "b", Name: "c"}, repo)
+}
 
 func TestNewFactoryDebugFromEnv(t *testing.T) {
 	for v, want := range map[string]bool{"": false, "0": false, "false": false, "1": true, "true": true, "api": true} {

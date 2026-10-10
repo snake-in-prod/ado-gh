@@ -25,6 +25,8 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		return cmdutil.FlagErrorWrap(err)
 	})
 	cmd.PersistentFlags().BoolVar(&f.Debug, "debug", f.Debug, "Log HTTP requests to stderr (also ADO_DEBUG=1)")
+	cmd.PersistentFlags().StringVarP(&f.RepoOverride, "repo", "R", "",
+		"Select another repository using the [ORG/]PROJECT/REPO format (also ADO_REPO)")
 
 	cmd.AddGroup(
 		&cobra.Group{ID: "core", Title: "Core commands:"},

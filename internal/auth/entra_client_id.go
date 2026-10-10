@@ -6,10 +6,9 @@ import (
 	"os"
 )
 
-// defaultEntraClientID is ado's multi-tenant public-client Entra app.
-// Empty until the app is registered (see README "Microsoft Entra ID app").
-// A var, not a const, so tests can set it.
-var defaultEntraClientID = ""
+// DefaultEntraClientID is ado's multi-tenant public-client Entra app. A public
+// client has no secret, so the ID is safe to ship. A var, not a const, so tests can set it.
+var DefaultEntraClientID = "41d205f0-a5e5-4a1f-813a-46eec13d0249"
 
 // ConfigGetter reads a config value; cmdutil.Config satisfies it.
 type ConfigGetter interface {
@@ -27,8 +26,8 @@ func EntraClientID(cfg ConfigGetter) (string, error) {
 			return id, nil
 		}
 	}
-	if defaultEntraClientID != "" {
-		return defaultEntraClientID, nil
+	if DefaultEntraClientID != "" {
+		return DefaultEntraClientID, nil
 	}
 	return "", errors.New("Entra ID login needs a client ID: set ADO_ENTRA_CLIENT_ID (or `ado config set entra_client_id <id>`), or log in with a PAT") //nolint:revive,staticcheck // user-facing sentence, starts with a proper noun
 }

@@ -59,7 +59,7 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 ## Phase 3: Authentication [checkpoint: 51916f6]
 
 - [x] Task: Prerequisite - Entra app registration and auth docs (manual) `51916f6`
-    - [~] Register ado's multi-tenant public-client app ("Accounts in any organizational directory", "Allow public client flows" on, redirect `http://localhost` (mobile/desktop), delegated Azure DevOps `user_impersonation`) and record its client ID as the default constant (deferred: app not registered yet; `ADO_ENTRA_CLIENT_ID` / config override in place)
+    - [x] Register ado's multi-tenant public-client app ("Accounts in any organizational directory", "Allow public client flows" on, redirect `http://localhost` (mobile/desktop), delegated Azure DevOps `user_impersonation`) and record its client ID as the default constant (done 2026-10-10: client ID `41d205f0-a5e5-4a1f-813a-46eec13d0249`, multi-tenant; override via `ADO_ENTRA_CLIENT_ID` / config)
     - [x] Document the client ID and the `ADO_ENTRA_CLIENT_ID` / config override in README; README and `auth login` PAT guidance list the scopes "Code (Read & write)" + "Identity (Read)"
 - [x] Task: Credential store (`internal/auth`) `51916f6`
     - [x] Write tests: keychain set/get/delete via `keyring.MockInit()`; PAT keys per org `ado:<host>/<org>` (e.g. `ado:dev.azure.com/<org>`) with per-host Entra token as fallback; env `ADO_TOKEN` / `AZURE_DEVOPS_EXT_PAT` precedence
@@ -87,7 +87,7 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement MSAL public client (interactive browser by default, device-code fallback and `--device`), login-method selection and login menu, token provider used by transport
     - [x] Implement encrypted MSAL cache accessor
     - [x] Implement Entra org selection
-    - [~] Measure `len(Marshal())` of the MSAL cache once against a real org (deferred until the Entra app is registered)
+    - [x] Measure `len(Marshal())` of the MSAL cache once against a real org (done 2026-10-10: 7277 B plaintext cache on WSL, > 2560 B Windows / ~3000 B macOS keychain limits; confirms the encrypted-file design)
     - [x] Update spec.md FR4 (spec.md:39): MSAL cache AES-GCM-encrypted in a 0600 file with its key in go-keyring (plaintext 0600 + warning without a keyring); interactive browser is the default flow with device-code fallback; Entra first in the login menu
     - [x] Update tech-stack.md:21: MSAL cache stored as an encrypted 0600 file, only its key in go-keyring
 - [x] Task: `ado auth status`, `logout`, `token` `51916f6`

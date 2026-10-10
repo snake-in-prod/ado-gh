@@ -149,6 +149,9 @@ func TestLookupEntraErrors(t *testing.T) {
 	assert.ErrorIs(t, err, boom)
 
 	t.Setenv("ADO_ENTRA_CLIENT_ID", "")
+	oldID := auth.DefaultEntraClientID
+	auth.DefaultEntraClientID = ""
+	t.Cleanup(func() { auth.DefaultEntraClientID = oldID })
 	_, err = Lookup(context.Background(), f, "dev.azure.com", "contoso")
 	assert.ErrorContains(t, err, "client ID")
 }

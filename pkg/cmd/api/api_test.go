@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
@@ -294,4 +295,21 @@ func TestErrors(t *testing.T) {
 	r = run(t, setup{noAuth: true}, nil, projects)
 	assert.ErrorAs(t, r.err, &authErr, "not logged in exits 4")
 	assert.Empty(t, r.reqs)
+}
+
+func TestHTMLErrorPrintsOnlyTitle(t *testing.T) {
+	page := "\ufeff<!DOCTYPE html >\n<html><head>\n<title>The controller for path &#39;/_apis/nope&#39; was not found.</title>\n<style>" +
+		strings.Repeat("x", 5000) + "</style></head><body>big page</body></html>"
+	r := run(t, setup{}, func(reg *httpmock.Registry) {
+		reg.Register(httpmock.MatchAny, httpmock.WithHeader(httpmock.StatusStringResponse(404, page), "Content-Type", "text/html; charset=utf-8"))
+	}, projects)
+	require.Error(t, r.err)
+	assert.Equal(t, "The controller for path '/_apis/nope' was not found.\n", r.errOut)
+	assert.Contains(t, r.err.Error(), "HTTP 404")
+
+	r = run(t, setup{}, func(reg *httpmock.Registry) {
+		reg.Register(httpmock.MatchAny, httpmock.WithHeader(httpmock.StatusStringResponse(500, "<html><body>no title</body></html>"), "Content-Type", "text/html"))
+	}, projects)
+	require.Error(t, r.err)
+	assert.Empty(t, r.errOut, "HTML without a title prints nothing beyond the error")
 }

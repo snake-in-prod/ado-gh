@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"maps"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -175,8 +177,13 @@ func apiRun(cmd *cobra.Command, o *options) error {
 		}
 		if status > 299 {
 			fmt.Fprint(ios.Out, p.head)
-			fmt.Fprint(ios.ErrOut, string(p.body))
-			if len(p.body) > 0 && !bytes.HasSuffix(p.body, []byte("\n")) {
+			errBody := p.body
+			if strings.Contains(p.header.Get("Content-Type"), "text/html") {
+				// ADO answers unknown routes with a ~130 KB error page; its title is the message.
+				errBody = htmlTitle(p.body)
+			}
+			fmt.Fprint(ios.ErrOut, string(errBody))
+			if len(errBody) > 0 && !bytes.HasSuffix(errBody, []byte("\n")) {
 				fmt.Fprintln(ios.ErrOut)
 			}
 			return fmt.Errorf("HTTP %d: %s (%s)", status, http.StatusText(status), u.Redacted())
@@ -431,4 +438,15 @@ func queryValue(v any) string {
 		return ""
 	}
 	return fmt.Sprint(v)
+}
+
+var titleRE = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+
+// htmlTitle returns the unescaped <title> of an HTML page, or nil when it has none.
+func htmlTitle(b []byte) []byte {
+	m := titleRE.FindSubmatch(b)
+	if m == nil {
+		return nil
+	}
+	return []byte(strings.TrimSpace(html.UnescapeString(string(m[1]))))
 }

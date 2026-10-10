@@ -24,9 +24,9 @@ func TestEntraClientID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			old := defaultEntraClientID
-			defaultEntraClientID = tt.def
-			t.Cleanup(func() { defaultEntraClientID = old })
+			old := DefaultEntraClientID
+			DefaultEntraClientID = tt.def
+			t.Cleanup(func() { DefaultEntraClientID = old })
 			t.Setenv("ADO_ENTRA_CLIENT_ID", tt.env)
 			got, err := EntraClientID(tt.cfg)
 			if tt.wantErr {

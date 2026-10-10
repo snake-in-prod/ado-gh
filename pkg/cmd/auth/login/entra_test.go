@@ -282,6 +282,9 @@ func TestEntraLoginErrors(t *testing.T) {
 			want: []string{"no organization"},
 		},
 	}
+	old := auth.DefaultEntraClientID
+	auth.DefaultEntraClientID = "" // the "no client ID" case needs no built-in default
+	t.Cleanup(func() { auth.DefaultEntraClientID = old })
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e, m := setupEntra(t)

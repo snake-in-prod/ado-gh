@@ -1,17 +1,18 @@
 # Tech Stack
 
 ## Language & Runtime
-- **Go** (latest stable; `go.mod` pins minimum version). Single static binary, `CGO_ENABLED=0` where possible.
-- Module path: `github.com/<owner>/ado-gh`; binary name: `ado`.
+- **Go** (latest stable; `go.mod` pins minimum `go 1.25.8`, required by huh v2). Single static binary, `CGO_ENABLED=0` where possible. Never import `github.com/cli/cli/v2` (needs go 1.27).
+- Module path: `github.com/snake-in-prod/ado-gh`; binary name: `ado`.
 
 ## Azure DevOps API
-- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`**: typed clients for Git (repos, PRs), Work Item Tracking, Build/Pipelines, Core (projects).
+- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`** pinned at `v7.1.0`: typed clients for Git (repos, PRs), Work Item Tracking, Build/Pipelines, Core (projects). Clients are built as `<pkg>.ClientImpl` over `azuredevops.NewClientWithOptions(..., WithHTTPClient(shared))` with an empty `AuthorizationString`; auth lives only in ado's RoundTripper (the SDK is mostly dormant and has no transport hook).
 - **`net/http`** raw client for `ado api` and for endpoints the SDK lacks. It shares auth, user-agent and debug-logging transport with the SDK.
+- Every request sends `X-TFS-FedAuthRedirect: Suppress`; 401 and 203 (sign-in page) map to exit code 4.
 - Target: Azure DevOps Services (`dev.azure.com`, `*.visualstudio.com`). Host is configurable to leave room for Azure DevOps Server later.
 
 ## CLI & UX Libraries
 - **`spf13/cobra`**: command tree, help, completion (bash/zsh/fish/PowerShell).
-- **`cli/go-gh/v2`** packages: `pkg/term` (TTY detection), `pkg/tableprinter`, `pkg/jq`, `pkg/template`, `pkg/browser`, plus gh-compatible output behavior.
+- **`cli/go-gh/v2`** packages: `pkg/term` helpers only (`IsTerminal`/`IsColorDisabled`/`IsColorForced`, not `term.FromEnv`), `pkg/tableprinter`, `pkg/jq`, `pkg/template`, `pkg/browser` (launcher passed explicitly), `pkg/ssh` (SSH alias resolution). No `GH_*` env or gh config is read.
 - **`itchyny/gojq`**: `--jq` (through go-gh).
 - **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
   - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `tracks/mvp_core_20261010/research.md` q10.
@@ -21,10 +22,11 @@
 - **PAT** via `ado auth login --with-token` / prompt; env `ADO_TOKEN`, `AZURE_DEVOPS_EXT_PAT`.
 - **Microsoft Entra ID** via **`AzureAD/microsoft-authentication-library-for-go`** (MSAL). Device-code and interactive browser flows, Azure DevOps resource scope `499b84ac-1321-427f-aa17-267ca6975798/.default`, MSAL token cache stored AES-GCM-encrypted in a 0600 file with only its key in the keychain.
   - *2026-10-10:* keychains cap item size (Windows 2560 B, macOS ~3 KB), so the cache can't live in one keychain item; see `tracks/mvp_core_20261010/research.md` q2/o4.
-- **`zalando/go-keyring`**: OS keychain storage (Windows Credential Manager, macOS Keychain, Secret Service).
+- Entra client ID: built-in default (empty until the app is registered), overridable via `ADO_ENTRA_CLIENT_ID` / config `entra_client_id`.
+- **`zalando/go-keyring`**: OS keychain storage (Windows Credential Manager, macOS Keychain, Secret Service); every call wrapped in a 60 s timeout with a 0600 config fallback; `--insecure-storage` skips the keychain.
 
 ## Config & Context
-- YAML config at `$XDG_CONFIG_HOME/ado/config.yml` (`%AppData%\ado` on Windows) via `gopkg.in/yaml.v3`. Holds defaults, aliases, per-host settings.
+- YAML config at `$ADO_CONFIG_DIR`, else `$XDG_CONFIG_HOME/ado/config.yml` (`%AppData%\ado` on Windows) via `gopkg.in/yaml.v3`. Holds defaults, aliases, per-host settings; per-host keys use the original remote host (no normalization to dev.azure.com).
 - Git context from shelling out to `git` (`git remote -v`, `git rev-parse`), same as gh. Parses `https://dev.azure.com/{org}/{project}/_git/{repo}`, `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`, `https://{org}.visualstudio.com/...`.
 - Extensions: `ado-<name>` executables found on `PATH` / extension dir, gh model.
 

@@ -1,0 +1,25 @@
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - depguard
+    - errorlint
+    - gocritic
+    - misspell
+    - revive
+    - unconvert
+  settings:
+    depguard:
+      rules:
+        no-gh-module:
+          deny:
+            - pkg: github.com/cli/cli/v2
+              desc: requires go 1.27; use github.com/cli/go-gh/v2 instead
+  exclusions:
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

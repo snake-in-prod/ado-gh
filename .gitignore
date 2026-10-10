@@ -1,0 +1,15 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+/ado
+
+# Test and coverage output
+*.test
+*.out
+coverage.*
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

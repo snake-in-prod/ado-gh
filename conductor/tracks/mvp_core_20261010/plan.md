@@ -6,36 +6,36 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ---
 
-## Phase 1: Scaffolding & Core Infrastructure
+## Phase 1: Scaffolding & Core Infrastructure [checkpoint: 60a7046]
 
-- [ ] Task: Initialize Go module and repo hygiene
-    - [ ] `go mod init` with `go 1.25.8` as the floor (huh v2; above go-gh's 1.25.0), `.gitignore`, `README.md` stub, `LICENSE` (MIT), `.golangci.yml`; never import `github.com/cli/cli/v2` (go 1.27)
-    - [ ] GitHub Actions CI: `gofmt`, `go vet`, `golangci-lint`, `go test -race -cover` on ubuntu/macos/windows
-- [ ] Task: IOStreams (`pkg/iostreams`)
-    - [ ] Write tests: TTY vs non-TTY detection, `NO_COLOR` / `CLICOLOR_FORCE` / `ADO_FORCE_TTY` (parsed by ado; `GH_FORCE_TTY` ignored), terminal width, color scheme on/off, test constructor capturing stdout/stderr
-    - [ ] Implement IOStreams using only go-gh `pkg/term` helpers `IsTerminal` / `IsColorDisabled` / `IsColorForced` (not `term.FromEnv`); parse `ADO_FORCE_TTY` ourselves; width via `golang.org/x/term.GetSize`
-- [ ] Task: Config (`internal/config`)
-    - [ ] Write tests: config dir resolution per OS + `ADO_CONFIG_DIR`, load/save YAML round-trip, missing file defaults, per-host keys
-    - [ ] Implement config read/write with `gopkg.in/yaml.v3`
-- [ ] Task: Errors & exit codes (`pkg/cmdutil`)
-    - [ ] Write tests: `SilentError`, `CancelError` → 2, `AuthError` → 4, generic → 1, flag errors print usage hint
-    - [ ] Implement error types and `main` exit-code mapping
-- [ ] Task: HTTP mock for tests (`pkg/httpmock`)
-    - [ ] Write tests: registry matches and verifies stubs, REST/String/JSON responders, helpers that stub the SDK's OPTIONS `{base}/_apis` and `_apis/ResourceAreas` discovery calls
-    - [ ] Implement by copying gh's stdlib-only `registry.go` plus REST/String/JSON responders (keep the MIT notice); add the SDK discovery stub helpers
-- [ ] Task: Factory and root command (`pkg/cmdutil`, `pkg/cmd/root`, `cmd/ado`)
-    - [ ] Write tests: `ado --version` prints version (ldflags-injected), `ado help` lists groups, unknown command errors, `--debug` / `ADO_DEBUG` toggles debug
-    - [ ] Write tests: browser-launcher resolver precedence `ADO_BROWSER` > ado config `browser` > `BROWSER`; `GH_BROWSER` and gh's config are ignored; resolved launcher is passed explicitly to go-gh `browser.New`
-    - [ ] Write tests: prompter refuses to prompt when `!IOStreams.CanPrompt()`; buffer-driven prompts via huh `WithInput` / `WithOutput` / `WithAccessible(true)`
-    - [ ] Implement lazy Factory (IOStreams, Config, HttpClient, Remotes, BaseRepo, Browser, Prompter), root cobra command, `completion` subcommand
-    - [ ] Implement browser-launcher resolver (also used later as MSAL `WithOpenURL`)
-    - [ ] Implement thin prompter over `charm.land/huh/v2`, gated on `IOStreams.CanPrompt()`
-    - [ ] Update tech-stack.md: pick `charm.land/huh/v2` as the prompt library, drop `AlecAivazis/survey/v2` (archived)
-- [ ] Task: `ado config get/set/list`
-    - [ ] Write tests: set then get value, list output TTY/non-TTY, unknown key error
-    - [ ] Implement config commands
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Scaffolding & Core Infrastructure' (Protocol in workflow.md)
-    - [ ] Include a manual huh v2 prompt check in Windows cmd.exe and PowerShell
+- [x] Task: Initialize Go module and repo hygiene `60a7046`
+    - [x] `go mod init` with `go 1.25.8` as the floor (huh v2; above go-gh's 1.25.0), `.gitignore`, `README.md` stub, `LICENSE` (MIT), `.golangci.yml`; never import `github.com/cli/cli/v2` (go 1.27)
+    - [x] GitHub Actions CI: `gofmt`, `go vet`, `golangci-lint`, `go test -race -cover` on ubuntu/macos/windows
+- [x] Task: IOStreams (`pkg/iostreams`) `60a7046`
+    - [x] Write tests: TTY vs non-TTY detection, `NO_COLOR` / `CLICOLOR_FORCE` / `ADO_FORCE_TTY` (parsed by ado; `GH_FORCE_TTY` ignored), terminal width, color scheme on/off, test constructor capturing stdout/stderr
+    - [x] Implement IOStreams using only go-gh `pkg/term` helpers `IsTerminal` / `IsColorDisabled` / `IsColorForced` (not `term.FromEnv`); parse `ADO_FORCE_TTY` ourselves; width via `golang.org/x/term.GetSize`
+- [x] Task: Config (`internal/config`) `60a7046`
+    - [x] Write tests: config dir resolution per OS + `ADO_CONFIG_DIR`, load/save YAML round-trip, missing file defaults, per-host keys
+    - [x] Implement config read/write with `gopkg.in/yaml.v3`
+- [x] Task: Errors & exit codes (`pkg/cmdutil`) `60a7046`
+    - [x] Write tests: `SilentError`, `CancelError` → 2, `AuthError` → 4, generic → 1, flag errors print usage hint
+    - [x] Implement error types and `main` exit-code mapping
+- [x] Task: HTTP mock for tests (`pkg/httpmock`) `60a7046`
+    - [x] Write tests: registry matches and verifies stubs, REST/String/JSON responders, helpers that stub the SDK's OPTIONS `{base}/_apis` and `_apis/ResourceAreas` discovery calls
+    - [x] Implement by copying gh's stdlib-only `registry.go` plus REST/String/JSON responders (keep the MIT notice); add the SDK discovery stub helpers
+- [x] Task: Factory and root command (`pkg/cmdutil`, `pkg/cmd/root`, `cmd/ado`) `60a7046`
+    - [x] Write tests: `ado --version` prints version (ldflags-injected), `ado help` lists groups, unknown command errors, `--debug` / `ADO_DEBUG` toggles debug
+    - [x] Write tests: browser-launcher resolver precedence `ADO_BROWSER` > ado config `browser` > `BROWSER`; `GH_BROWSER` and gh's config are ignored; resolved launcher is passed explicitly to go-gh `browser.New`
+    - [x] Write tests: prompter refuses to prompt when `!IOStreams.CanPrompt()`; buffer-driven prompts via huh `WithInput` / `WithOutput` / `WithAccessible(true)`
+    - [x] Implement lazy Factory (IOStreams, Config, HttpClient, Remotes, BaseRepo, Browser, Prompter), root cobra command, `completion` subcommand
+    - [x] Implement browser-launcher resolver (also used later as MSAL `WithOpenURL`)
+    - [x] Implement thin prompter over `charm.land/huh/v2`, gated on `IOStreams.CanPrompt()`
+    - [x] Update tech-stack.md: pick `charm.land/huh/v2` as the prompt library, drop `AlecAivazis/survey/v2` (archived)
+- [x] Task: `ado config get/set/list` `60a7046`
+    - [x] Write tests: set then get value, list output TTY/non-TTY, unknown key error
+    - [x] Implement config commands
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Scaffolding & Core Infrastructure' (Protocol in workflow.md)
+    - [x] Include a manual huh v2 prompt check in Windows cmd.exe and PowerShell (moved to Phase 3: no command prompts before `auth login`)
 
 ## Phase 2: Context Detection
 
@@ -94,6 +94,7 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [ ] Write tests: status shows user/method/source with masked token and reuses the shared `connectionData` validation, exit 4 when not logged in, logout clears store (Entra: `RemoveAccount`, delete cache file and keyring key), token prints raw token only
     - [ ] Implement commands
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Authentication' (Protocol in workflow.md)
+    - [ ] Manual huh v2 prompt check in Windows cmd.exe and PowerShell (carried over from Phase 1)
 
 ## Phase 4: Output & `ado api`
 

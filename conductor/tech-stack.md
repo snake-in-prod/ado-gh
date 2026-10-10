@@ -13,7 +13,8 @@
 - **`spf13/cobra`**: command tree, help, completion (bash/zsh/fish/PowerShell).
 - **`cli/go-gh/v2`** packages: `pkg/term` (TTY detection), `pkg/tableprinter`, `pkg/jq`, `pkg/template`, `pkg/browser`, plus gh-compatible output behavior.
 - **`itchyny/gojq`**: `--jq` (through go-gh).
-- **`charmbracelet/huh`** (or `AlecAivazis/survey/v2`): interactive prompts on TTY.
+- **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
+  - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `tracks/mvp_core_20261010/research.md` q10.
 - **`MakeNowJust/heredoc`**: help text and examples.
 
 ## Auth & Credentials

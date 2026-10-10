@@ -99,8 +99,8 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	id, title := *pr.PullRequestId, deref(pr.Title)
-	if s := deref(pr.Status); s != git.PullRequestStatusValues.Active {
+	id, title := *pr.PullRequestId, shared.Deref(pr.Title)
+	if s := shared.Deref(pr.Status); s != git.PullRequestStatusValues.Active {
 		return fmt.Errorf("pull request !%d (%s) is %s", id, title, s)
 	}
 
@@ -136,7 +136,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 
 	if !o.yes {
 		q := fmt.Sprintf("Complete pull request !%d (%s) into %s with %s?",
-			id, title, strings.TrimPrefix(deref(pr.TargetRefName), "refs/heads/"), *opts.MergeStrategy)
+			id, title, strings.TrimPrefix(shared.Deref(pr.TargetRefName), "refs/heads/"), *opts.MergeStrategy)
 		if o.auto {
 			q = fmt.Sprintf("Set auto-complete on pull request !%d (%s) with %s?", id, title, *opts.MergeStrategy)
 		}
@@ -187,12 +187,4 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		}
 	}
 	return nil
-}
-
-func deref[T any](p *T) T {
-	var zero T
-	if p == nil {
-		return zero
-	}
-	return *p
 }

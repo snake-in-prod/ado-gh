@@ -9,7 +9,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Complete the pull request command group to full gh parity: `ado pr diff/comment/close/reopen/edit/ready/status/checks`, `--json/--jq/--template` on read commands, confirmed destructive actions, updated `docs/gh-differences.md`**
+- [~] **Track: Complete the pull request command group to full gh parity: `ado pr diff/comment/close/reopen/edit/ready/status/checks`, `--json/--jq/--template` on read commands, confirmed destructive actions, updated `docs/gh-differences.md`**
 *Link: [./tracks/pr_parity_20261010/](./tracks/pr_parity_20261010/)*
 
 ---

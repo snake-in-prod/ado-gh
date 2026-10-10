@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/identity"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -50,13 +49,7 @@ func newResolver(t *testing.T, p *cmdutil.Prompter) (*IdentityResolver, *httpmoc
 // ResourceAreas on the org, then OPTIONS on the vssps host.
 func stubIMS(reg *httpmock.Registry, org string) {
 	reg.StubLocations(org, httpmock.ResourceAreasLocation)
-	reg.StubResourceAreas(org, httpmock.ResourceArea{
-		ID: identity.ResourceAreaId.String(), Name: "IMS", LocationURL: "https://vssps.dev.azure.com/" + org + "/",
-	})
-	reg.StubLocations(org, httpmock.Location{
-		ID: "28010c54-d0c0-4c89-a5b0-1c9e188b9fb7", Area: "IMS", ResourceName: "Identities",
-		RouteTemplate: "_apis/{resource}/{identityId}",
-	})
+	reg.StubIMS(org)
 }
 
 func stubSearch(reg *httpmock.Registry, org, filter, value string, users ...imsUser) {

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/identity"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -80,13 +79,7 @@ func (e *listEnv) run(t *testing.T, args ...string) error {
 func (e *listEnv) stubLocations(withIMS bool) {
 	e.reg.StubLocations(e.org, append([]httpmock.Location{httpmock.ResourceAreasLocation}, httpmock.GitPRLocations...)...)
 	if withIMS {
-		e.reg.StubResourceAreas(e.org, httpmock.ResourceArea{
-			ID: identity.ResourceAreaId.String(), Name: "IMS", LocationURL: "https://vssps.dev.azure.com/" + e.org + "/",
-		})
-		e.reg.StubLocations(e.org, httpmock.Location{
-			ID: "28010c54-d0c0-4c89-a5b0-1c9e188b9fb7", Area: "IMS", ResourceName: "Identities",
-			RouteTemplate: "_apis/{resource}/{identityId}",
-		})
+		e.reg.StubIMS(e.org)
 	}
 }
 

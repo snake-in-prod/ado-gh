@@ -2,7 +2,6 @@ package checkout
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"maps"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/internal/git"
+	"github.com/snake-in-prod/ado-gh/internal/git/gittest"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -21,42 +21,6 @@ import (
 )
 
 const coForkID = "8b6f0a8e-0000-0000-0000-000000000002"
-
-// coGit is a stubbed git runner: replies maps "arg arg ..." to stdout, fails to an error,
-// and calls records every invocation.
-type coGit struct {
-	replies map[string]string
-	fails   map[string]error
-	calls   [][]string
-}
-
-func (g *coGit) run(_ context.Context, _ string, args ...string) ([]byte, error) {
-	g.calls = append(g.calls, args)
-	key := strings.Join(args, " ")
-	if err, ok := g.fails[key]; ok {
-		return nil, err
-	}
-	if out, ok := g.replies[key]; ok {
-		return []byte(out), nil
-	}
-	// Queries without a reply fail like git does for a missing ref, config or branch.
-	if args[0] == "rev-parse" || args[0] == "symbolic-ref" || args[0] == "config" && args[1] == "--get" {
-		return nil, &git.Error{Args: args, ExitCode: 1}
-	}
-	return nil, nil
-}
-
-// mutations returns the calls that change the repository.
-func (g *coGit) mutations() []string {
-	var out []string
-	for _, c := range g.calls {
-		switch {
-		case c[0] == "fetch", c[0] == "checkout", c[0] == "merge", c[0] == "reset", c[0] == "config" && c[1] != "--get":
-			out = append(out, strings.Join(c, " "))
-		}
-	}
-	return out
-}
 
 func coPR(branch string, fork map[string]any) map[string]any {
 	pr := map[string]any{
@@ -297,12 +261,12 @@ func TestCheckout(t *testing.T) {
 			if tt.stub != nil {
 				tt.stub(reg, org)
 			}
-			g := &coGit{replies: map[string]string{}, fails: map[string]error{}}
+			g := &gittest.Runner{Replies: map[string]string{}, Fails: map[string]error{}}
 			for k, v := range tt.replies {
-				g.replies[sub(k)] = sub(v)
+				g.Replies[sub(k)] = sub(v)
 			}
 			for k, v := range tt.fails {
-				g.fails[sub(k)] = v
+				g.Fails[sub(k)] = v
 			}
 
 			t.Setenv("ADO_CONFIG_DIR", t.TempDir())
@@ -320,7 +284,7 @@ func TestCheckout(t *testing.T) {
 				BaseRepo: func() (adocontext.Repo, error) {
 					return adocontext.Repo{Host: "dev.azure.com", Org: org, Project: "proj", Name: "web"}, nil
 				},
-				GitClient: &git.Client{Run: g.run},
+				GitClient: &git.Client{Run: g.Run},
 			}
 			cmd := NewCmdCheckout(f)
 			cmd.SetArgs(append(tt.args, "7"))
@@ -328,8 +292,8 @@ func TestCheckout(t *testing.T) {
 			cmd.SetErr(&bytes.Buffer{})
 			err = cmd.Execute()
 
-			for _, c := range g.calls {
-				assert.NotContains(t, strings.Join(c, " "), "refs/pull/", "never fetch pull request refs")
+			for _, c := range g.Calls {
+				assert.NotContains(t, c, "refs/pull/", "never fetch pull request refs")
 			}
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -341,7 +305,7 @@ func TestCheckout(t *testing.T) {
 			for i, w := range tt.want {
 				want[i] = sub(w)
 			}
-			assert.Equal(t, want, g.mutations())
+			assert.Equal(t, want, g.Mutations())
 			assert.Equal(t, tt.wantOut, errOut.String())
 		})
 	}

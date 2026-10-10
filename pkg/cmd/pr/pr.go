@@ -3,9 +3,12 @@ package pr
 
 import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/checkout"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/close"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/create"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/merge"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/ready"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/reopen"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/review"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/view"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -21,9 +24,12 @@ func NewCmdPR(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(
 		checkout.NewCmdCheckout(f),
+		close.NewCmdClose(f),
 		create.NewCmdCreate(f),
 		list.NewCmdList(f),
 		merge.NewCmdMerge(f),
+		ready.NewCmdReady(f),
+		reopen.NewCmdReopen(f),
 		review.NewCmdReview(f),
 		view.NewCmdView(f),
 	)

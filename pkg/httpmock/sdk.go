@@ -3,6 +3,8 @@ package httpmock
 import (
 	"net/http"
 	"strings"
+
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/identity"
 )
 
 // Location is one API resource location served by the SDK's OPTIONS {base}/_apis discovery call.
@@ -58,4 +60,17 @@ func (r *Registry) StubLocations(basePath string, locs ...Location) {
 // constructors call to find an area's host. Include ResourceAreasLocation in StubLocations too.
 func (r *Registry) StubResourceAreas(basePath string, areas ...ResourceArea) {
 	r.Register(REST(http.MethodGet, basePath+"/_apis/ResourceAreas"), JSONResponse(collection[ResourceArea]{len(areas), areas}))
+}
+
+// StubIMS registers the discovery calls the identity client makes before its first request:
+// GET {org}/_apis/ResourceAreas, then OPTIONS on the vssps host. The org's own StubLocations
+// must include ResourceAreasLocation.
+func (r *Registry) StubIMS(org string) {
+	r.StubResourceAreas(org, ResourceArea{
+		ID: identity.ResourceAreaId.String(), Name: "IMS", LocationURL: "https://vssps.dev.azure.com/" + org + "/",
+	})
+	r.StubLocations(org, Location{
+		ID: "28010c54-d0c0-4c89-a5b0-1c9e188b9fb7", Area: "IMS", ResourceName: "Identities",
+		RouteTemplate: "_apis/{resource}/{identityId}",
+	})
 }

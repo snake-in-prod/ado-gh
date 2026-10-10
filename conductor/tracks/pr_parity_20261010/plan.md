@@ -6,29 +6,29 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ---
 
-## Phase 1: PR State Changes (close, reopen, ready)
+## Phase 1: PR State Changes (close, reopen, ready) [checkpoint: 3906359]
 
-- [ ] Task: Shared test helpers (`internal/git/gittest`, `pkg/httpmock`)
-    - [ ] Write tests: `gittest` stub runner maps joined args to stdout/error, fails unanswered `rev-parse`/`symbolic-ref`/`config --get` with exit 1, records calls, `Mutations()` filters repo-changing calls; `httpmock.StubIMS(org)` answers the identity lookups now copied in list_test.go/create_test.go
-    - [ ] Implement: hoist checkout's `coGit` into new `internal/git/gittest`, move the identity stub block into `pkg/httpmock` (`StubIMS(org)`), switch checkout/list/create tests to them
-    - [ ] Implement: add the missing location IDs to `httpmock.GitPRLocations` (refs, PR statuses, iterations, iteration changes, labels, PR work items, items, blobs, thread comments, PR commits, wit update)
-- [ ] Task: Shared PR status update helper (`pkg/cmd/pr/shared`)
-    - [ ] Write tests (httpmock): `PRClient.Ref` (GetRefs `heads/<b>`, exact match on `refs/heads/<b>`, nil when absent) and `DeleteRef` (UpdateRefs with current tip as `oldObjectId`, 40-zero `newObjectId`; `succeeded`/`succeededCorruptRef` → success, `succeededNonExistentRef` → already deleted; `writePermissionRequired`, `forcePushRequired`, `locked`, `rejectedByPolicy`, `rejectedByPlugin`, `staleOldObjectId`, `invalidRefName` → mapped errors; both an HTTP error and a 200 `success:false` response)
-    - [ ] Write tests: update status/isDraft via SDK `UpdatePullRequest`, optional pre-comment thread, client-side guards from fetched `pr.Status`/`pr.IsDraft` (completed → exit 1; already in target state → yellow `!` warning on stderr, exit 0; ready on non-active → exit 1)
-    - [ ] Implement `Ref`/`DeleteRef` in `api/pr.go`
-    - [ ] Implement helper in new `pkg/cmd/pr/shared/state.go` (guards, optional `CreateThread`, then `UpdatePullRequest`) reusing the MVP PR finder and API layer; move the copied `deref` from list/merge/view there
-- [ ] Task: `ado pr close`
-    - [ ] Write tests: abandons PR, `--comment` posts thread before abandon, TTY confirmation (accept / decline → exit 2), non-TTY without `--yes` refuses via `cmdutil.FlagErrorf("--yes required when not running interactively")` (usage printed, exit 1, like `pr merge`), `-y` skips prompt, already abandoned → warning exit 0, completed → exit 1
-    - [ ] Write tests: `-d` abandons first, then deletes the remote source branch (refs update to zero OID, tip from `Ref`, not `LastMergeSourceCommit`); deletes every local branch whose `branch.<name>.merge` is `refs/heads/<source>` (covers `pr checkout -b` and fork-prefixed names); switches to the default branch (from `c.Repository`) when one of them is checked out and reports a checkout failure (stubbed git runner); skips remote delete for fork PRs with a warning; remote delete failure after abandon (e.g. `writePermissionRequired`) → exit 1 naming the branch and the missing Force push permission, PR stays abandoned; remote branch already gone → reported, not an error
-    - [ ] Implement `pr close`: copy merge's `--yes`/`CanPrompt`/`Confirm`/`CancelError` pattern; local branch steps inline via `f.GitClient.Exec` (find branches by `branch.<name>.merge`, `checkout <default>`, `branch -D`), no new `internal/git` wrappers; register close/reopen/ready in pr.go
-- [ ] Task: `ado pr reopen`
-    - [ ] Write tests: abandoned → active, `--comment`, already active → warning exit 0, completed → exit 1, deleted source branch (empty GetRefs stub, fork repo when `forkSource` is set) → actionable error with push hint and no PATCH sent
-    - [ ] Implement `pr reopen`: `Ref` pre-check in the source (or fork) repo before PATCH `status=active`
-- [ ] Task: `ado pr ready`
-    - [ ] Write tests: draft → published, `--undo` → draft, `isDraft` sent in its own PATCH, already in target state → message exit 0, abandoned/completed → exit 1
-    - [ ] Write tests: `--undo` on a PR with votes confirms on TTY (accept / decline → exit 2), non-TTY without `--yes` refuses via `FlagErrorf`, `-y` skips the prompt; no votes → no prompt
-    - [ ] Implement `pr ready`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: PR State Changes (close, reopen, ready)' (Protocol in workflow.md)
+- [x] Task: Shared test helpers (`internal/git/gittest`, `pkg/httpmock`) `3906359`
+    - [x] Write tests: `gittest` stub runner maps joined args to stdout/error, fails unanswered `rev-parse`/`symbolic-ref`/`config --get` with exit 1, records calls, `Mutations()` filters repo-changing calls; `httpmock.StubIMS(org)` answers the identity lookups now copied in list_test.go/create_test.go
+    - [x] Implement: hoist checkout's `coGit` into new `internal/git/gittest`, move the identity stub block into `pkg/httpmock` (`StubIMS(org)`), switch checkout/list/create tests to them
+    - [x] Implement: add the missing location IDs to `httpmock.GitPRLocations` (refs, PR statuses, iterations, iteration changes, labels, PR work items, items, blobs, thread comments, PR commits, wit update)
+- [x] Task: Shared PR status update helper (`pkg/cmd/pr/shared`) `3906359`
+    - [x] Write tests (httpmock): `PRClient.Ref` (GetRefs `heads/<b>`, exact match on `refs/heads/<b>`, nil when absent) and `DeleteRef` (UpdateRefs with current tip as `oldObjectId`, 40-zero `newObjectId`; `succeeded`/`succeededCorruptRef` → success, `succeededNonExistentRef` → already deleted; `writePermissionRequired`, `forcePushRequired`, `locked`, `rejectedByPolicy`, `rejectedByPlugin`, `staleOldObjectId`, `invalidRefName` → mapped errors; both an HTTP error and a 200 `success:false` response)
+    - [x] Write tests: update status/isDraft via SDK `UpdatePullRequest`, optional pre-comment thread, client-side guards from fetched `pr.Status`/`pr.IsDraft` (completed → exit 1; already in target state → yellow `!` warning on stderr, exit 0; ready on non-active → exit 1)
+    - [x] Implement `Ref`/`DeleteRef` in `api/pr.go`
+    - [x] Implement helper in new `pkg/cmd/pr/shared/state.go` (guards, optional `CreateThread`, then `UpdatePullRequest`) reusing the MVP PR finder and API layer; move the copied `deref` from list/merge/view there
+- [x] Task: `ado pr close` `3906359`
+    - [x] Write tests: abandons PR, `--comment` posts thread before abandon, TTY confirmation (accept / decline → exit 2), non-TTY without `--yes` refuses via `cmdutil.FlagErrorf("--yes required when not running interactively")` (usage printed, exit 1, like `pr merge`), `-y` skips prompt, already abandoned → warning exit 0, completed → exit 1
+    - [x] Write tests: `-d` abandons first, then deletes the remote source branch (refs update to zero OID, tip from `Ref`, not `LastMergeSourceCommit`); deletes every local branch whose `branch.<name>.merge` is `refs/heads/<source>` (covers `pr checkout -b` and fork-prefixed names); switches to the default branch (from `c.Repository`) when one of them is checked out and reports a checkout failure (stubbed git runner); skips remote delete for fork PRs with a warning; remote delete failure after abandon (e.g. `writePermissionRequired`) → exit 1 naming the branch and the missing Force push permission, PR stays abandoned; remote branch already gone → reported, not an error
+    - [x] Implement `pr close`: copy merge's `--yes`/`CanPrompt`/`Confirm`/`CancelError` pattern; local branch steps inline via `f.GitClient.Exec` (find branches by `branch.<name>.merge`, `checkout <default>`, `branch -D`), no new `internal/git` wrappers; register close/reopen/ready in pr.go
+- [x] Task: `ado pr reopen` `3906359`
+    - [x] Write tests: abandoned → active, `--comment`, already active → warning exit 0, completed → exit 1, deleted source branch (empty GetRefs stub, fork repo when `forkSource` is set) → actionable error with push hint and no PATCH sent
+    - [x] Implement `pr reopen`: `Ref` pre-check in the source (or fork) repo before PATCH `status=active`
+- [x] Task: `ado pr ready` `3906359`
+    - [x] Write tests: draft → published, `--undo` → draft, `isDraft` sent in its own PATCH, already in target state → message exit 0, abandoned/completed → exit 1
+    - [x] Write tests: `--undo` on a PR with votes confirms on TTY (accept / decline → exit 2), non-TTY without `--yes` refuses via `FlagErrorf`, `-y` skips the prompt; no votes → no prompt
+    - [x] Implement `pr ready`
+- [x] Task: Conductor - User Manual Verification 'Phase 1: PR State Changes (close, reopen, ready)' (Protocol in workflow.md)
 
 ## Phase 2: `ado pr edit`
 

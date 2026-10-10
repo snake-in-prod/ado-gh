@@ -133,19 +133,19 @@ func printTable(f *cmdutil.Factory, repo adocontext.Repo, what string, prs []git
 	tp := tableprinter.New(ios, "id", "title", "branch", "created")
 	now := time.Now()
 	for _, pr := range prs {
-		state := deref(pr.Status)
+		state := shared.Deref(pr.Status)
 		if pr.IsDraft != nil && *pr.IsDraft {
 			state = "draft"
 		}
-		id := strconv.Itoa(deref(pr.PullRequestId))
+		id := strconv.Itoa(shared.Deref(pr.PullRequestId))
 		if tty {
 			id = "!" + id
 		}
 		tp.AddField(id, tableprinter.WithColor(map[git.PullRequestStatus]func(string) string{
 			"active": cs.Green, "draft": cs.Gray, "completed": cs.Magenta, "abandoned": cs.Red,
 		}[state]))
-		tp.AddField(deref(pr.Title))
-		tp.AddField(strings.TrimPrefix(deref(pr.SourceRefName), "refs/heads/"), tableprinter.WithColor(cs.Cyan))
+		tp.AddField(shared.Deref(pr.Title))
+		tp.AddField(strings.TrimPrefix(shared.Deref(pr.SourceRefName), "refs/heads/"), tableprinter.WithColor(cs.Cyan))
 		if !tty {
 			tp.AddField(string(state))
 		}
@@ -176,12 +176,4 @@ func resolveOne(ctx context.Context, r *api.IdentityResolver, v string) (*uuid.U
 		return nil, err
 	}
 	return &ids[0], nil
-}
-
-func deref[T any](p *T) T {
-	var zero T
-	if p == nil {
-		return zero
-	}
-	return *p
 }

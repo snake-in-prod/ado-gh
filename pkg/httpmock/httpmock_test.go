@@ -198,3 +198,60 @@ func TestStubResourceAreas(t *testing.T) {
 	}
 	reg.Verify(t)
 }
+
+func TestStubIMS(t *testing.T) {
+	c := &http.Client{}
+	reg := ReplaceTripper(c)
+	reg.StubIMS("org")
+
+	_, raw := do(t, c, "GET", "https://dev.azure.com/org/_apis/ResourceAreas")
+	var areas collection[ResourceArea]
+	if err := json.Unmarshal([]byte(raw), &areas); err != nil {
+		t.Fatal(err)
+	}
+	want := ResourceArea{ID: "8a3d49b8-91f0-46ef-b33d-dda338c25db3", Name: "IMS", LocationURL: "https://vssps.dev.azure.com/org/"}
+	if areas.Count != 1 || areas.Value[0] != want {
+		t.Errorf("areas = %+v", areas)
+	}
+
+	// The identity client's discovery call goes to the vssps host.
+	_, raw = do(t, c, http.MethodOptions, "https://vssps.dev.azure.com/org/_apis")
+	var locs collection[Location]
+	if err := json.Unmarshal([]byte(raw), &locs); err != nil {
+		t.Fatal(err)
+	}
+	wantLoc := Location{ID: "28010c54-d0c0-4c89-a5b0-1c9e188b9fb7", Area: "IMS", ResourceName: "Identities",
+		RouteTemplate: "_apis/{resource}/{identityId}"}
+	if locs.Count != 1 || locs.Value[0] != wantLoc {
+		t.Errorf("locations = %+v", locs)
+	}
+	reg.Verify(t)
+}
+
+func TestGitPRLocations(t *testing.T) {
+	seen := map[string]bool{}
+	for _, l := range GitPRLocations {
+		if seen[l.ID] {
+			t.Errorf("duplicate location %s", l.ID)
+		}
+		seen[l.ID] = true
+	}
+	for _, id := range []string{
+		"9946fd70-0d40-406e-b686-b4744cbbcc37", // pull requests
+		"2d874a60-a811-4f62-9c9f-963a6ea0a55b", // refs
+		"b5f6bb4f-8d1e-4d79-8d11-4c9172c99c35", // pull request statuses
+		"d43911ee-6958-46b0-a42b-8445b8a0d004", // iterations
+		"4216bdcf-b6b1-4d59-8b82-c34cc183fc8b", // iteration changes
+		"f22387e3-984e-4c52-9c6d-fbb8f14c812d", // labels
+		"0a637fcc-5370-4ce8-b0e8-98091f5f9482", // pull request work items
+		"fb93c0db-47ed-4a31-8c20-47552878fb44", // items
+		"7b28e929-2c99-405d-9c5c-6167a06e6816", // blobs
+		"965a3ec7-5ed8-455a-bdcb-835a5ea7fe7b", // thread comments
+		"52823034-34a8-4576-922c-8d8b77e9e4c4", // pull request commits
+		"72c7ddf8-2cdc-4f60-90cd-ab71c14a399b", // work items (wit update)
+	} {
+		if !seen[id] {
+			t.Errorf("missing location %s", id)
+		}
+	}
+}

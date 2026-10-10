@@ -2,7 +2,6 @@ package create
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,10 +11,10 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/identity"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
+	"github.com/snake-in-prod/ado-gh/internal/git/gittest"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -44,9 +43,7 @@ type createEnv struct {
 	out     *bytes.Buffer
 	errOut  *bytes.Buffer
 	browser *createBrowser
-	// git maps "arg arg ..." to stdout; a missing key fails the git call with exit 1.
-	git     map[string]string
-	gitRuns []string
+	git     *gittest.Runner
 	// bodies holds the JSON bodies of POST/PATCH pull request requests in order.
 	bodies []map[string]any
 }
@@ -63,13 +60,13 @@ func newCreateEnv(t *testing.T, tty bool) *createEnv {
 	ios.SetStdoutTTY(tty)
 	org := "prcreate-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
 	e := &createEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, browser: &createBrowser{}}
-	e.git = map[string]string{
+	e.git = &gittest.Runner{Replies: map[string]string{
 		"symbolic-ref --quiet HEAD": "refs/heads/feature/x\n",
 		"remote -v": "upstream\thttps://dev.azure.com/other/P/_git/r (fetch)\n" +
 			"origin\thttps://dev.azure.com/" + org + "/My%20Proj/_git/web (fetch)\n" +
 			"origin\thttps://dev.azure.com/" + org + "/My%20Proj/_git/web (push)\n",
 		"rev-parse --verify --quiet refs/remotes/origin/feature/x": "abc\n",
-	}
+	}}
 	return e
 }
 
@@ -85,16 +82,9 @@ func (e *createEnv) run(t *testing.T, args ...string) error {
 		BaseRepo: func() (adocontext.Repo, error) {
 			return adocontext.Repo{Host: "dev.azure.com", Org: e.org, Project: "My Proj", Name: "web"}, nil
 		},
-		Browser:  e.browser,
-		Prompter: &cmdutil.Prompter{IO: e.ios, Accessible: true},
-		GitClient: &gitcmd.Client{Run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
-			key := strings.Join(args, " ")
-			e.gitRuns = append(e.gitRuns, key)
-			if out, ok := e.git[key]; ok {
-				return []byte(out), nil
-			}
-			return nil, &gitcmd.Error{Args: args, ExitCode: 1}
-		}},
+		Browser:   e.browser,
+		Prompter:  &cmdutil.Prompter{IO: e.ios, Accessible: true},
+		GitClient: &gitcmd.Client{Run: e.git.Run},
 	}
 	cmd := NewCmdCreate(f)
 	cmd.SetArgs(args)
@@ -107,13 +97,7 @@ func (e *createEnv) run(t *testing.T, args ...string) error {
 func (e *createEnv) stubLocations(withIMS bool) {
 	e.reg.StubLocations(e.org, append([]httpmock.Location{httpmock.ResourceAreasLocation}, httpmock.GitPRLocations...)...)
 	if withIMS {
-		e.reg.StubResourceAreas(e.org, httpmock.ResourceArea{
-			ID: identity.ResourceAreaId.String(), Name: "IMS", LocationURL: "https://vssps.dev.azure.com/" + e.org + "/",
-		})
-		e.reg.StubLocations(e.org, httpmock.Location{
-			ID: "28010c54-d0c0-4c89-a5b0-1c9e188b9fb7", Area: "IMS", ResourceName: "Identities",
-			RouteTemplate: "_apis/{resource}/{identityId}",
-		})
+		e.reg.StubIMS(e.org)
 	}
 }
 
@@ -157,7 +141,7 @@ func TestCreateFlagsOnly(t *testing.T) {
 	assert.NotContains(t, b, "reviewers")
 	assert.Equal(t, "https://dev.azure.com/"+e.org+"/My%20Proj/_git/web/pullrequest/7\n", e.out.String())
 	assert.Empty(t, e.errOut.String())
-	assert.NotContains(t, strings.Join(e.gitRuns, "\n"), "push")
+	assert.NotContains(t, strings.Join(e.git.Calls, "\n"), "push")
 }
 
 func TestCreateDefaultBaseAndDraft(t *testing.T) {
@@ -173,7 +157,7 @@ func TestCreateDefaultBaseAndDraft(t *testing.T) {
 	assert.Equal(t, "refs/heads/topic", b["sourceRefName"])
 	assert.Equal(t, true, b["isDraft"])
 	assert.Contains(t, e.errOut.String(), "Creating draft pull request for topic into trunk in My Proj/web")
-	assert.NotContains(t, e.gitRuns, "symbolic-ref --quiet HEAD", "-H skips the current branch")
+	assert.NotContains(t, e.git.Calls, "symbolic-ref --quiet HEAD", "-H skips the current branch")
 }
 
 func TestCreateFill(t *testing.T) {
@@ -189,7 +173,7 @@ func TestCreateFill(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newCreateEnv(t, false)
-			e.git["-c log.showSignature=false log --format=%x1e%s%x1f%b refs/remotes/origin/main..feature/x"] = tt.log
+			e.git.Replies["-c log.showSignature=false log --format=%x1e%s%x1f%b refs/remotes/origin/main..feature/x"] = tt.log
 			e.stubLocations(false)
 			e.stubRepo("refs/heads/main")
 			e.stubCreate(t)
@@ -274,8 +258,8 @@ func TestCreatePushesUnpushedBranch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newCreateEnv(t, tt.tty)
-			delete(e.git, "rev-parse --verify --quiet refs/remotes/origin/feature/x")
-			e.git[push] = ""
+			delete(e.git.Replies, "rev-parse --verify --quiet refs/remotes/origin/feature/x")
+			e.git.Replies[push] = ""
 			e.in.WriteString(tt.input)
 			e.stubLocations(false)
 			if tt.wantErr == nil {
@@ -285,12 +269,12 @@ func TestCreatePushesUnpushedBranch(t *testing.T) {
 			err := e.run(t, "-t", "T", "-b", "B", "-B", "main")
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-				assert.NotContains(t, e.gitRuns, push)
+				assert.NotContains(t, e.git.Calls, push)
 				return
 			}
 			require.NoError(t, err)
 			e.reg.Verify(t)
-			assert.Contains(t, e.gitRuns, push)
+			assert.Contains(t, e.git.Calls, push)
 			if tt.tty {
 				assert.Contains(t, e.out.String(), "Push branch feature/x to origin?")
 			}
@@ -325,7 +309,7 @@ func TestCreateNonTTYMissingTitle(t *testing.T) {
 	var flagErr *cmdutil.FlagError
 	require.ErrorAs(t, err, &flagErr)
 	assert.Contains(t, err.Error(), "--title")
-	assert.Empty(t, e.gitRuns, "fails before touching git")
+	assert.Empty(t, e.git.Calls, "fails before touching git")
 }
 
 func TestCreateWeb(t *testing.T) {
@@ -351,7 +335,7 @@ func TestCreateFlagErrors(t *testing.T) {
 
 func TestCreateDetachedHead(t *testing.T) {
 	e := newCreateEnv(t, false)
-	delete(e.git, "symbolic-ref --quiet HEAD")
+	delete(e.git.Replies, "symbolic-ref --quiet HEAD")
 	require.ErrorContains(t, e.run(t, "-t", "T", "-B", "main"), "--head")
 }
 
@@ -379,11 +363,11 @@ func TestCreateNoDefaultBranch(t *testing.T) {
 
 func TestCreateUnknownRemoteFallsBackToOrigin(t *testing.T) {
 	e := newCreateEnv(t, false)
-	e.git["remote -v"] = "fork\thttps://dev.azure.com/other/P/_git/r (fetch)\n"
+	e.git.Replies["remote -v"] = "fork\thttps://dev.azure.com/other/P/_git/r (fetch)\n"
 	e.stubLocations(false)
 	e.stubCreate(t)
 	require.NoError(t, e.run(t, "-t", "T", "-B", "main"))
-	assert.Contains(t, e.gitRuns, "rev-parse --verify --quiet refs/remotes/origin/feature/x")
+	assert.Contains(t, e.git.Calls, "rev-parse --verify --quiet refs/remotes/origin/feature/x")
 }
 
 func TestCreateBodyFileMissing(t *testing.T) {

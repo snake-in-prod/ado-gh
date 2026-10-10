@@ -132,7 +132,7 @@ func policies(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) ([]p
 		if cfg := e.Configuration; cfg != nil {
 			p.IsBlocking = cfg.IsBlocking != nil && *cfg.IsBlocking
 			if cfg.Type != nil {
-				p.Name = deref(cfg.Type.DisplayName)
+				p.Name = shared.Deref(cfg.Type.DisplayName)
 			}
 		}
 		out = append(out, p)
@@ -149,11 +149,11 @@ func threads(ctx context.Context, c *api.PRClient, id int) ([]git.GitPullRequest
 	}
 	out := []git.GitPullRequestCommentThread{}
 	for _, t := range all {
-		if deref(t.IsDeleted) || t.Comments == nil {
+		if shared.Deref(t.IsDeleted) || t.Comments == nil {
 			continue
 		}
 		comments := slices.DeleteFunc(*t.Comments, func(c git.Comment) bool {
-			return deref(c.IsDeleted) || c.CommentType != nil && *c.CommentType == git.CommentTypeValues.System
+			return shared.Deref(c.IsDeleted) || c.CommentType != nil && *c.CommentType == git.CommentTypeValues.System
 		})
 		if len(comments) > 0 {
 			t.Comments = &comments
@@ -168,14 +168,14 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
 	w := ios.Out
 	state, color := "Active", cs.Green
 	switch {
-	case deref(d.IsDraft) && deref(d.Status) == git.PullRequestStatusValues.Active:
+	case shared.Deref(d.IsDraft) && shared.Deref(d.Status) == git.PullRequestStatusValues.Active:
 		state, color = "Draft", cs.Gray
-	case deref(d.Status) == git.PullRequestStatusValues.Completed:
+	case shared.Deref(d.Status) == git.PullRequestStatusValues.Completed:
 		state, color = "Completed", cs.Magenta
-	case deref(d.Status) == git.PullRequestStatusValues.Abandoned:
+	case shared.Deref(d.Status) == git.PullRequestStatusValues.Abandoned:
 		state, color = "Abandoned", cs.Red
 	}
-	fmt.Fprintf(w, "%s %s\n", cs.Bold(deref(d.Title)), cs.Gray(fmt.Sprintf("!%d", deref(d.ID))))
+	fmt.Fprintf(w, "%s %s\n", cs.Bold(shared.Deref(d.Title)), cs.Gray(fmt.Sprintf("!%d", shared.Deref(d.ID))))
 	fmt.Fprintf(w, "%s • %s wants to merge into %s from %s • %s\n", color(state), author(d),
 		cs.Cyan(branch(d.TargetRefName)), cs.Cyan(branch(d.SourceRefName)), ago(d.CreatedDate))
 	if r := reviewers(d.Reviewers); r != "" {
@@ -185,7 +185,7 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
 		fmt.Fprintf(w, "%s %s\n", cs.Bold("Policies:"), p)
 	}
 
-	desc := strings.TrimSpace(deref(d.Description))
+	desc := strings.TrimSpace(shared.Deref(d.Description))
 	if desc == "" {
 		desc = cs.Gray("No description provided")
 	}
@@ -198,14 +198,14 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
 			fmt.Fprintf(w, "%s\n\n", cs.Bold(fmt.Sprintf("Comments (%d threads)", len(d.Comments))))
 		}
 		for _, t := range d.Comments {
-			head := []string{string(deref(t.Status))}
+			head := []string{string(shared.Deref(t.Status))}
 			if file := filePath(t); file != "" {
 				head = append(head, file)
 			}
 			fmt.Fprintln(w, strings.Join(head, " • "))
 			for _, c := range *t.Comments {
 				fmt.Fprintf(w, "  %s • %s\n", cs.Bold(commentAuthor(c)), ago(c.PublishedDate))
-				fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(deref(c.Content), "\n", "\n  "))
+				fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(shared.Deref(c.Content), "\n", "\n  "))
 			}
 			fmt.Fprintln(w)
 		}
@@ -214,24 +214,24 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
 }
 
 func printRaw(w io.Writer, d viewJSON) {
-	fmt.Fprintf(w, "title:\t%s\n", deref(d.Title))
-	fmt.Fprintf(w, "state:\t%s\n", deref(d.Status))
-	fmt.Fprintf(w, "draft:\t%t\n", deref(d.IsDraft))
+	fmt.Fprintf(w, "title:\t%s\n", shared.Deref(d.Title))
+	fmt.Fprintf(w, "state:\t%s\n", shared.Deref(d.Status))
+	fmt.Fprintf(w, "draft:\t%t\n", shared.Deref(d.IsDraft))
 	fmt.Fprintf(w, "author:\t%s\n", author(d))
 	fmt.Fprintf(w, "reviewers:\t%s\n", reviewers(d.Reviewers))
 	fmt.Fprintf(w, "policies:\t%s\n", policySummary(d.Policies))
-	fmt.Fprintf(w, "id:\t%d\n", deref(d.ID))
+	fmt.Fprintf(w, "id:\t%d\n", shared.Deref(d.ID))
 	fmt.Fprintf(w, "url:\t%s\n", d.URL)
 	fmt.Fprintf(w, "source:\t%s\n", branch(d.SourceRefName))
 	fmt.Fprintf(w, "target:\t%s\n", branch(d.TargetRefName))
-	fmt.Fprintf(w, "--\n%s\n", deref(d.Description))
+	fmt.Fprintf(w, "--\n%s\n", shared.Deref(d.Description))
 }
 
 func printRawComments(w io.Writer, threads []git.GitPullRequestCommentThread) {
 	for _, t := range threads {
 		for _, c := range *t.Comments {
 			fmt.Fprintf(w, "author:\t%s\nthread:\t%d\nstatus:\t%s\nfile:\t%s\n--\n%s\n--\n",
-				commentAuthor(c), deref(t.Id), deref(t.Status), filePath(t), deref(c.Content))
+				commentAuthor(c), shared.Deref(t.Id), shared.Deref(t.Status), filePath(t), shared.Deref(c.Content))
 		}
 	}
 }
@@ -242,22 +242,22 @@ func reviewers(rs []git.IdentityRefWithVote) string {
 	parts := make([]string, 0, len(rs))
 	for _, r := range rs {
 		var notes []string
-		if deref(r.IsContainer) {
+		if shared.Deref(r.IsContainer) {
 			notes = append(notes, "team")
 		} else {
-			notes = append(notes, voteLabels[deref(r.Vote)])
+			notes = append(notes, voteLabels[shared.Deref(r.Vote)])
 		}
-		if deref(r.IsRequired) {
+		if shared.Deref(r.IsRequired) {
 			notes = append(notes, "required")
 		}
 		if r.VotedFor != nil && len(*r.VotedFor) > 0 {
 			teams := make([]string, len(*r.VotedFor))
 			for i, t := range *r.VotedFor {
-				teams[i] = deref(t.DisplayName)
+				teams[i] = shared.Deref(t.DisplayName)
 			}
 			notes = append(notes, "for "+strings.Join(teams, ", "))
 		}
-		parts = append(parts, fmt.Sprintf("%s (%s)", deref(r.DisplayName), strings.Join(notes, ", ")))
+		parts = append(parts, fmt.Sprintf("%s (%s)", shared.Deref(r.DisplayName), strings.Join(notes, ", ")))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -265,7 +265,7 @@ func reviewers(rs []git.IdentityRefWithVote) string {
 func policySummary(ps []policyJSON) string {
 	counts := map[policy.PolicyEvaluationStatus]int{}
 	for _, p := range ps {
-		counts[deref(p.Status)]++
+		counts[shared.Deref(p.Status)]++
 	}
 	var parts []string
 	for _, s := range policyOrder {
@@ -280,25 +280,25 @@ func author(d viewJSON) string {
 	if d.Author == nil {
 		return ""
 	}
-	return deref(d.Author.DisplayName)
+	return shared.Deref(d.Author.DisplayName)
 }
 
 func commentAuthor(c git.Comment) string {
 	if c.Author == nil {
 		return ""
 	}
-	return deref(c.Author.DisplayName)
+	return shared.Deref(c.Author.DisplayName)
 }
 
 func filePath(t git.GitPullRequestCommentThread) string {
 	if t.ThreadContext == nil {
 		return ""
 	}
-	return deref(t.ThreadContext.FilePath)
+	return shared.Deref(t.ThreadContext.FilePath)
 }
 
 func branch(ref *string) string {
-	return strings.TrimPrefix(deref(ref), "refs/heads/")
+	return strings.TrimPrefix(shared.Deref(ref), "refs/heads/")
 }
 
 func ago(t *azuredevops.Time) string {
@@ -306,12 +306,4 @@ func ago(t *azuredevops.Time) string {
 		return ""
 	}
 	return text.RelativeTimeAgo(time.Now(), t.Time)
-}
-
-func deref[T any](p *T) T {
-	var zero T
-	if p == nil {
-		return zero
-	}
-	return *p
 }

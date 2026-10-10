@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
@@ -166,4 +167,77 @@ func (c *PRClient) Repository(ctx context.Context) (*git.GitRepository, error) {
 func (c *PRClient) RepositoryByID(ctx context.Context, id string) (*git.GitRepository, error) {
 	out, err := c.Git.GetRepository(ctx, git.GetRepositoryArgs{RepositoryId: &id})
 	return out, mapErr(err)
+}
+
+// ErrRefNotFound is returned by DeleteRef when the branch no longer exists.
+var ErrRefNotFound = errors.New("branch not found")
+
+// zeroObjectID is the nil commit a ref is updated to when it is deleted.
+const zeroObjectID = "0000000000000000000000000000000000000000"
+
+// refUpdateErrors are the messages of the failed ref update statuses DeleteRef maps.
+var refUpdateErrors = map[git.GitRefUpdateStatus]string{
+	git.GitRefUpdateStatusValues.WritePermissionRequired: "you need the Force push permission on it",
+	git.GitRefUpdateStatusValues.ForcePushRequired:       "you need the Force push permission on it",
+	git.GitRefUpdateStatusValues.Locked:                  "it is locked",
+	git.GitRefUpdateStatusValues.RejectedByPolicy:        "rejected by a branch policy",
+	git.GitRefUpdateStatusValues.StaleOldObjectId:        "it was updated since it was read; retry",
+	git.GitRefUpdateStatusValues.InvalidRefName:          "invalid branch name",
+}
+
+// Ref returns branch (with or without "refs/heads/") in the client's repository, or nil when
+// it doesn't exist.
+func (c *PRClient) Ref(ctx context.Context, branch string) (*git.GitRef, error) {
+	name := "refs/heads/" + strings.TrimPrefix(branch, "refs/heads/")
+	// The filter is a starts-with match on the name without "refs/"; refs come back sorted, so
+	// the exact name, the shortest match, is on the first page.
+	filter := strings.TrimPrefix(name, "refs/")
+	out, err := c.Git.GetRefs(ctx, git.GetRefsArgs{RepositoryId: &c.Repo, Project: &c.Project, Filter: &filter})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	for i := range out.Value {
+		if r := &out.Value[i]; r.Name != nil && *r.Name == name {
+			return r, nil
+		}
+	}
+	return nil, nil
+}
+
+// DeleteRef deletes branch (with or without "refs/heads/") if it still points at oldObjectID.
+// It returns ErrRefNotFound when the branch is already gone.
+func (c *PRClient) DeleteRef(ctx context.Context, branch, oldObjectID string) error {
+	branch = strings.TrimPrefix(branch, "refs/heads/")
+	name, zero := "refs/heads/"+branch, zeroObjectID
+	out, err := c.Git.UpdateRefs(ctx, git.UpdateRefsArgs{
+		RefUpdates:   &[]git.GitRefUpdate{{Name: &name, OldObjectId: &oldObjectID, NewObjectId: &zero}},
+		RepositoryId: &c.Repo, Project: &c.Project,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot delete branch %s: %w", branch, mapErr(err))
+	}
+	if len(*out) == 0 {
+		return fmt.Errorf("cannot delete branch %s: empty response", branch)
+	}
+	res := (*out)[0]
+	var status git.GitRefUpdateStatus
+	if res.UpdateStatus != nil {
+		status = *res.UpdateStatus
+	}
+	switch {
+	case status == git.GitRefUpdateStatusValues.SucceededNonExistentRef:
+		return ErrRefNotFound
+	case res.Success != nil && *res.Success:
+		return nil
+	case refUpdateErrors[status] != "":
+		return fmt.Errorf("cannot delete branch %s: %s", branch, refUpdateErrors[status])
+	}
+	msg := string(status)
+	if status == git.GitRefUpdateStatusValues.RejectedByPlugin {
+		msg = "rejected by plugin"
+	}
+	if res.CustomMessage != nil && *res.CustomMessage != "" {
+		msg += ": " + *res.CustomMessage
+	}
+	return fmt.Errorf("cannot delete branch %s: %s", branch, msg)
 }

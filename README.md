@@ -76,6 +76,17 @@ system credential store; without a credential store the cache is a plain-text
    `ADO_ENTRA_CLIENT_ID` / `entra_client_id`, or set it as `defaultEntraClientID`
    in `internal/auth/entra_client_id.go` and document it here.
 
+## REST API
+
+```sh
+ado api _apis/projects --jq '.value[].name'
+ado api '{project}/_apis/git/repositories/{repo}/pullrequests?$top=100' --paginate
+```
+
+Paths are relative to the organization URL; `{org}`, `{project}` and `{repo}` come
+from the current repository. `--paginate` follows continuation tokens (and `$skip`
+when you pass `$top`) and merges `value` arrays into one result. See `ado api --help`.
+
 ## Development
 
 ```sh

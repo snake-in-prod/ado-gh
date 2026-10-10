@@ -96,20 +96,20 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Authentication' (Protocol in workflow.md)
     - [x] Manual huh v2 prompt check in Windows cmd.exe and PowerShell (carried over from Phase 1)
 
-## Phase 4: Output & `ado api`
+## Phase 4: Output & `ado api` [checkpoint: c6298f4]
 
-- [ ] Task: JSON/jq/template exporter (`pkg/cmdutil/json_flags`)
-    - [ ] Write tests: `--json f1,f2` field filtering, `--json` with no fields lists fields and exits 1, coloured indented `--json` on TTY, `--jq` via go-gh `pkg/jq`, `--template` via go-gh `pkg/template`, mutually exclusive flags
-    - [ ] Implement `AddJSONFlags` + `Exporter`; coloured `--json` via `jq.EvaluateFormatted(r, w, ".", "  ", color)` (no jsoncolor port)
-- [ ] Task: Table printer helpers
-    - [ ] Write tests: TTY aligned colored table with relative time, non-TTY TSV with RFC3339
-    - [ ] Implement wrapper over go-gh `pkg/tableprinter`
-- [ ] Task: `ado api` command
-    - [ ] Write tests: placeholder substitution, default `api-version`, `-X`, `-H`, `-f`/`-F` typed fields → JSON body, `--input`, `-i`, `--jq`, non-2xx → stderr + exit 1
-    - [ ] Write tests (`--paginate`): GET only; `X-MS-ContinuationToken` header → `continuationToken` query param keeping `api-version` and other params; body `continuationToken` followed only when `isLastBatch != true` and `hasMore != false`; stop on no token or a repeated token; when the user passes `$top`, step `$skip` until an empty page; merge `value` arrays into one envelope with recomputed `count`, sequential pages when any page lacks `value`; `-i` prints headers per page; `--jq`/`--template` applied once to the merged result
-    - [ ] Implement `ado api`, reusing `azuredevops.HeaderKeyContinuationToken`
-    - [ ] Live check that PR list sends no continuation header
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Output & ado api' (Protocol in workflow.md)
+- [x] Task: JSON/jq/template exporter (`pkg/cmdutil/json_flags`) `c6298f4`
+    - [x] Write tests: `--json f1,f2` field filtering, `--json` with no fields lists fields and exits 1, coloured indented `--json` on TTY, `--jq` via go-gh `pkg/jq`, `--template` via go-gh `pkg/template`, mutually exclusive flags
+    - [x] Implement `AddJSONFlags` + `Exporter`; coloured `--json` via `jq.EvaluateFormatted(r, w, ".", "  ", color)` (no jsoncolor port)
+- [x] Task: Table printer helpers `c6298f4`
+    - [x] Write tests: TTY aligned colored table with relative time, non-TTY TSV with RFC3339
+    - [x] Implement wrapper over go-gh `pkg/tableprinter`
+- [x] Task: `ado api` command `c6298f4`
+    - [x] Write tests: placeholder substitution, default `api-version`, `-X`, `-H`, `-f`/`-F` typed fields → JSON body, `--input`, `-i`, `--jq`, non-2xx → stderr + exit 1
+    - [x] Write tests (`--paginate`): GET only; `X-MS-ContinuationToken` header → `continuationToken` query param keeping `api-version` and other params; body `continuationToken` followed only when `isLastBatch != true` and `hasMore != false`; stop on no token or a repeated token; when the user passes `$top`, step `$skip` until an empty page; merge `value` arrays into one envelope with recomputed `count`, sequential pages when any page lacks `value`; `-i` prints headers per page; `--jq`/`--template` applied once to the merged result
+    - [x] Implement `ado api`, reusing `azuredevops.HeaderKeyContinuationToken`
+    - [x] Live check that PR list sends no continuation header
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Output & ado api' (Protocol in workflow.md)
 
 ## Phase 5: Pull Request Commands
 

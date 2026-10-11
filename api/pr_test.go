@@ -233,7 +233,7 @@ func TestPRMutations(t *testing.T) {
 	assert.Len(t, added, 2)
 	assert.Equal(t, []map[string]any{{"id": "a"}, {"id": "b"}}, reviewers)
 
-	_, err = c.CreateThread(ctx, 9, "LGTM")
+	_, err = c.CreateThread(ctx, 9, "LGTM", nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{
 		"comments": []any{map[string]any{"content": "LGTM", "commentType": "text"}},
@@ -243,6 +243,62 @@ func TestPRMutations(t *testing.T) {
 	threads, err := c.Threads(ctx, 9)
 	require.NoError(t, err)
 	assert.Len(t, threads, 2)
+}
+
+func TestPRThreadsAndComments(t *testing.T) {
+	org := "commentsorg"
+	c, reg := newTestPRClient(t, org)
+	bodies := map[string]map[string]any{}
+	capture := func(key string, resp any) httpmock.Responder {
+		return func(r *http.Request) (*http.Response, error) {
+			var body map[string]any
+			b, _ := io.ReadAll(r.Body)
+			require.NoError(t, json.Unmarshal(b, &body))
+			bodies[key] = body
+			return httpmock.JSONResponse(resp)(r)
+		}
+	}
+	reg.Register(httpmock.REST(http.MethodPost, org+prBase+"/9/threads"), capture("thread", map[string]any{"id": 4}))
+	reg.Register(httpmock.REST(http.MethodGet, org+prBase+"/9/threads/4"), httpmock.JSONResponse(map[string]any{"id": 4, "status": "active"}))
+	reg.Register(httpmock.REST(http.MethodPatch, org+prBase+"/9/threads/4"), capture("status", map[string]any{"id": 4, "status": "fixed"}))
+	reg.Register(httpmock.REST(http.MethodPost, org+prBase+"/9/threads/4/comments"), capture("reply", map[string]any{"id": 2}))
+	reg.Register(httpmock.REST(http.MethodPost, org+prBase+"/9/threads/4/comments"), capture("root", map[string]any{"id": 3}))
+	reg.Register(httpmock.REST(http.MethodPatch, org+prBase+"/9/threads/4/comments/2"), capture("edit", map[string]any{"id": 2}))
+	reg.Register(httpmock.REST(http.MethodDelete, org+prBase+"/9/threads/4/comments/2"), httpmock.StringResponse(""))
+	reg.Register(httpmock.REST(http.MethodDelete, org+prBase+"/9/threads/4/comments/3"),
+		httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "gone"}))
+	ctx := context.Background()
+
+	path := "/a.go"
+	thread, err := c.CreateThread(ctx, 9, "nit", &git.CommentThreadContext{FilePath: &path}, &git.GitPullRequestCommentThreadContext{})
+	require.NoError(t, err)
+	assert.Equal(t, 4, *thread.Id)
+	assert.Equal(t, map[string]any{"filePath": "/a.go"}, bodies["thread"]["threadContext"])
+	assert.Equal(t, map[string]any{}, bodies["thread"]["pullRequestThreadContext"])
+
+	thread, err = c.Thread(ctx, 9, 4)
+	require.NoError(t, err)
+	assert.Equal(t, 4, *thread.Id)
+
+	thread, err = c.UpdateThread(ctx, 9, 4, git.CommentThreadStatusValues.Fixed)
+	require.NoError(t, err)
+	assert.Equal(t, git.CommentThreadStatusValues.Fixed, *thread.Status)
+	assert.Equal(t, map[string]any{"status": "fixed"}, bodies["status"], "only the status is sent")
+
+	comment, err := c.CreateComment(ctx, 9, 4, 1, "reply")
+	require.NoError(t, err)
+	assert.Equal(t, 2, *comment.Id)
+	assert.Equal(t, map[string]any{"content": "reply", "commentType": "text", "parentCommentId": float64(1)}, bodies["reply"])
+	_, err = c.CreateComment(ctx, 9, 4, 0, "root")
+	require.NoError(t, err)
+	assert.NotContains(t, bodies["root"], "parentCommentId")
+
+	_, err = c.UpdateComment(ctx, 9, 4, 2, "edited")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"content": "edited"}, bodies["edit"])
+
+	require.NoError(t, c.DeleteComment(ctx, 9, 4, 2))
+	assert.True(t, IsNotFound(c.DeleteComment(ctx, 9, 4, 3)))
 }
 
 func TestPRWorkItems(t *testing.T) {

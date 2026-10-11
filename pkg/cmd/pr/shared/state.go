@@ -33,7 +33,7 @@ func SetState(ctx context.Context, ios *iostreams.IOStreams, c *api.PRClient, pr
 		return false, nil
 	}
 	if comment != "" {
-		if _, err := c.CreateThread(ctx, id, comment); err != nil {
+		if _, err := c.CreateThread(ctx, id, comment, nil, nil); err != nil {
 			return false, err
 		}
 	}

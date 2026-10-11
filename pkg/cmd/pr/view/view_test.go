@@ -94,18 +94,33 @@ func (e *viewEnv) stubPolicies() {
 
 func (e *viewEnv) stubThreads() {
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/web/pullRequests/12/threads"),
-		httpmock.JSONResponse(map[string]any{"count": 4, "value": []map[string]any{
-			{"id": 1, "status": "active", "threadContext": map[string]any{"filePath": "/src/app.go"}, "comments": []map[string]any{
-				comment("Bob", "Looks good", "text", false),
-				comment("Ann Lee", "Thanks", "text", false),
+		httpmock.JSONResponse(map[string]any{"count": 6, "value": []map[string]any{
+			{"id": 1, "status": "active", "threadContext": map[string]any{
+				"filePath":       "/src/app.go",
+				"rightFileStart": map[string]any{"line": 10, "offset": 1},
+				"rightFileEnd":   map[string]any{"line": 12, "offset": 1},
+			}, "comments": []map[string]any{
+				withID(comment("Bob", "Looks good", "text", false), 1, 0),
+				withID(comment("Ann Lee", "Thanks\nwill do", "text", false), 2, 1),
 			}},
 			{"id": 2, "comments": []map[string]any{comment("Microsoft.VisualStudio.Services.TFS", "Bob voted 10", "system", false)}},
 			{"id": 3, "status": "active", "isDeleted": true, "comments": []map[string]any{comment("Eve", "gone", "text", false)}},
 			{"id": 4, "status": "fixed", "comments": []map[string]any{
-				comment("Carol", "Please rename", "text", false),
-				comment("Carol", "deleted reply", "text", true),
+				withID(comment("Carol", "Please rename", "text", false), 1, 0),
+				withID(comment("Carol", "deleted reply", "text", true), 2, 1),
 			}},
+			{"id": 5, "properties": map[string]any{"CodeReviewThreadType": map[string]any{"$type": "System.String", "$value": "VoteUpdate"}},
+				"comments": []map[string]any{comment("Bob", "Bob voted", "text", false)}},
+			{"id": 6, "status": "active", "threadContext": map[string]any{
+				"filePath": "/old.go", "leftFileStart": map[string]any{"line": 7, "offset": 1},
+			}, "comments": []map[string]any{withID(comment("Dan", "Why removed?", "text", false), 1, 0)}},
 		}}))
+}
+
+// withID sets a fixture comment's id and parentCommentId (0 = root comment).
+func withID(c map[string]any, id, parent int) map[string]any {
+	c["id"], c["parentCommentId"] = id, parent
+	return c
 }
 
 func (e *viewEnv) requested(path string) bool {
@@ -117,7 +132,12 @@ func (e *viewEnv) requested(path string) bool {
 	return false
 }
 
-var viewCreated = time.Now().Add(-3 * time.Hour).UTC().Truncate(time.Second)
+var (
+	viewCreated   = time.Now().Add(-3 * time.Hour).UTC().Truncate(time.Second)
+	viewPublished = time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)
+)
+
+const viewAuthorID = "6f2b7c3e-0d4e-4c55-9a43-0e1f6a1b2c3d"
 
 func evaluation(name, status string, blocking bool) map[string]any {
 	return map[string]any{"status": status, "configuration": map[string]any{
@@ -127,8 +147,8 @@ func evaluation(name, status string, blocking bool) map[string]any {
 
 func comment(author, content, kind string, deleted bool) map[string]any {
 	return map[string]any{
-		"author": map[string]any{"displayName": author}, "content": content, "commentType": kind, "isDeleted": deleted,
-		"publishedDate": time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339),
+		"author": map[string]any{"displayName": author, "id": viewAuthorID}, "content": content, "commentType": kind, "isDeleted": deleted,
+		"publishedDate": viewPublished.Format(time.RFC3339),
 	}
 }
 
@@ -230,17 +250,22 @@ func TestViewCommentsTTY(t *testing.T) {
 	assert.Contains(t, e.out.String(), ""+
 		"Adds the feature.\n"+
 		"\n"+
-		"Comments (2 threads)\n"+
+		"Comments (3 threads)\n"+
 		"\n"+
-		"active • /src/app.go\n"+
+		"#1 active • /src/app.go:10-12\n"+
 		"  Bob • about 2 hours ago\n"+
 		"  Looks good\n"+
-		"  Ann Lee • about 2 hours ago\n"+
-		"  Thanks\n"+
+		"    ↳ Ann Lee • about 2 hours ago\n"+
+		"      Thanks\n"+
+		"      will do\n"+
 		"\n"+
-		"fixed\n"+
+		"#4 fixed\n"+
 		"  Carol • about 2 hours ago\n"+
 		"  Please rename\n"+
+		"\n"+
+		"#6 active • /old.go:7\n"+
+		"  Dan • about 2 hours ago\n"+
+		"  Why removed?\n"+
 		"\n"+
 		"View this pull request on Azure DevOps: ")
 }
@@ -252,9 +277,10 @@ func TestViewCommentsNonTTY(t *testing.T) {
 
 	require.NoError(t, e.run(t, "12", "-c"))
 	assert.Equal(t, ""+
-		"author:\tBob\nthread:\t1\nstatus:\tactive\nfile:\t/src/app.go\n--\nLooks good\n--\n"+
-		"author:\tAnn Lee\nthread:\t1\nstatus:\tactive\nfile:\t/src/app.go\n--\nThanks\n--\n"+
-		"author:\tCarol\nthread:\t4\nstatus:\tfixed\nfile:\t\n--\nPlease rename\n--\n", e.out.String())
+		"author:\tBob\nthread:\t1\nstatus:\tactive\nfile:\t/src/app.go\nline:\t10-12\n--\nLooks good\n--\n"+
+		"author:\tAnn Lee\nthread:\t1\nstatus:\tactive\nfile:\t/src/app.go\nline:\t10-12\n--\nThanks\nwill do\n--\n"+
+		"author:\tCarol\nthread:\t4\nstatus:\tfixed\nfile:\t\nline:\t\n--\nPlease rename\n--\n"+
+		"author:\tDan\nthread:\t6\nstatus:\tactive\nfile:\t/old.go\nline:\t7\n--\nWhy removed?\n--\n", e.out.String())
 	assert.False(t, e.requested("/evaluations"))
 }
 
@@ -288,10 +314,42 @@ func TestViewJSON(t *testing.T) {
 		map[string]any{"name": "Comment requirements", "status": "rejected", "isBlocking": false},
 		map[string]any{"name": "Work item linking", "status": "notApplicable", "isBlocking": true},
 	}, got["policies"])
-	threads := got["comments"].([]any)
-	require.Len(t, threads, 2)
-	assert.EqualValues(t, 4, threads[1].(map[string]any)["id"])
-	assert.Len(t, threads[1].(map[string]any)["comments"], 1)
+	want := []any{
+		map[string]any{"id": 1.0, "status": "active", "filePath": "/src/app.go", "line": 10.0, "comments": []any{
+			viewCommentJSON(1, "Bob", "Looks good"), viewCommentJSON(2, "Ann Lee", "Thanks\nwill do"),
+		}},
+		map[string]any{"id": 4.0, "status": "fixed", "filePath": nil, "line": nil, "comments": []any{
+			viewCommentJSON(1, "Carol", "Please rename"),
+		}},
+		map[string]any{"id": 6.0, "status": "active", "filePath": "/old.go", "line": 7.0, "comments": []any{
+			viewCommentJSON(1, "Dan", "Why removed?"),
+		}},
+	}
+	assert.Equal(t, want, got["comments"], "comments is an alias of the threads shape")
+}
+
+func TestViewJSONThreads(t *testing.T) {
+	e := newViewEnv(t, false)
+	e.stubPR(viewPR())
+	e.stubThreads()
+
+	require.NoError(t, e.run(t, "12", "--json", "threads"))
+	var got map[string][]map[string]any
+	require.NoError(t, json.Unmarshal(e.out.Bytes(), &got))
+	require.Len(t, got, 1)
+	require.Len(t, got["threads"], 3)
+	assert.EqualValues(t, 1, got["threads"][0]["id"])
+	assert.EqualValues(t, 10, got["threads"][0]["line"])
+	assert.Len(t, got["threads"][0]["comments"], 2)
+	assert.False(t, e.requested("/evaluations"))
+}
+
+// viewCommentJSON is the decoded `--json threads` shape of a fixture comment.
+func viewCommentJSON(id int, author, content string) map[string]any {
+	return map[string]any{
+		"id": float64(id), "content": content, "publishedDate": viewPublished.Format(time.RFC3339),
+		"author": map[string]any{"displayName": author, "id": viewAuthorID},
+	}
 }
 
 func TestViewJSONSkipsUnrequestedCalls(t *testing.T) {
@@ -312,8 +370,8 @@ func TestViewJSONEmptyLists(t *testing.T) {
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/web/pullRequests/12/threads"),
 		httpmock.JSONResponse(map[string]any{"count": 0, "value": []any{}}))
 
-	require.NoError(t, e.run(t, "12", "--json", "policies,comments"))
-	assert.JSONEq(t, `{"policies":[],"comments":[]}`, e.out.String())
+	require.NoError(t, e.run(t, "12", "--json", "policies,comments,threads"))
+	assert.JSONEq(t, `{"policies":[],"comments":[],"threads":[]}`, e.out.String())
 }
 
 func TestViewWeb(t *testing.T) {

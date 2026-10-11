@@ -49,26 +49,26 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 2: ado pr edit' (Protocol in workflow.md)
     - [x] Mandatory live check: promote an existing optional reviewer who has voted to required; confirm it becomes required and whether the vote is kept (the reset warning must fire only if it is not) — verified 2026-10-11: promotion resets the vote, warning is correct
 
-## Phase 3: `ado pr comment` and Thread Visibility
+## Phase 3: `ado pr comment` and Thread Visibility [checkpoint: 3e8fad2]
 
-- [ ] Task: Body input helper
-    - [ ] Write tests: `-b`, `-F` file / `-` stdin, `-e` editor, editor prefilled with an initial value, TTY with no body opens editor, non-TTY with no body fails naming `--body`, empty body rejected
-    - [ ] Implement: build a `$EDITOR` helper from scratch (no editor code exists in the MVP) that accepts an initial value; extract `readBody` from `pr create` into `shared`
-- [ ] Task: New thread, reply, thread status
-    - [ ] Write tests: new thread, `--thread <id>` + body replies with `ParentCommentId` = the thread's root comment, `--thread <id> --status fixed` updates status (with and without body; with body = CreateComment then UpdateThread, partial failure reported), `--status` mapped case-insensitively to `active|fixed|wontFix|closed|byDesign|pending`, `--status` without `--thread` usage error, invalid status value error, prints comment URL `<PR URL>?discussionId=<threadId>`, `-w` opens browser
-    - [ ] Implement via threads/comments APIs: `api/pr.go` wrappers CreateComment, UpdateComment, DeleteComment, UpdateThread (status only), and a CreateThread that takes a thread context
-- [ ] Task: Inline file comments
-    - [ ] Write tests: `--file --line n` and `n:m` build `threadContext` (`--side` right/left picks Right/Left positions, start offset 1), path normalized to a leading `/` (strip `./`, `\` → `/`), `changeTrackingId` from the latest iteration's paged changes (`$top` 2000, `NextSkip`; match path or `OriginalPath`, renamed-file test), `iterationContext {N,N}`, file not in the PR → `<file> is not changed in pull request !N`, `--line` without `--file` usage error, bad range error
-    - [ ] Implement inline thread creation; add api `Iterations` and paged `IterationChanges` (nil = 0), reused by Phase 4
-- [ ] Task: `--edit-last` / `--delete-last`
-    - [ ] Write tests: shared thread helpers in `pkg/cmd/pr/shared` (drop deleted threads/comments, `system` comments and any thread with a `CodeReviewThreadType` property; `filePath`; line = Right start else Left start, with range)
-    - [ ] Write tests: finds the signed-in user's (`Resolve("@me")`) latest non-deleted non-system comment by `PublishedDate` across threads, including replies and inline comments in others' threads, targeted by (threadId, commentId); edit replaces content (`-b`/`-F`, or TTY editor prefilled + `Submit?`, decline → `Discarding...`), prints comment URL; `--create-if-none` (only with `--edit-last`) creates a new thread, TTY without it asks `No comments found. Create one?`; delete confirms on TTY (`! Deleted comments cannot be recovered.` + `Delete the comment: "..."?`), `Comment deleted` on stderr, `--yes` only valid with `--delete-last`, body flags rejected with `--delete-last`, non-TTY without `--yes` refuses; no prior comment → `no comments found for current user`
-    - [ ] Implement: move `threads()`/`filePath()`/line helper from view.go into `shared` and add the `CodeReviewThreadType` check
-    - [ ] Implement `--edit-last` / `--delete-last`
-- [ ] Task: Extend `ado pr view --comments`
-    - [ ] Write tests: TTY thread header `#<id> <status> • <file>:<line>` (`<line>-<endLine>` for ranges), replies marked; `line:` in non-TTY `-c` records; `threads` JSON field shape (`id,status,filePath,line,comments[{id,author,content,publishedDate}]`, `author` an IdentityRef object like PR `author`); `comments` JSON field becomes an alias of the `threads` shape (breaking; nothing released yet); threads fetched only when `comments`/`threads` requested or `-c`; system threads (vote/policy) hidden; fixture with `rightFileStart.line` and a reply
-    - [ ] Implement view extension on the shared thread helpers
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: ado pr comment and Thread Visibility' (Protocol in workflow.md)
+- [x] Task: Body input helper `3e8fad2`
+    - [x] Write tests: `-b`, `-F` file / `-` stdin, `-e` editor, editor prefilled with an initial value, TTY with no body opens editor, non-TTY with no body fails naming `--body`, empty body rejected
+    - [x] Implement: build a `$EDITOR` helper from scratch (no editor code exists in the MVP) that accepts an initial value; extract `readBody` from `pr create` into `shared`
+- [x] Task: New thread, reply, thread status `3e8fad2`
+    - [x] Write tests: new thread, `--thread <id>` + body replies with `ParentCommentId` = the thread's root comment, `--thread <id> --status fixed` updates status (with and without body; with body = CreateComment then UpdateThread, partial failure reported), `--status` mapped case-insensitively to `active|fixed|wontFix|closed|byDesign|pending`, `--status` without `--thread` usage error, invalid status value error, prints comment URL `<PR URL>?discussionId=<threadId>`, `-w` opens browser
+    - [x] Implement via threads/comments APIs: `api/pr.go` wrappers CreateComment, UpdateComment, DeleteComment, UpdateThread (status only), and a CreateThread that takes a thread context
+- [x] Task: Inline file comments `3e8fad2`
+    - [x] Write tests: `--file --line n` and `n:m` build `threadContext` (`--side` right/left picks Right/Left positions, start offset 1), path normalized to a leading `/` (strip `./`, `\` → `/`), `changeTrackingId` from the latest iteration's paged changes (`$top` 2000, `NextSkip`; match path or `OriginalPath`, renamed-file test), `iterationContext {N,N}`, file not in the PR → `<file> is not changed in pull request !N`, `--line` without `--file` usage error, bad range error
+    - [x] Implement inline thread creation; add api `Iterations` and paged `IterationChanges` (nil = 0), reused by Phase 4
+- [x] Task: `--edit-last` / `--delete-last` `3e8fad2`
+    - [x] Write tests: shared thread helpers in `pkg/cmd/pr/shared` (drop deleted threads/comments, `system` comments and any thread with a `CodeReviewThreadType` property; `filePath`; line = Right start else Left start, with range)
+    - [x] Write tests: finds the signed-in user's (`Resolve("@me")`) latest non-deleted non-system comment by `PublishedDate` across threads, including replies and inline comments in others' threads, targeted by (threadId, commentId); edit replaces content (`-b`/`-F`, or TTY editor prefilled + `Submit?`, decline → `Discarding...`), prints comment URL; `--create-if-none` (only with `--edit-last`) creates a new thread, TTY without it asks `No comments found. Create one?`; delete confirms on TTY (`! Deleted comments cannot be recovered.` + `Delete the comment: "..."?`), `Comment deleted` on stderr, `--yes` only valid with `--delete-last`, body flags rejected with `--delete-last`, non-TTY without `--yes` refuses; no prior comment → `no comments found for current user`
+    - [x] Implement: move `threads()`/`filePath()`/line helper from view.go into `shared` and add the `CodeReviewThreadType` check
+    - [x] Implement `--edit-last` / `--delete-last`
+- [x] Task: Extend `ado pr view --comments` `3e8fad2`
+    - [x] Write tests: TTY thread header `#<id> <status> • <file>:<line>` (`<line>-<endLine>` for ranges), replies marked; `line:` in non-TTY `-c` records; `threads` JSON field shape (`id,status,filePath,line,comments[{id,author,content,publishedDate}]`, `author` an IdentityRef object like PR `author`); `comments` JSON field becomes an alias of the `threads` shape (breaking; nothing released yet); threads fetched only when `comments`/`threads` requested or `-c`; system threads (vote/policy) hidden; fixture with `rightFileStart.line` and a reply
+    - [x] Implement view extension on the shared thread helpers
+- [x] Task: Conductor - User Manual Verification 'Phase 3: ado pr comment and Thread Visibility' (Protocol in workflow.md)
 
 ## Phase 4: `ado pr diff`
 

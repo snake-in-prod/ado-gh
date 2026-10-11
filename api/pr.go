@@ -165,14 +165,58 @@ func (c *PRClient) RemoveReviewer(ctx context.Context, id int, reviewerID string
 	}))
 }
 
-// CreateThread adds an active comment thread with one text comment to pull request id.
-func (c *PRClient) CreateThread(ctx context.Context, id int, content string) (*git.GitPullRequestCommentThread, error) {
+// CreateThread adds an active comment thread with one text comment to pull request id. tc and
+// prc anchor it to lines of a file; with both nil it is a pull request level thread.
+func (c *PRClient) CreateThread(ctx context.Context, id int, content string, tc *git.CommentThreadContext, prc *git.GitPullRequestCommentThreadContext) (*git.GitPullRequestCommentThread, error) {
 	thread := &git.GitPullRequestCommentThread{
-		Comments: &[]git.Comment{{Content: &content, CommentType: &git.CommentTypeValues.Text}},
-		Status:   &git.CommentThreadStatusValues.Active,
+		Comments:                 &[]git.Comment{{Content: &content, CommentType: &git.CommentTypeValues.Text}},
+		Status:                   &git.CommentThreadStatusValues.Active,
+		ThreadContext:            tc,
+		PullRequestThreadContext: prc,
 	}
 	out, err := c.Git.CreateThread(ctx, git.CreateThreadArgs{CommentThread: thread, RepositoryId: &c.Repo, PullRequestId: &id, Project: &c.Project})
 	return out, mapErr(err)
+}
+
+// Thread fetches comment thread threadID of pull request id.
+func (c *PRClient) Thread(ctx context.Context, id, threadID int) (*git.GitPullRequestCommentThread, error) {
+	out, err := c.Git.GetPullRequestThread(ctx, git.GetPullRequestThreadArgs{RepositoryId: &c.Repo, PullRequestId: &id, ThreadId: &threadID, Project: &c.Project})
+	return out, mapErr(err)
+}
+
+// UpdateThread sets the status of thread threadID of pull request id.
+func (c *PRClient) UpdateThread(ctx context.Context, id, threadID int, status git.CommentThreadStatus) (*git.GitPullRequestCommentThread, error) {
+	out, err := c.Git.UpdateThread(ctx, git.UpdateThreadArgs{
+		CommentThread: &git.GitPullRequestCommentThread{Status: &status}, RepositoryId: &c.Repo, PullRequestId: &id, ThreadId: &threadID, Project: &c.Project,
+	})
+	return out, mapErr(err)
+}
+
+// CreateComment adds a text comment to thread threadID of pull request id, replying to comment
+// parentID (0 = none).
+func (c *PRClient) CreateComment(ctx context.Context, id, threadID, parentID int, content string) (*git.Comment, error) {
+	comment := &git.Comment{Content: &content, CommentType: &git.CommentTypeValues.Text}
+	if parentID != 0 {
+		comment.ParentCommentId = &parentID
+	}
+	out, err := c.Git.CreateComment(ctx, git.CreateCommentArgs{Comment: comment, RepositoryId: &c.Repo, PullRequestId: &id, ThreadId: &threadID, Project: &c.Project})
+	return out, mapErr(err)
+}
+
+// UpdateComment replaces the content of comment commentID in thread threadID of pull request id.
+func (c *PRClient) UpdateComment(ctx context.Context, id, threadID, commentID int, content string) (*git.Comment, error) {
+	out, err := c.Git.UpdateComment(ctx, git.UpdateCommentArgs{
+		Comment: &git.Comment{Content: &content}, RepositoryId: &c.Repo, PullRequestId: &id, ThreadId: &threadID, CommentId: &commentID, Project: &c.Project,
+	})
+	return out, mapErr(err)
+}
+
+// DeleteComment deletes comment commentID in thread threadID of pull request id. Deletion is
+// soft: the comment stays with isDeleted set and no content.
+func (c *PRClient) DeleteComment(ctx context.Context, id, threadID, commentID int) error {
+	return mapErr(c.Git.DeleteComment(ctx, git.DeleteCommentArgs{
+		RepositoryId: &c.Repo, PullRequestId: &id, ThreadId: &threadID, CommentId: &commentID, Project: &c.Project,
+	}))
 }
 
 // Threads lists the comment threads of pull request id.
@@ -182,6 +226,40 @@ func (c *PRClient) Threads(ctx context.Context, id int) ([]git.GitPullRequestCom
 		return nil, mapErr(err)
 	}
 	return *out, nil
+}
+
+// iterationChangesPage is the $top sent per iteration changes page (the API maximum).
+const iterationChangesPage = 2000
+
+// Iterations lists the iterations of pull request id; each push to the source branch adds one.
+func (c *PRClient) Iterations(ctx context.Context, id int) ([]git.GitPullRequestIteration, error) {
+	out, err := c.Git.GetPullRequestIterations(ctx, git.GetPullRequestIterationsArgs{RepositoryId: &c.Repo, PullRequestId: &id, Project: &c.Project})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return *out, nil
+}
+
+// IterationChanges returns every file change of iteration iter of pull request id against the
+// merge base (the web Files tab), following nextSkip until it is 0 or absent.
+func (c *PRClient) IterationChanges(ctx context.Context, id, iter int) ([]git.GitPullRequestChange, error) {
+	var all []git.GitPullRequestChange
+	top := iterationChangesPage
+	for skip := 0; ; {
+		out, err := c.Git.GetPullRequestIterationChanges(ctx, git.GetPullRequestIterationChangesArgs{
+			RepositoryId: &c.Repo, PullRequestId: &id, IterationId: &iter, Project: &c.Project, Top: &top, Skip: &skip,
+		})
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		if out.ChangeEntries != nil {
+			all = append(all, *out.ChangeEntries...)
+		}
+		if out.NextSkip == nil || *out.NextSkip == 0 {
+			return all, nil
+		}
+		skip = *out.NextSkip
+	}
 }
 
 // Repository fetches the client's repository (e.g. for its default branch).

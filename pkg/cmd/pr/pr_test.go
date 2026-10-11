@@ -11,6 +11,7 @@ func TestNewCmdPRRegistersSubcommands(t *testing.T) {
 	for name, want := range map[string]string{
 		"checkout": "checkout",
 		"close":    "close",
+		"comment":  "comment",
 		"ready":    "ready",
 		"reopen":   "reopen",
 		"create":   "create",

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/policy"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -20,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jsonFields = append(slices.Clone(shared.JSONFields), "description", "policies", "comments")
+var jsonFields = append(slices.Clone(shared.JSONFields), "description", "policies", "comments", "threads")
 
 var voteLabels = map[int]string{
 	10: "Approved", 5: "Approved with suggestions", 0: "No vote", -5: "Waiting for author", -10: "Rejected",
@@ -65,9 +67,27 @@ Without an argument, the pull request of the current branch is shown.`,
 // viewJSON is the `--json` shape of a viewed pull request.
 type viewJSON struct {
 	shared.PRJSON
-	Description *string                           `json:"description"`
-	Policies    []policyJSON                      `json:"policies"`
-	Comments    []git.GitPullRequestCommentThread `json:"comments"`
+	Description *string      `json:"description"`
+	Policies    []policyJSON `json:"policies"`
+	// Comments is an alias of Threads.
+	Comments []threadJSON `json:"comments"`
+	Threads  []threadJSON `json:"threads"`
+}
+
+// threadJSON is the `--json threads` shape of a comment thread; Line is the start line.
+type threadJSON struct {
+	ID       *int                     `json:"id"`
+	Status   *git.CommentThreadStatus `json:"status"`
+	FilePath *string                  `json:"filePath"`
+	Line     *int                     `json:"line"`
+	Comments []commentJSON            `json:"comments"`
+}
+
+type commentJSON struct {
+	ID            *int                `json:"id"`
+	Author        *webapi.IdentityRef `json:"author"`
+	Content       *string             `json:"content"`
+	PublishedDate *azuredevops.Time   `json:"publishedDate"`
 }
 
 type policyJSON struct {
@@ -98,23 +118,47 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			return err
 		}
 	}
-	if wants("comments") || o.exporter == nil && o.comments {
-		if data.Comments, err = threads(ctx, c, *pr.PullRequestId); err != nil {
+	var threads []git.GitPullRequestCommentThread
+	if wants("comments") || wants("threads") || o.exporter == nil && o.comments {
+		all, err := c.Threads(ctx, *pr.PullRequestId)
+		if err != nil {
 			return err
 		}
+		threads = shared.VisibleThreads(all)
+		data.Threads = threadsJSON(threads)
+		data.Comments = data.Threads
 	}
 
 	switch {
 	case o.exporter != nil:
 		return o.exporter.Write(ios, data)
 	case rawComments:
-		printRawComments(ios.Out, data.Comments)
+		printRawComments(ios.Out, threads)
 	case ios.IsStdoutTTY():
-		printTTY(ios, data, o.comments)
+		printTTY(ios, data, threads, o.comments)
 	default:
 		printRaw(ios.Out, data)
 	}
 	return nil
+}
+
+func threadsJSON(threads []git.GitPullRequestCommentThread) []threadJSON {
+	out := make([]threadJSON, len(threads))
+	for i, t := range threads {
+		out[i] = threadJSON{ID: t.Id, Status: t.Status}
+		if file := shared.FilePath(t); file != "" {
+			out[i].FilePath = &file
+		}
+		if line, _ := shared.ThreadLines(t); line > 0 {
+			out[i].Line = &line
+		}
+		for _, c := range *t.Comments {
+			out[i].Comments = append(out[i].Comments, commentJSON{
+				ID: c.Id, Author: c.Author, Content: c.Content, PublishedDate: c.PublishedDate,
+			})
+		}
+	}
+	return out
 }
 
 // policies returns the policy evaluations of pr; none when its project ID is unknown.
@@ -140,30 +184,7 @@ func policies(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) ([]p
 	return out, nil
 }
 
-// threads returns the comment threads of pull request id without system comments
-// (votes, pushes) and deleted comments; threads left empty are dropped.
-func threads(ctx context.Context, c *api.PRClient, id int) ([]git.GitPullRequestCommentThread, error) {
-	all, err := c.Threads(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	out := []git.GitPullRequestCommentThread{}
-	for _, t := range all {
-		if shared.Deref(t.IsDeleted) || t.Comments == nil {
-			continue
-		}
-		comments := slices.DeleteFunc(*t.Comments, func(c git.Comment) bool {
-			return shared.Deref(c.IsDeleted) || c.CommentType != nil && *c.CommentType == git.CommentTypeValues.System
-		})
-		if len(comments) > 0 {
-			t.Comments = &comments
-			out = append(out, t)
-		}
-	}
-	return out, nil
-}
-
-func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
+func printTTY(ios *iostreams.IOStreams, d viewJSON, threads []git.GitPullRequestCommentThread, comments bool) {
 	cs := ios.ColorScheme()
 	w := ios.Out
 	state, color := "Active", cs.Green
@@ -192,20 +213,28 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, comments bool) {
 	fmt.Fprintf(w, "\n%s\n\n", desc)
 
 	if comments {
-		if len(d.Comments) == 0 {
+		if len(threads) == 0 {
 			fmt.Fprint(w, cs.Gray("No comments")+"\n\n")
 		} else {
-			fmt.Fprintf(w, "%s\n\n", cs.Bold(fmt.Sprintf("Comments (%d threads)", len(d.Comments))))
+			fmt.Fprintf(w, "%s\n\n", cs.Bold(fmt.Sprintf("Comments (%d threads)", len(threads))))
 		}
-		for _, t := range d.Comments {
-			head := []string{string(shared.Deref(t.Status))}
-			if file := filePath(t); file != "" {
+		for _, t := range threads {
+			head := []string{fmt.Sprintf("%s %s", cs.Bold(fmt.Sprintf("#%d", shared.Deref(t.Id))), shared.Deref(t.Status))}
+			if file := shared.FilePath(t); file != "" {
+				if lines := lineRange(t); lines != "" {
+					file += ":" + lines
+				}
 				head = append(head, file)
 			}
 			fmt.Fprintln(w, strings.Join(head, " • "))
-			for _, c := range *t.Comments {
-				fmt.Fprintf(w, "  %s • %s\n", cs.Bold(commentAuthor(c)), ago(c.PublishedDate))
-				fmt.Fprintf(w, "  %s\n", strings.ReplaceAll(shared.Deref(c.Content), "\n", "\n  "))
+			// Every comment after the root one is a reply.
+			for i, c := range *t.Comments {
+				lead, indent := "  ", "  "
+				if i > 0 {
+					lead, indent = "    ↳ ", "      "
+				}
+				fmt.Fprintf(w, "%s%s • %s\n", lead, cs.Bold(commentAuthor(c)), ago(c.PublishedDate))
+				fmt.Fprintf(w, "%s%s\n", indent, strings.ReplaceAll(shared.Deref(c.Content), "\n", "\n"+indent))
 			}
 			fmt.Fprintln(w)
 		}
@@ -230,10 +259,23 @@ func printRaw(w io.Writer, d viewJSON) {
 func printRawComments(w io.Writer, threads []git.GitPullRequestCommentThread) {
 	for _, t := range threads {
 		for _, c := range *t.Comments {
-			fmt.Fprintf(w, "author:\t%s\nthread:\t%d\nstatus:\t%s\nfile:\t%s\n--\n%s\n--\n",
-				commentAuthor(c), shared.Deref(t.Id), shared.Deref(t.Status), filePath(t), shared.Deref(c.Content))
+			fmt.Fprintf(w, "author:\t%s\nthread:\t%d\nstatus:\t%s\nfile:\t%s\nline:\t%s\n--\n%s\n--\n",
+				commentAuthor(c), shared.Deref(t.Id), shared.Deref(t.Status), shared.FilePath(t), lineRange(t),
+				shared.Deref(c.Content))
 		}
 	}
+}
+
+// lineRange is a thread's anchor as "<line>" or "<line>-<endLine>", "" when it has none.
+func lineRange(t git.GitPullRequestCommentThread) string {
+	start, end := shared.ThreadLines(t)
+	switch {
+	case start == 0:
+		return ""
+	case end > start:
+		return fmt.Sprintf("%d-%d", start, end)
+	}
+	return strconv.Itoa(start)
 }
 
 // reviewers lists reviewers with their vote. Teams cannot vote: they are marked as teams, and
@@ -288,13 +330,6 @@ func commentAuthor(c git.Comment) string {
 		return ""
 	}
 	return shared.Deref(c.Author.DisplayName)
-}
-
-func filePath(t git.GitPullRequestCommentThread) string {
-	if t.ThreadContext == nil {
-		return ""
-	}
-	return shared.Deref(t.ThreadContext.FilePath)
 }
 
 func branch(ref *string) string {

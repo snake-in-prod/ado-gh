@@ -113,7 +113,7 @@ func run(ctx context.Context, f *cmdutil.Factory, ref string, chosen int, body s
 		}
 	}
 	if strings.TrimSpace(body) != "" {
-		if _, err := c.CreateThread(ctx, id, body); err != nil {
+		if _, err := c.CreateThread(ctx, id, body, nil, nil); err != nil {
 			return err
 		}
 	}

@@ -4,11 +4,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Add repository commands and browsing with gh parity: `ado repo list/view/clone/create/delete/set-default`, top-level `ado browse` (repo, file:line, branch, commit, !PR, #work item, --no-browser), and `-w/--web` on every command with a web page**
-*Link: [./tracks/repo_browse_20261010/](./tracks/repo_browse_20261010/)*
-
----
-
 - [ ] **Track: Add work item and boards support (gh issue equivalent): `ado workitem` (aliases `wi`, `issue`) create/list/view/edit/close/reopen/comment/assign/link/unlink/delete, `ado workitem query` (WIQL + saved queries), `ado sprint` and `ado board` views, process-aware types/states, `--json/--jq/--template` on read commands**
 *Link: [./tracks/workitems_20261010/](./tracks/workitems_20261010/)*
 

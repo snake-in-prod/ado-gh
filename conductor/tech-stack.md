@@ -19,7 +19,7 @@
 - **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
   - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `archive/mvp_core_20261010/research.md` q10.
 - **`github.com/charmbracelet/glamour`** v0.10.0 (same version as gh / go-gh): renders README markdown in `ado repo view` on a TTY. Called directly, not through go-gh `pkg/markdown`; style from colour state plus `GLAMOUR_STYLE`, wrap width `min(terminal width, 120)`.
-  - *2026-10-11:* added for `repo view`; `CGO_ENABLED=0` build passes, `bin/ado` grew from 25,183,608 B to 34,379,098 B (+9.2 MB, mostly chroma syntax highlighting); see `tracks/repo_browse_20261010/research.md` o6/o7.
+  - *2026-10-11:* added for `repo view`; `CGO_ENABLED=0` build passes, `bin/ado` grew from 25,183,608 B to 34,379,098 B (+9.2 MB, mostly chroma syntax highlighting); see `archive/repo_browse_20261010/research.md` o6/o7.
 - **`golang.org/x/sync`** (`errgroup`): bounded parallel blob downloads in `ado pr diff` outside a clone.
   - *2026-10-11:* already an indirect dependency; promoted to direct by the pr_parity review fixes.
 - **`MakeNowJust/heredoc`**: help text and examples.

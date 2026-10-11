@@ -204,20 +204,14 @@ func (r *IdentityResolver) search(ctx context.Context, v string) ([]identity.Ide
 	return nil, nil
 }
 
-// imsClient finds the IMS host (vssps) via ResourceAreas; an empty list (on-prem) or a missing
-// area means the org URL itself. The SDK's identity.NewClient can't use ado's HTTP client.
+// imsClient returns the identity client on the IMS host (vssps), or on the org URL when the
+// org lists no IMS area (on-prem). The SDK's identity.NewClient can't use ado's HTTP client.
 func (r *IdentityResolver) imsClient(ctx context.Context) (identity.Client, error) {
-	areas, err := NewSDKClient(r.HTTP, r.OrgURL).GetResourceAreas(ctx)
+	c, _, err := areaClient(ctx, r.HTTP, r.OrgURL, identity.ResourceAreaId)
 	if err != nil {
 		return nil, err
 	}
-	base := r.OrgURL
-	for _, a := range *areas {
-		if a.Id != nil && *a.Id == identity.ResourceAreaId && a.LocationUrl != nil {
-			base = *a.LocationUrl
-		}
-	}
-	return &identity.ClientImpl{Client: *NewSDKClient(r.HTTP, base)}, nil
+	return &identity.ClientImpl{Client: *c}, nil
 }
 
 // scopeHint maps 401/403 from the Identities API to a hint about the missing PAT scope.

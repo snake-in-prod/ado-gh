@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 )
@@ -66,6 +67,23 @@ func NewHTTPClient(opts ClientOptions) *http.Client {
 // dev.azure.com); add a (*azuredevops.Client).GetResourceAreas lookup if a live check disagrees.
 func NewSDKClient(hc *http.Client, baseURL string) *azuredevops.Client {
 	return azuredevops.NewClientWithOptions(&azuredevops.Connection{}, baseURL, azuredevops.WithHTTPClient(hc))
+}
+
+// areaClient returns an SDK client for the host of resource area areaID (e.g. vssps for IMS,
+// almsearch for Search), found through the org's ResourceAreas. ok is false when the org lists
+// no such area (on-prem lists none); the client then targets orgURL.
+func areaClient(ctx context.Context, hc *http.Client, orgURL string, areaID uuid.UUID) (c *azuredevops.Client, ok bool, err error) {
+	areas, err := NewSDKClient(hc, orgURL).GetResourceAreas(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	base := orgURL
+	for _, a := range deref(areas) {
+		if a.Id != nil && *a.Id == areaID && a.LocationUrl != nil {
+			base, ok = *a.LocationUrl, true
+		}
+	}
+	return NewSDKClient(hc, base), ok, nil
 }
 
 // Throttling limits: a 429 is retried at most maxRetries times; a server-requested delay is

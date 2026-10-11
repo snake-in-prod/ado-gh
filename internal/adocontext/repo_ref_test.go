@@ -110,4 +110,8 @@ func TestWebURLs(t *testing.T) {
 	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_git/r%231", RepoURL(dev))
 	assert.Equal(t, "https://fab.visualstudio.com/p/_git/r", RepoURL(vs))
 	assert.Equal(t, "https://fab.visualstudio.com/p/_git/r/pullrequest/12", PRURL(vs, 12))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201", ProjectURL(dev))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_workitems/edit/7", WorkItemURL(dev, 7))
+	assert.Equal(t, "https://fab.visualstudio.com/p/_workitems/edit/7", WorkItemURL(vs, 7))
+	assert.Equal(t, "a%20b%2Bc%26d%23e%5Cf", QueryEscape(`a b+c&d#e\f`))
 }

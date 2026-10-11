@@ -10,34 +10,34 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 
 ---
 
-## Phase 1: Work Item Foundation
+## Phase 1: Work Item Foundation [checkpoint: 684a976]
 
-- [x] Task: Shared helpers refactor `f3b2771`
+- [x] Task: Shared helpers refactor `684a976`
     - [x] Write tests: body flags/`ReadBody` from `pkg/cmdutil`; Markdown rendering from the shared package (TTY detection, style, wrap width); `WorkItemClient` relation add/remove with `(rel, url, attributes)`; existing `pr` and `repo view` tests still pass unchanged
     - [x] Implement: move `BodyFlags`/`AddBodyFlags`/`ReadBody` from pkg/cmd/pr/shared/body.go to pkg/cmdutil; extract `isRealTerminal`/`markdownStyle`/`renderMarkdown` from pkg/cmd/repo/view/view.go to a shared package (e.g. pkg/markdown); move `PullRequestArtifactURL`/`LinkWorkItem`/`UnlinkWorkItem` from api/pr.go to `WorkItemClient`, generalised to `(rel, url, attributes)`, with `PRClient` and pkg/cmd/pr/edit/links.go calling them
-- [x] Task: Test fixtures for process templates `5532d72`
+- [x] Task: Test fixtures for process templates `684a976`
     - [x] Capture system-process types and states (Agile, Scrum, Basic, CMMI) from the org-level process API with `ado api` (`_apis/work/processes` → each process's work item types with states; no hard-coded process IDs), converted to the project-scoped `wit` response shape, scrubbed of identities/GUIDs/org, into `testdata/live_<process>_*.json`
     - [x] Hand-write from Learn docs: categories, fields, link types, boards/backlogs per process, and one inherited custom process (custom state, type and field)
     - [x] Add pkg/httpmock/wit.go: `WITLocations` slice (types, states, categories, fields, type-fields, relation types, workitems, workitemsbatch, wiql, queries, comments, recyclebin, classification nodes), work and core locations, `StubResourceAreas` for search; distinct org name per test (SDK discovery is cached per base URL); JSON collections use `"value"`
-- [x] Task: Reference parsing and API layer (`api/workitem.go`, `pkg/cmd/workitem/shared`) `30994a6`
+- [x] Task: Reference parsing and API layer (`api/workitem.go`, `pkg/cmd/workitem/shared`) `684a976`
     - [x] Write tests: `123`, `#123`, URL forms, invalid refs; batch get in chunks of 200 with `errorPolicy=Omit`, nil-Id entries skipped, WIQL order restored, never `fields` together with `$expand`; `$top` always sent; VS402337 → "narrow filters / use -L" message; `IsRevConflict` (TypeKey `TestPatchOperationFailedException`, then `VS403351`/status fallback); `multilineFieldsFormat` decoded from raw JSON; not-found error
     - [x] Implement `WorkItemClient{Wit, Work, Core, SDK, Project}` built from `NewSDKClient`, own JSON structs via `toX` mappers, SDK wrappers (WIT client: get/batch/create/update/delete, comments, updates, relations, link types, queries, classification nodes); carry `TypeKey` into `HTTPError`; decode `multilineFieldsFormat` via `SDK.Send`
-- [x] Task: Process metadata resolver `c1ab2f1`
+- [x] Task: Process metadata resolver `684a976`
     - [x] Write tests per process fixture: resolver order exact name (case-insensitive) → category default → alias as type name → error listing valid types; aliases `bug/story/task/feature/epic` via categories; disabled and Hidden-category types excluded; Basic `--type bug` uses whatever `Microsoft.BugCategory` resolves to (likely Issue), else error; state categories per type; `open`/`closed` expansion; `--resolve` picks the Resolved-category state first, then a state named "Resolved" (case-insensitive), else error; `--removed` errors on Basic/CMMI/Agile Bug; reopen falls back to the first In Progress state when there is no Proposed state (Agile Issue, Scrum Impediment); per-type `/states` fallback if the types list lacks `states`; fetched once per invocation
     - [x] Implement resolver
-- [x] Task: Field resolver and value coercion `1fd1d64`
+- [x] Task: Field resolver and value coercion `684a976`
     - [x] Write tests: friendly vs reference names, `isIdentity`/`isPicklist` checked before `type`, int/double/bool/datetime/identity/picklist coercion, allowed values fetched per type/field with `$expand=allowedValues` (never `All`), `Name=` clears, unknown field → close matches, bad value → error naming field and type
     - [x] Implement using `GetWorkItemFields` for types
-- [x] Task: Identity, path and team resolution `eecea12`
+- [x] Task: Identity, path and team resolution `684a976`
     - [x] Write tests: `@me`, email, display name, ambiguous → candidates (reusing MVP resolver), new resolver method returns the matched identity (account/display name) for `System.AssignedTo`; list filters use WIQL `@Me`; area/iteration validated against classification nodes; `@current` resolved via `GetTeamIterations($timeframe=current)` to a concrete iteration path; team resolution returns a concrete team: `--team` > config `team` > `core.TeamProject.DefaultTeam`
     - [x] Write tests for the `team` config key: stored under a hosts-map scope key `dev.azure.com/ORG/PROJECT`, set with `ado config set team X --project ORG/PROJECT`, `Get` falls back to a global `team`, `config get team --project` reads it back
     - [x] Write tests for project context: `-R ORG/PROJECT` accepted by project-scoped commands only (workitem, sprint, board) outside a git repo; repo-scoped commands still require ORG/PROJECT/REPO; git remote and `ADO_REPO` still resolve as before
     - [x] Implement resolvers; add the `team` config key with the project scope; accept `-R ORG/PROJECT` for project-scoped commands in internal/adocontext
-- [x] Task: Body format and rendering `f1b67f6`
+- [x] Task: Body format and rendering `684a976`
     - [x] Record in `tech-stack.md`: own HTML→text converter on `golang.org/x/net/html` (glamour is already recorded); promote `golang.org/x/net` (and `goldmark`, for Markdown→HTML) to direct dependencies with `go get`; reword spec.md:96 (k3a/html2text → own converter)
     - [x] Write tests: value op and `multilineFieldsFormat` op in one patch; reactive fallback: a 400 mentioning the format op retries once as HTML (Markdown→HTML); format-preserving default: Markdown→HTML for HTML fields, Markdown for Markdown or empty fields, forced switch when asked; Markdown vs HTML detection case-insensitive with missing key = HTML; read path renders Markdown with glamour on TTY; HTML → text handles `<div>` lines, `<ol>` numbering, links, tables; raw when piped
     - [x] Implement
-- [x] Task: WIQL builder `196cdfe`
+- [x] Task: WIQL builder `684a976`
     - [x] Write tests: each filter → clause; `[System.TeamProject] = @project` always present; quote-doubling for `O'Brien`, `' OR 1=1` payloads, backslash, `]`, `@Me` literal stay literal; one `[System.Tags] CONTAINS` clause per tag joined with AND; `UNDER` for paths; `@current` emitted as `UNDER '<path>'` (resolved path); `@Me` macro; `-S` IDs formatted as ints; length ≤ 32,000 chars; field names only from resolved reference names; `ORDER BY [System.ChangedDate] DESC, [System.Id] DESC`
     - [x] Implement
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Work Item Foundation' (Protocol in workflow.md)
@@ -46,23 +46,23 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 
 ## Phase 2: `create`, `list`, `view`, Aliases
 
-- [ ] Task: Command group and aliases
-    - [ ] Write tests: `ado workitem`, `ado wi`, `ado issue` resolve to the same group; help lists subcommands
-    - [ ] Implement group
-- [ ] Task: `ado workitem create`
-    - [ ] Write tests: all flags map to JSON Patch ops, `--parent` adds hierarchy link, `--field` passthrough, TTY prompts + Submit/Add metadata/Cancel, non-TTY missing `--type`/`--title` errors, prints URL
-    - [ ] Write `-w` tests: literal `[Ref.Name]=` keys, path-escaped type, `%20`/`%2B`/`%5C`; every given flag prefilled (title, body, assignee, tags, area, iteration, priority, `--field`) with a warning that `--parent` is ignored; body sent to `System.Description` as Markdown as-is; 8192-byte guard "cannot open in browser: maximum URL length exceeded"
-    - [ ] Implement `create`; add `ProjectURL`/`WorkItemURL` and move `queryEscape` into internal/adocontext/weburl.go, with `browse` using them; classify in `webCmds`
-- [ ] Task: `ado workitem list`
-    - [ ] Write tests: each filter in generated WIQL, defaults (open, limit 30, changed-date order), TTY table vs TSV, `--json` fields incl. `fields`, empty message
-    - [ ] Write `-S` tests: search ordered by changed date; pages of ≤ 1000 IDs intersected by `[System.Id] IN (...)` until `--limit` filtered items are found, `$skip` by `len(results)`, stop on short page or `count`; ID parsing from lowercase `fields["system.id"]`; infoCode ≠ 0 → stderr warning; 404/missing search area or Azure DevOps Server → "work item search not available" error
-    - [ ] Write `-w` tests: opens the ad-hoc query URL `_queries/query/?wiql=...` with the generated WIQL; falls back to the Work Items hub `{project}/_workitems` over the URL length limit
-    - [ ] Implement `list` (search client via a shared `areaClient(ctx, areaID)` helper generalised from `imsClient`); classify in `webCmds`
-- [ ] Task: `ado workitem view`
-    - [ ] Write tests: header and fields, grouped relations with linked titles, `-c` comments, `--history` updates, JSON incl. lazy `comments`/`history`, `-w`
-    - [ ] Implement `view`; classify in `webCmds`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: create, list, view, Aliases' (Protocol in workflow.md)
-    - [ ] Live checks with `ado-live-test` items: `@Me`, `@CurrentIteration('[P]\T')`, tag CONTAINS semantics, `-S` with an Entra token on almsearch (item a few minutes old), `create -w` prefill URL incl. Markdown-mode Description; destroy items, empty recycle bin
+- [x] Task: Command group and aliases `13c2b07`
+    - [x] Write tests: `ado workitem`, `ado wi`, `ado issue` resolve to the same group; help lists subcommands
+    - [x] Implement group
+- [x] Task: `ado workitem create` `c3410ec`
+    - [x] Write tests: all flags map to JSON Patch ops, `--parent` adds hierarchy link, `--field` passthrough, TTY prompts + Submit/Add metadata/Cancel, non-TTY missing `--type`/`--title` errors, prints URL
+    - [x] Write `-w` tests: literal `[Ref.Name]=` keys, path-escaped type, `%20`/`%2B`/`%5C`; every given flag prefilled (title, body, assignee, tags, area, iteration, priority, `--field`) with a warning that `--parent` is ignored; body sent to `System.Description` as Markdown as-is; 8192-byte guard "cannot open in browser: maximum URL length exceeded"
+    - [x] Implement `create`; add `ProjectURL`/`WorkItemURL` and move `queryEscape` into internal/adocontext/weburl.go, with `browse` using them; classify in `webCmds`
+- [x] Task: `ado workitem list` `fb22443`
+    - [x] Write tests: each filter in generated WIQL, defaults (open, limit 30, changed-date order), TTY table vs TSV, `--json` fields incl. `fields`, empty message
+    - [x] Write `-S` tests: search ordered by changed date; pages of ≤ 1000 IDs intersected by `[System.Id] IN (...)` until `--limit` filtered items are found, `$skip` by `len(results)`, stop on short page or `count`; ID parsing from lowercase `fields["system.id"]`; infoCode ≠ 0 → stderr warning; 404/missing search area or Azure DevOps Server → "work item search not available" error
+    - [x] Write `-w` tests: opens the ad-hoc query URL `_queries/query/?wiql=...` with the generated WIQL; falls back to the Work Items hub `{project}/_workitems` over the URL length limit
+    - [x] Implement `list` (search client via a shared `areaClient(ctx, areaID)` helper generalised from `imsClient`); classify in `webCmds`
+- [x] Task: `ado workitem view` `73cb99f`
+    - [x] Write tests: header and fields, grouped relations with linked titles, `-c` comments, `--history` updates, JSON incl. lazy `comments`/`history`, `-w`
+    - [x] Implement `view`; classify in `webCmds`
+- [x] Task: Conductor - User Manual Verification 'Phase 2: create, list, view, Aliases' (Protocol in workflow.md)
+    - [x] Live checks with `ado-live-test` items: `@Me`, `@CurrentIteration('[P]\T')`, tag CONTAINS semantics, `-S` with an Entra token on almsearch (item a few minutes old), `create -w` prefill URL incl. Markdown-mode Description; destroy items, empty recycle bin
 
 ## Phase 3: `edit`, `close`, `reopen`, `comment`, `assign`
 

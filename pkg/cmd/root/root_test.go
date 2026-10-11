@@ -88,13 +88,16 @@ func TestDebugFlagDefaultsToFactory(t *testing.T) {
 
 // webCmds must expose -w/--web.
 var webCmds = map[string]bool{
-	"ado pr checks":  true,
-	"ado pr comment": true,
-	"ado pr create":  true,
-	"ado pr diff":    true,
-	"ado pr list":    true,
-	"ado pr view":    true,
-	"ado repo view":  true,
+	"ado pr checks":       true,
+	"ado pr comment":      true,
+	"ado pr create":       true,
+	"ado pr diff":         true,
+	"ado pr list":         true,
+	"ado pr view":         true,
+	"ado repo view":       true,
+	"ado workitem create": true,
+	"ado workitem list":   true,
+	"ado workitem view":   true,
 }
 
 // noWebCmds is the documented exclusion list: command path -> reason it has no --web.

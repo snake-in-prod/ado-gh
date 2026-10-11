@@ -71,7 +71,7 @@ func BuildURL(ctx context.Context, f *cmdutil.Factory, opts Options) (string, er
 		return "", err
 	}
 	repoURL := adocontext.RepoURL(repo)
-	projectURL := adocontext.OrgURL(repo.Host, repo.Org) + url.PathEscape(repo.Project)
+	projectURL := adocontext.ProjectURL(repo)
 
 	switch {
 	case opts.Settings:
@@ -100,7 +100,7 @@ func BuildURL(ctx context.Context, f *cmdutil.Factory, opts Options) (string, er
 		if versioned {
 			return "", invalidWithVersion(t)
 		}
-		return projectURL + "/_workitems/edit/" + strconv.Itoa(n), nil
+		return adocontext.WorkItemURL(repo, n), nil
 	}
 	if shaRE.MatchString(t) {
 		if versioned {
@@ -123,7 +123,7 @@ func BuildURL(ctx context.Context, f *cmdutil.Factory, opts Options) (string, er
 	}
 	var q []string
 	if t != "" {
-		q = append(q, "path="+queryEscape(p))
+		q = append(q, "path="+adocontext.QueryEscape(p))
 	}
 	q = append(q, version...)
 	if t != "" {
@@ -148,17 +148,12 @@ func invalidWithVersion(arg string) error {
 	return cmdutil.FlagErrorf("%q is an invalid argument when using --branch or --commit", arg)
 }
 
-// queryEscape escapes a query value with %20 for spaces: ADO's router may not decode "+".
-func queryEscape(v string) string {
-	return strings.ReplaceAll(url.QueryEscape(v), "+", "%20")
-}
-
 // versionParam is the version=GB<branch>|GC<sha> query part, empty without -b/-c so ADO shows
 // the default branch without an API call.
 func versionParam(ctx context.Context, f *cmdutil.Factory, opts Options) ([]string, error) {
 	switch {
 	case opts.Branch != "":
-		return []string{"version=" + queryEscape("GB"+opts.Branch)}, nil
+		return []string{"version=" + adocontext.QueryEscape("GB"+opts.Branch)}, nil
 	case opts.Commit != "":
 		sha, err := commitSHA(ctx, f, opts.Commit)
 		if err != nil {

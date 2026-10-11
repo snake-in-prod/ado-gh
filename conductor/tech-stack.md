@@ -17,7 +17,7 @@
 - **`aymanbagabas/go-udiff`** v0.4.1 (MIT/BSD-3, a copy of `golang.org/x/tools/internal/diff`, no dependencies): unified diffs for `ado pr diff` outside a local clone.
   - *2026-10-11:* chosen for git-compatible unified hunks without a git binary; see `archive/pr_parity_20261010/research.md` q7.
 - **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
-  - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `tracks/mvp_core_20261010/research.md` q10.
+  - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `archive/mvp_core_20261010/research.md` q10.
 - **`golang.org/x/sync`** (`errgroup`): bounded parallel blob downloads in `ado pr diff` outside a clone.
   - *2026-10-11:* already an indirect dependency; promoted to direct by the pr_parity review fixes.
 - **`MakeNowJust/heredoc`**: help text and examples.
@@ -25,7 +25,7 @@
 ## Auth & Credentials
 - **PAT** via `ado auth login --with-token` / prompt; env `ADO_TOKEN`, `AZURE_DEVOPS_EXT_PAT`.
 - **Microsoft Entra ID** via **`AzureAD/microsoft-authentication-library-for-go`** (MSAL). Device-code and interactive browser flows, Azure DevOps resource scope `499b84ac-1321-427f-aa17-267ca6975798/.default`, MSAL token cache stored AES-GCM-encrypted in a 0600 file with only its key in the keychain.
-  - *2026-10-10:* keychains cap item size (Windows 2560 B, macOS ~3 KB), so the cache can't live in one keychain item; see `tracks/mvp_core_20261010/research.md` q2/o4.
+  - *2026-10-10:* keychains cap item size (Windows 2560 B, macOS ~3 KB), so the cache can't live in one keychain item; see `archive/mvp_core_20261010/research.md` q2/o4.
 - Entra client ID: built-in default (empty until the app is registered), overridable via `ADO_ENTRA_CLIENT_ID` / config `entra_client_id`.
 - **`zalando/go-keyring`**: OS keychain storage (Windows Credential Manager, macOS Keychain, Secret Service); every call wrapped in a 60 s timeout with a 0600 config fallback; `--insecure-storage` skips the keychain.
 

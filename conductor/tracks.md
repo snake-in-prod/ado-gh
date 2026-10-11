@@ -4,11 +4,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Build the `ado` CLI foundation and core PR loop: scaffolding, PAT + Entra ID auth, git-remote context detection, `ado api`, `--json/--jq/--template` output, and `ado pr create/list/view/checkout/review/merge`**
-  *Link: [./tracks/mvp_core_20261010/](./tracks/mvp_core_20261010/)*
-
----
-
 - [ ] **Track: Add repository commands and browsing with gh parity: `ado repo list/view/clone/create/delete/set-default`, top-level `ado browse` (repo, file:line, branch, commit, !PR, #work item, --no-browser), and `-w/--web` on every command with a web page**
 *Link: [./tracks/repo_browse_20261010/](./tracks/repo_browse_20261010/)*
 

@@ -36,10 +36,10 @@ func cloneDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo ad
 	}
 
 	// Each side is fetched from its local remote, else by URL (a fork without a remote).
-	targetRemote := shared.MatchRemote(remotes, repo)
+	targetRemote := adocontext.MatchRemote(remotes, repo)
 	sourceRemote := targetRemote
 	if fork {
-		sourceRemote = shared.MatchRemote(remotes, head)
+		sourceRemote = adocontext.MatchRemote(remotes, head)
 	}
 	targetFrom, sourceFrom := cmp.Or(targetRemote, shared.RepoURL(repo)), cmp.Or(sourceRemote, headURL)
 

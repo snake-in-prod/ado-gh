@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,6 +59,64 @@ func TestRemotes(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, []string{"remote", "-v"}, *args)
+		})
+	}
+}
+
+func TestResolvedRemotes(t *testing.T) {
+	const remoteV = "origin\thttps://dev.azure.com/o/p/_git/r (fetch)\n" +
+		"my.fork\thttps://dev.azure.com/o/p/_git/f (fetch)\n"
+	const configArgs = `config --get-regexp ^remote\..*\.ado-resolved$`
+	boom := &Error{ExitCode: 3, Stderr: "fatal: bad config"}
+	tests := []struct {
+		name      string
+		remotesFn error
+		config    string
+		configErr error
+		want      []Remote
+		wantErr   error
+		wantCalls []string
+	}{
+		{
+			name:   "dotted remote name resolved, unknown remote and other values kept as given",
+			config: "remote.my.fork.ado-resolved base\nremote.gone.ado-resolved base\nremote.origin.ado-resolved o/p/x\n",
+			want: []Remote{
+				{Name: "origin", FetchURL: "https://dev.azure.com/o/p/_git/r", Resolved: "o/p/x"},
+				{Name: "my.fork", FetchURL: "https://dev.azure.com/o/p/_git/f", Resolved: "base"},
+			},
+			wantCalls: []string{"remote -v", configArgs},
+		},
+		{
+			name:      "exit 1 means none",
+			configErr: &Error{ExitCode: 1},
+			want: []Remote{
+				{Name: "origin", FetchURL: "https://dev.azure.com/o/p/_git/r"},
+				{Name: "my.fork", FetchURL: "https://dev.azure.com/o/p/_git/f"},
+			},
+			wantCalls: []string{"remote -v", configArgs},
+		},
+		{name: "config failure", configErr: boom, wantErr: boom, wantCalls: []string{"remote -v", configArgs}},
+		{name: "remotes failure skips config", remotesFn: notRepo, wantErr: ErrNotGitRepo, wantCalls: []string{"remote -v"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			c := &Client{Run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+				key := strings.Join(args, " ")
+				calls = append(calls, key)
+				if key == "remote -v" {
+					return []byte(remoteV), tt.remotesFn
+				}
+				return []byte(tt.config), tt.configErr
+			}}
+			got, err := c.ResolvedRemotes(context.Background())
+			assert.Equal(t, tt.wantCalls, calls)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -117,6 +176,21 @@ func TestRealGit(t *testing.T) {
 	remotes, err := c.Remotes(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []Remote{{Name: "origin", FetchURL: "https://dev.azure.com/o/p/_git/r", PushURL: "https://dev.azure.com/o/p/_git/r"}}, remotes)
+
+	resolved, err := c.ResolvedRemotes(ctx)
+	require.NoError(t, err, "no ado-resolved key is exit 1, not an error")
+	assert.Equal(t, remotes, resolved)
+	_, err = c.Exec(ctx, "remote", "add", "my.fork", "https://dev.azure.com/o/p/_git/f")
+	require.NoError(t, err)
+	_, err = c.Exec(ctx, "config", "remote.my.fork.ado-resolved", "base")
+	require.NoError(t, err)
+	resolved, err = c.ResolvedRemotes(ctx)
+	require.NoError(t, err)
+	got := map[string]string{}
+	for _, r := range resolved {
+		got[r.Name] = r.Resolved
+	}
+	assert.Equal(t, map[string]string{"origin": "", "my.fork": "base"}, got)
 
 	_, err = c.Exec(ctx, "no-such-command")
 	var gerr *Error

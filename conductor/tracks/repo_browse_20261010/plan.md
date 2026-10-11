@@ -38,17 +38,17 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement `repo view`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Repo Foundation, repo list, repo view' (Protocol in workflow.md)
 
-## Phase 2: `repo clone` and `repo create`
+## Phase 2: `repo clone` and `repo create` [checkpoint: 3b62ead]
 
-- [x] Task: `git_protocol` config key `29b9484`
+- [x] Task: `git_protocol` config key `3b62ead`
     - [x] Write tests: per-host get/set (incl. the `ssh.dev.azure.com` vs `dev.azure.com` host-key case), default `https`, invalid value rejected by `ado config set`, `TestFind` key list updated
     - [x] Implement Options entry `{Key: "git_protocol", Default: "https", AllowedValues: ["https","ssh"]}`
-- [x] Task: `ado repo clone` `9d7aba5`
+- [x] Task: `ado repo clone` `3b62ead`
     - [x] Write tests: `internal/git` streaming exec (stdin/stdout/stderr to IOStreams) with its own stub hook; `gittest.Runner` records the dir argument
     - [x] Write tests (stubbed git runner): HTTPS (`remoteUrl`, `org@` kept) vs SSH (`sshUrl`) by protocol, no token added to any URL, full URL passed through as given, HTTPS URL containing a password refused with a credential-manager hint and not echoed (o14), argv exactly `clone <gitflags> -- <url> <dir>` split via `ArgsLenAtDash`, repo names starting with `-`, optional `<directory>` (`.`/`..` and path separators rejected), default directory = decoded repo name passed explicitly (`My Repo`; `.git` suffix with `--bare`/`--mirror`) (o13), fork adds `upstream` (and `-u` rename) via `remote add -- <name> <url>` + `fetch <name>` in the clone dir with parent URL fallback via `RepositoryByID`, fork clone sets no `ado-resolved` and has no `--no-upstream` (o12), git failure → non-zero exit (1) with git's stderr shown and no URL echoed (`SilentError`)
     - [x] Implement streaming exec and Runner dir recording in `internal/git`
     - [x] Implement `repo clone`
-- [x] Task: `ado repo create` `75d5691`
+- [x] Task: `ado repo create` `3b62ead`
     - [x] Write tests: create in `--project`/current project, `--add-readme` and `-g` produce one initial push (one commit on `refs/heads/main`, 40-zero `oldObjectId`, README `newContent` rawtext `# <name>\n` (o9), .gitignore `newContentTemplate{name: "<T>.gitignore", type: "gitignore"}`), unknown gitignore template lists close matches (template names minus `.gitignore`, case-insensitive), `--clone` clones after create, name conflict (`TF400948` in `HTTPError.Message`) → exit 1, initial push failure → warning on stderr, URL still printed, exit 1, empty repo kept (o10), TTY prompts, non-TTY missing name fails naming `<name>`, prints web URL
     - [x] Implement `repo create`
     - [x] Note for Phase 2 manual verification: confirm `newContentTemplate` .gitignore expansion and the TF400948 HTTP status against a real organization — verified live 2026-10-11: Go template expanded server-side, README `# <name>\n`, TF400948 is HTTP 409, soft delete 204 → recycle bin
@@ -56,19 +56,19 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 3: `repo delete`, `repo restore` and `repo set-default`
 
-- [ ] Task: `ado repo delete`
-    - [ ] Write tests: name → GUID via GetRepository, soft delete message points at `ado repo restore <name>` (o11), `--permanent` = soft delete then `DeleteRepositoryFromRecycleBin` with explicit Project, purge failure says the repo is still in the recycle bin, only-repo server error passed through (no pre-check), 200 and 204 accepted, disabled repos not blocked client-side, TTY typed-name confirmation (match / mismatch → exit 2), confirmation text mentions permanence, `-y` skips, non-TTY without `--yes` refuses, default current repo
-    - [ ] Implement `repo delete`
-- [ ] Task: `ado repo restore` (o11)
-    - [ ] Write tests: restore from the recycle bin by name (looked up via `GetRecycleBinRepositories`) or by ID via `RestoreRepositoryFromRecycleBin` (PATCH `{"deleted": false}`), project from context or `[org/]project/repo`, not in recycle bin → not-found error, permission error (403) passed through, success message
-    - [ ] Implement `repo restore`
-- [ ] Task: Context resolution update
-    - [ ] Write tests: `git.Remote.Resolved` and `git.Client.ResolvedRemotes` (Remotes + `config --get-regexp ^remote\..*\.ado-resolved$`, exit 1 = none, dotted remote names survive); `Resolved: "base"` rows in resolve_test; order `-R` > `ADO_REPO` > `ado-resolved` > `origin` > `upstream` > first ADO remote; `Remotes()` and `BaseRepoFromGit` unchanged
-    - [ ] Add `Resolved`/`ResolvedRemotes`, update the MVP resolver and switch the `NewFactory` BaseRepo closure
-- [ ] Task: `ado repo set-default`
-    - [ ] Write tests (stubbed git config): `--unset-all remote.<n>.ado-resolved` on every resolved remote then plain `git config remote.<n>.ado-resolved base` (not `--add`; pre-2.46 `--get-regexp`/`--unset-all`), repo must match an ADO remote, single-segment argument read as remote name first, then `[[org/]project/]repo`/URL matched against ADO remotes (o16), single ADO remote auto-picked, TTY select prompt with several remotes, non-TTY without argument → FlagError, `-R/--repo` rejected with a FlagError (o17), `--view` prints `org/project/repo`, with no default prints a message on stderr and exits 0 (o15), `--unset`, outside a git repo → error
-    - [ ] Move `PointsAt`/`MatchRemote` into `internal/adocontext` and implement `repo set-default`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: repo delete, repo restore and repo set-default' (Protocol in workflow.md)
+- [x] Task: `ado repo delete` `d1a4ec4`
+    - [x] Write tests: name → GUID via GetRepository, soft delete message points at `ado repo restore <name>` (o11), `--permanent` = soft delete then `DeleteRepositoryFromRecycleBin` with explicit Project, purge failure says the repo is still in the recycle bin, only-repo server error passed through (no pre-check), 200 and 204 accepted, disabled repos not blocked client-side, TTY typed-name confirmation (match / mismatch → exit 2), confirmation text mentions permanence, `-y` skips, non-TTY without `--yes` refuses, default current repo
+    - [x] Implement `repo delete`
+- [x] Task: `ado repo restore` (o11) `49314bf`
+    - [x] Write tests: restore from the recycle bin by name (looked up via `GetRecycleBinRepositories`) or by ID via `RestoreRepositoryFromRecycleBin` (PATCH `{"deleted": false}`), project from context or `[org/]project/repo`, not in recycle bin → not-found error, permission error (403) passed through, success message
+    - [x] Implement `repo restore`
+- [x] Task: Context resolution update `6aaa17f`
+    - [x] Write tests: `git.Remote.Resolved` and `git.Client.ResolvedRemotes` (Remotes + `config --get-regexp ^remote\..*\.ado-resolved$`, exit 1 = none, dotted remote names survive); `Resolved: "base"` rows in resolve_test; order `-R` > `ADO_REPO` > `ado-resolved` > `origin` > `upstream` > first ADO remote; `Remotes()` and `BaseRepoFromGit` unchanged
+    - [x] Add `Resolved`/`ResolvedRemotes`, update the MVP resolver and switch the `NewFactory` BaseRepo closure
+- [x] Task: `ado repo set-default` `9ad392e`
+    - [x] Write tests (stubbed git config): `--unset-all remote.<n>.ado-resolved` on every resolved remote then plain `git config remote.<n>.ado-resolved base` (not `--add`; pre-2.46 `--get-regexp`/`--unset-all`), repo must match an ADO remote, single-segment argument read as remote name first, then `[[org/]project/]repo`/URL matched against ADO remotes (o16), single ADO remote auto-picked, TTY select prompt with several remotes, non-TTY without argument → FlagError, `-R/--repo` rejected with a FlagError (o17), `--view` prints `org/project/repo`, with no default prints a message on stderr and exits 0 (o15), `--unset`, outside a git repo → error
+    - [x] Move `PointsAt`/`MatchRemote` into `internal/adocontext` and implement `repo set-default`
+- [x] Task: Conductor - User Manual Verification 'Phase 3: repo delete, repo restore and repo set-default' (Protocol in workflow.md)
 
 ## Phase 4: `ado browse`, `--web` Audit, Docs
 

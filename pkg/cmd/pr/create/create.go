@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/snake-in-prod/ado-gh/api"
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
@@ -92,7 +93,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	// The remote pointing at repo, else origin (also when the remotes can't be listed).
 	remote := "origin"
 	if remotes, err := f.GitClient.Remotes(ctx); err == nil {
-		remote = cmp.Or(shared.MatchRemote(remotes, repo), remote)
+		remote = cmp.Or(adocontext.MatchRemote(remotes, repo), remote)
 	}
 	base := strings.TrimPrefix(o.base, "refs/heads/")
 

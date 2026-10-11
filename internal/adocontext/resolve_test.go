@@ -53,12 +53,23 @@ func TestResolveBaseRepo(t *testing.T) {
 			wantErr: `invalid -R "a//c": expected [ORG/]PROJECT/REPO`},
 		{name: "invalid ADO_ORG", override: "p/r", env: map[string]string{"ADO_ORG": "a/b"}, remotes: noGit,
 			wantErr: `invalid ADO_ORG "a/b"`},
-		{name: "ADO_REPO beats remotes", env: map[string]string{"ADO_REPO": "x/y/z"}, remotes: noGit,
+		{name: "ADO_REPO beats remotes and ado-resolved", env: map[string]string{"ADO_REPO": "x/y/z"}, remotes: noGit,
 			want: Repo{Host: "dev.azure.com", Org: "x", Project: "y", Name: "z"}},
 		{name: "partial ADO_REPO", env: map[string]string{"ADO_REPO": "z", "ADO_ORG": "x", "ADO_PROJECT": "y"}, remotes: noGit,
 			want: Repo{Host: "dev.azure.com", Org: "x", Project: "y", Name: "z"}},
 		{name: "partial ADO_REPO without ADO_ORG", env: map[string]string{"ADO_REPO": "y/z"}, remotes: noGit,
 			wantErr: `ADO_REPO "y/z" has no organization; use ORG/PROJECT/REPO or set ADO_ORG`},
+		{name: "-R beats ado-resolved", override: "org/proj/repo", remotes: noGit,
+			want: Repo{Host: "dev.azure.com", Org: "org", Project: "proj", Name: "repo"}},
+		{name: "ado-resolved beats origin and upstream",
+			remotes: remotes(originR, upstreamR, git.Remote{Name: "my.fork", FetchURL: otherR.FetchURL, Resolved: "base"}),
+			want:    Repo{Host: "fab.visualstudio.com", Org: "fab", Project: "p", Name: "other"}},
+		{name: "ado-resolved on a non-ADO remote is skipped",
+			remotes: remotes(otherR, git.Remote{Name: "gh", FetchURL: githubR.FetchURL, Resolved: "base"}, upstreamR),
+			want:    Repo{Host: "ssh.dev.azure.com", Org: "o", Project: "p", Name: "upstream"}},
+		{name: "ado-resolved value other than base is ignored",
+			remotes: remotes(git.Remote{Name: "other", FetchURL: otherR.FetchURL, Resolved: "o/p/x"}, originR),
+			want:    Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "origin"}},
 		{name: "origin first", remotes: remotes(otherR, upstreamR, originR),
 			want: Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "origin"}},
 		{name: "upstream when origin is not ADO",
@@ -94,4 +105,14 @@ func TestResolveBaseRepo(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestMatchRemote(t *testing.T) {
+	rs := []git.Remote{
+		{Name: "junk", FetchURL: "https://github.com/a/b"},
+		{Name: "up", FetchURL: "git@ssh.dev.azure.com:v3/Org/Proj/Web"},
+		{Name: "origin", FetchURL: "https://dev.azure.com/org/proj/_git/web"},
+	}
+	assert.Equal(t, "up", MatchRemote(rs, Repo{Org: "org", Project: "proj", Name: "web"}))
+	assert.Empty(t, MatchRemote(rs, Repo{Org: "org", Project: "proj", Name: "other"}))
 }

@@ -3,12 +3,10 @@ package shared
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
-	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 )
 
 // ForkAccessError wraps a failure to read the fork that pull request id comes from.
@@ -37,20 +35,4 @@ func SourceRepo(ctx context.Context, c *api.PRClient, repo adocontext.Repo, pr *
 		return head, "", true, fmt.Errorf("pull request !%d has an unsupported fork URL", *pr.PullRequestId)
 	}
 	return head, headURL, true, nil
-}
-
-// MatchRemote returns the name of the first remote whose fetch URL points at r, or "".
-func MatchRemote(remotes []gitcmd.Remote, r adocontext.Repo) string {
-	for _, rm := range remotes {
-		if PointsAt(rm.FetchURL, r) {
-			return rm.Name
-		}
-	}
-	return ""
-}
-
-// PointsAt reports whether the git URL u is a URL of the Azure DevOps repository r.
-func PointsAt(u string, r adocontext.Repo) bool {
-	rr, err := adocontext.ParseRemoteURL(u)
-	return err == nil && strings.EqualFold(rr.Org, r.Org) && strings.EqualFold(rr.Project, r.Project) && strings.EqualFold(rr.Name, r.Name)
 }

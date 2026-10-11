@@ -42,6 +42,9 @@ type Remote struct {
 	Name     string
 	FetchURL string
 	PushURL  string
+	// Resolved is the remote.<name>.ado-resolved value ("base" = default repo); only
+	// ResolvedRemotes fills it.
+	Resolved string
 }
 
 // Client runs git in Dir ("" = current directory).
@@ -105,6 +108,33 @@ func (c *Client) Remotes(ctx context.Context) ([]Remote, error) {
 		return nil, err
 	}
 	return parseRemotes(string(out)), nil
+}
+
+// ResolvedRemotes is Remotes with each remote's ado-resolved config value filled in.
+func (c *Client) ResolvedRemotes(ctx context.Context) ([]Remote, error) {
+	remotes, err := c.Remotes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := c.Exec(ctx, "config", "--get-regexp", `^remote\..*\.ado-resolved$`)
+	var gitErr *Error
+	if errors.As(err, &gitErr) && gitErr.ExitCode == 1 { // no key set
+		return remotes, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for line := range strings.Lines(string(out)) {
+		key, value, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
+		// Trim both ends rather than split on ".", so dotted remote names survive.
+		name := strings.TrimSuffix(strings.TrimPrefix(key, "remote."), ".ado-resolved")
+		for i := range remotes {
+			if remotes[i].Name == name {
+				remotes[i].Resolved = value
+			}
+		}
+	}
+	return remotes, nil
 }
 
 // parseRemotes parses "name\turl (fetch|push)[ filter]" lines; URLs may contain spaces.

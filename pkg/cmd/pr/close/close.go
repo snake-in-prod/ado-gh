@@ -147,7 +147,7 @@ func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo 
 			if i := slices.IndexFunc(remotes, func(r gitcmd.Remote) bool { return r.Name == u }); i >= 0 {
 				u = remotes[i].FetchURL
 			}
-			if shared.PointsAt(u, head) {
+			if adocontext.PointsAt(u, head) {
 				locals = append(locals, name)
 			}
 		}

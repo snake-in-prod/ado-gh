@@ -9,21 +9,10 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
-	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMatchRemote(t *testing.T) {
-	remotes := []gitcmd.Remote{
-		{Name: "junk", FetchURL: "https://github.com/a/b"},
-		{Name: "up", FetchURL: "git@ssh.dev.azure.com:v3/Org/Proj/Web"},
-		{Name: "origin", FetchURL: "https://dev.azure.com/org/proj/_git/web"},
-	}
-	assert.Equal(t, "up", MatchRemote(remotes, adocontext.Repo{Org: "org", Project: "proj", Name: "web"}))
-	assert.Empty(t, MatchRemote(remotes, adocontext.Repo{Org: "org", Project: "proj", Name: "other"}))
-}
 
 func TestSourceRepo(t *testing.T) {
 	ctx := context.Background()

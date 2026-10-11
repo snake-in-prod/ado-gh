@@ -37,7 +37,7 @@ type Factory struct {
 	GitClient  *git.Client
 	// RepoOverride is the -R/--repo flag value.
 	RepoOverride string
-	// BaseRepo resolves the target repo: -R > ADO_REPO > git remotes.
+	// BaseRepo resolves the target repo: -R > ADO_REPO > ado-resolved remote > other git remotes.
 	BaseRepo func() (adocontext.Repo, error)
 }
 
@@ -69,7 +69,7 @@ func NewFactory(appVersion string, ios *iostreams.IOStreams) *Factory {
 	}
 	f.BaseRepo = func() (adocontext.Repo, error) {
 		return adocontext.ResolveBaseRepo(f.RepoOverride, func() ([]git.Remote, error) {
-			return f.GitClient.Remotes(context.Background())
+			return f.GitClient.ResolvedRemotes(context.Background())
 		})
 	}
 	f.Browser = browserFunc(func(url string) error {

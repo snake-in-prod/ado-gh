@@ -18,15 +18,18 @@ func TestNewFactoryBaseRepo(t *testing.T) {
 	t.Setenv("ADO_REPO", "")
 	ios, _, _, _ := iostreams.Test()
 	f := NewFactory("1.0.0", ios)
-	var gitArgs []string
+	var gitCalls []string
 	f.GitClient.Run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
-		gitArgs = args
-		return []byte("origin\thttps://dev.azure.com/o/p/_git/r (fetch)\n"), nil
+		gitCalls = append(gitCalls, strings.Join(args, " "))
+		if args[0] == "config" {
+			return []byte("remote.base.ado-resolved base\n"), nil
+		}
+		return []byte("origin\thttps://dev.azure.com/o/p/_git/r (fetch)\nbase\thttps://dev.azure.com/o/p/_git/b (fetch)\n"), nil
 	}
 	repo, err := f.BaseRepo()
 	require.NoError(t, err)
-	assert.Equal(t, adocontext.Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "r"}, repo)
-	assert.Equal(t, []string{"remote", "-v"}, gitArgs)
+	assert.Equal(t, adocontext.Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "b"}, repo)
+	assert.Equal(t, []string{"remote -v", `config --get-regexp ^remote\..*\.ado-resolved$`}, gitCalls)
 
 	f.RepoOverride = "a/b/c" // set by -R after construction
 	repo, err = f.BaseRepo()

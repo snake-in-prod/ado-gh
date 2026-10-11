@@ -4,6 +4,7 @@ package diff
 import (
 	"context"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -62,7 +63,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	// The clone path needs the cwd to be a clone with a remote for the PR's repository; not
 	// being in a git repository at all (no remotes) means the API path.
-	if remotes, err := f.GitClient.Remotes(ctx); err == nil && shared.MatchRemote(remotes, repo) != "" {
+	if remotes, err := f.GitClient.Remotes(ctx); err == nil && adocontext.MatchRemote(remotes, repo) != "" {
 		return cloneDiff(ctx, f, c, repo, pr, o.nameOnly, o.patch, o.useColor)
 	}
 	return apiDiff(ctx, f, c, pr, o.nameOnly, o.patch, o.useColor)

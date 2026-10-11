@@ -13,7 +13,7 @@ import (
 var errNoRepo = errors.New("not an Azure DevOps repository; use -R ORG/PROJECT/REPO or set ADO_REPO")
 
 // ResolveBaseRepo picks the target repository: override (-R) > ADO_REPO >
-// git remotes (origin > upstream > first ADO remote). -R and ADO_REPO take
+// git remotes (ado-resolved "base" > origin > upstream > first ADO remote). -R and ADO_REPO take
 // [ORG/]PROJECT/REPO on dev.azure.com, with ADO_ORG / ADO_PROJECT filling the
 // missing parts. remotes is only called when neither is set.
 func ResolveBaseRepo(override string, remotes func() ([]git.Remote, error)) (Repo, error) {
@@ -34,6 +34,9 @@ func ResolveBaseRepo(override string, remotes func() ([]git.Remote, error)) (Rep
 	byName := map[string]Repo{}
 	for _, r := range rs {
 		if repo, err := ParseRemoteURL(r.FetchURL); err == nil {
+			if r.Resolved == "base" {
+				return repo, nil
+			}
 			found = append(found, repo)
 			byName[r.Name] = repo
 		}
@@ -102,4 +105,20 @@ func parseSegments(source, s string, base func() (Repo, error), configOrg func()
 		return Repo{}, fmt.Errorf("invalid ADO_PROJECT %q", r.Project)
 	}
 	return r, nil
+}
+
+// MatchRemote returns the name of the first remote whose fetch URL points at r, or "".
+func MatchRemote(remotes []git.Remote, r Repo) string {
+	for _, rm := range remotes {
+		if PointsAt(rm.FetchURL, r) {
+			return rm.Name
+		}
+	}
+	return ""
+}
+
+// PointsAt reports whether the git URL u is a URL of the Azure DevOps repository r.
+func PointsAt(u string, r Repo) bool {
+	rr, err := ParseRemoteURL(u)
+	return err == nil && strings.EqualFold(rr.Org, r.Org) && strings.EqualFold(rr.Project, r.Project) && strings.EqualFold(rr.Name, r.Name)
 }

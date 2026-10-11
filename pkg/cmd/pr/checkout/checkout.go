@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -67,7 +68,7 @@ func run(ctx context.Context, f *cmdutil.Factory, ref string, o *options) error 
 	if err != nil {
 		return err
 	}
-	remote := shared.MatchRemote(remotes, head)
+	remote := adocontext.MatchRemote(remotes, head)
 
 	local := o.branch
 	if local == "" {

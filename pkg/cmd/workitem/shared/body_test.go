@@ -3,6 +3,7 @@ package shared
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
@@ -10,6 +11,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yuin/goldmark/parser"
 )
 
 const descField = "System.Description"
@@ -75,6 +77,17 @@ func TestBodyOps(t *testing.T) {
 
 func TestMarkdownToHTML_GFM(t *testing.T) {
 	assert.Contains(t, MarkdownToHTML("| a | b |\n|---|---|\n| 1 | 2 |\n"), "<table>")
+}
+
+func TestMarkdownToHTML_ConvertError(t *testing.T) {
+	orig := convertMarkdown
+	t.Cleanup(func() { convertMarkdown = orig })
+	convertMarkdown = func(_ []byte, w io.Writer, _ ...parser.ParseOption) error {
+		_, err := io.WriteString(w, "<p>partial")
+		require.NoError(t, err)
+		return errors.New("render failed")
+	}
+	assert.Equal(t, "a &lt;b&gt; &amp; **c**", MarkdownToHTML("a <b> & **c**"), "escaped input, never the partial body")
 }
 
 func TestSendWithHTMLFallback(t *testing.T) {

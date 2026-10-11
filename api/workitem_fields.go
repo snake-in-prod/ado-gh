@@ -58,3 +58,18 @@ func (c *WorkItemClient) FieldAllowedValues(ctx context.Context, typ, field stri
 	}
 	return out, nil
 }
+
+// TypeFieldRefs returns the reference names of the fields of work item type typ.
+func (c *WorkItemClient) TypeFieldRefs(ctx context.Context, typ string) ([]string, error) {
+	fs, err := c.Wit.GetWorkItemTypeFieldsWithReferences(ctx, workitemtracking.GetWorkItemTypeFieldsWithReferencesArgs{
+		Project: &c.Project, Type: &typ,
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	var out []string
+	for _, f := range deref(fs) {
+		out = append(out, deref(f.ReferenceName))
+	}
+	return out, nil
+}

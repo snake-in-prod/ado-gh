@@ -53,13 +53,13 @@ func BuildWIQL(f WIQLFilter) (string, error) {
 	clauses = appendIdentity(clauses, "System.AssignedTo", f.Assignee)
 	clauses = appendIdentity(clauses, "System.CreatedBy", f.Author)
 	if f.AreaPath != "" {
-		clauses = append(clauses, "[System.AreaPath] UNDER "+quoteWIQL(f.AreaPath))
+		clauses = append(clauses, "[System.AreaPath] UNDER "+QuoteWIQL(f.AreaPath))
 	}
 	if f.IterationPath != "" {
-		clauses = append(clauses, "[System.IterationPath] UNDER "+quoteWIQL(f.IterationPath))
+		clauses = append(clauses, "[System.IterationPath] UNDER "+QuoteWIQL(f.IterationPath))
 	}
 	for _, tag := range f.Tags {
-		clauses = append(clauses, "[System.Tags] CONTAINS "+quoteWIQL(tag))
+		clauses = append(clauses, "[System.Tags] CONTAINS "+QuoteWIQL(tag))
 	}
 	if len(f.IDs) > 0 {
 		ids := make([]string, len(f.IDs))
@@ -72,7 +72,7 @@ func BuildWIQL(f WIQLFilter) (string, error) {
 		if !refNamePattern.MatchString(fld.RefName) {
 			return "", fmt.Errorf("invalid field reference name %q", fld.RefName)
 		}
-		clauses = append(clauses, "["+fld.RefName+"] = "+quoteWIQL(fld.Value))
+		clauses = append(clauses, "["+fld.RefName+"] = "+QuoteWIQL(fld.Value))
 	}
 
 	q := "SELECT [System.Id] FROM WorkItems WHERE " + strings.Join(clauses, " AND ") +
@@ -83,9 +83,9 @@ func BuildWIQL(f WIQLFilter) (string, error) {
 	return q, nil
 }
 
-// quoteWIQL returns s as a single-quoted WIQL string literal. Doubling the
+// QuoteWIQL returns s as a single-quoted WIQL string literal. Doubling the
 // quote is the only escape WIQL has; backslashes are literal.
-func quoteWIQL(s string) string {
+func QuoteWIQL(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
@@ -94,23 +94,32 @@ func appendIn(clauses []string, ref string, values []string) []string {
 	case 0:
 		return clauses
 	case 1:
-		return append(clauses, "["+ref+"] = "+quoteWIQL(values[0]))
+		return append(clauses, "["+ref+"] = "+QuoteWIQL(values[0]))
 	}
 	quoted := make([]string, len(values))
 	for i, v := range values {
-		quoted[i] = quoteWIQL(v)
+		quoted[i] = QuoteWIQL(v)
 	}
 	return append(clauses, "["+ref+"] IN ("+strings.Join(quoted, ", ")+")")
 }
 
 func appendIdentity(clauses []string, ref string, id IdentityFilter) []string {
-	switch {
-	case id.Me:
-		return append(clauses, "["+ref+"] = @Me")
-	case id.None:
-		return append(clauses, "["+ref+"] = ''")
-	case id.Value != "":
-		return append(clauses, "["+ref+"] = "+quoteWIQL(id.Value))
+	if c := IdentityClause(ref, id); c != "" {
+		return append(clauses, c)
 	}
 	return clauses
+}
+
+// IdentityClause returns the WIQL clause matching identity field ref (a trusted reference name)
+// against id: the @Me macro, unassigned, or the quoted value; "" for an empty filter.
+func IdentityClause(ref string, id IdentityFilter) string {
+	switch {
+	case id.Me:
+		return "[" + ref + "] = @Me"
+	case id.None:
+		return "[" + ref + "] = ''"
+	case id.Value != "":
+		return "[" + ref + "] = " + QuoteWIQL(id.Value)
+	}
+	return ""
 }

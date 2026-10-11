@@ -329,14 +329,16 @@ func TestProcessErrors(t *testing.T) {
 		p := NewProcess(c)
 		_, err := p.Types(ctx)
 		assert.ErrorContains(t, err, "TF200016")
+		// Not loaded: each call fetches the types again, and finds no stub left.
+		const noStub = "no registered HTTP stubs matched GET"
 		_, err = p.States(ctx, "Bug")
-		assert.Error(t, err, "not loaded, fetches again and finds no stub")
+		assert.ErrorContains(t, err, noStub)
 		_, err = p.ExpandStates(ctx, nil, "open")
-		assert.Error(t, err)
+		assert.ErrorContains(t, err, noStub)
 		_, err = p.CloseState(ctx, "Bug", CategoryCompleted)
-		assert.Error(t, err)
+		assert.ErrorContains(t, err, noStub)
 		_, err = p.ReopenState(ctx, "Bug")
-		assert.Error(t, err)
+		assert.ErrorContains(t, err, noStub)
 	})
 	t.Run("states", func(t *testing.T) {
 		c, reg, org := processTestClient(t)
@@ -345,4 +347,44 @@ func TestProcessErrors(t *testing.T) {
 		_, err := NewProcess(c).ExpandStates(ctx, nil, "open")
 		assert.ErrorContains(t, err, "TF200016")
 	})
+}
+
+func TestProcessBodyField(t *testing.T) {
+	tests := []struct {
+		process, typ, fieldsFixture, want string
+	}{
+		{"agile", "Bug", "agile_type_bug_fields.json", ReproStepsField},
+		{"scrum", "bug", "scrum_type_bug_fields.json", ReproStepsField},
+		{"basic", "Issue", "live_basic_type_issue_fields.json", DescriptionField}, // in the Bug category, no Repro Steps
+		{"agile", "User Story", "", DescriptionField},                             // not a bug: no fields lookup
+		{"scrum", "Product Backlog Item", "", DescriptionField},
+	}
+	for _, tt := range tests {
+		t.Run(tt.process+"/"+tt.typ, func(t *testing.T) {
+			p, reg, org := processTestFixture(t, tt.process)
+			if tt.fieldsFixture != "" {
+				reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/wit/workitemtypes/"+url.PathEscape(tt.typ)+"/fields"),
+					httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, tt.fieldsFixture))))
+			}
+			for range 2 { // the second call is served from the cache
+				got, err := p.BodyField(context.Background(), tt.typ)
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestProcessBodyFieldErrors(t *testing.T) {
+	p, reg, org := processTestFixture(t, "agile")
+	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/wit/workitemtypes/Bug/fields"),
+		httpmock.StatusJSONResponse(http.StatusInternalServerError, map[string]any{"message": "boom"}))
+	_, err := p.BodyField(context.Background(), "Bug")
+	assert.ErrorContains(t, err, "boom")
+
+	c, reg2, org2 := processTestClient(t)
+	reg2.Register(httpmock.REST(http.MethodGet, org2+"/proj/_apis/wit/workitemtypes"),
+		httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "TF200016: no project"}))
+	_, err = NewProcess(c).BodyField(context.Background(), "Bug")
+	assert.ErrorContains(t, err, "TF200016")
 }

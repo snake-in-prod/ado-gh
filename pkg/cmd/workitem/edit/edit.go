@@ -51,8 +51,10 @@ with a work item ID, pr:<number>, commit:<sha> or branch:<name> in the current
 repository, or url:<URL> for a hyperlink. --field sets any field by friendly
 or reference name; Name= clears it.
 
---body keeps the description's format: a description stored as HTML gets the Markdown
-converted to HTML. --markdown switches it to Markdown, which can't be undone.
+--body sets the description, or Repro Steps for bugs whose form has it instead (Agile,
+Scrum, CMMI). It keeps the field's format: a field stored as HTML gets the Markdown
+converted to HTML. --markdown switches it to Markdown, which can't be undone. Large-text
+fields set with --field follow the same rules.
 
 Each work item is updated in one request that fails if it changed since it was read.
 On a terminal without flags, pick the fields to edit, prefilled with their values.`,
@@ -80,7 +82,7 @@ On a terminal without flags, pick the fields to edit, prefilled with their value
 	fl := cmd.Flags()
 	fl.StringVarP(&o.title, "title", "t", "", "Set the title")
 	cmdutil.AddBodyFlags(cmd, &o.body)
-	fl.BoolVar(&o.markdown, "markdown", false, "Switch the description to Markdown if it is stored as HTML (permanent)")
+	fl.BoolVar(&o.markdown, "markdown", false, "Switch the body (and large-text --field values) to Markdown if stored as HTML (permanent)")
 	fl.StringVar(&o.state, "state", "", "Set the state")
 	fl.StringVarP(&o.assignee, "assignee", "a", "", `Assign to a user (email, name or "@me")`)
 	fl.BoolVar(&o.unassign, "unassign", false, "Remove the assignee")
@@ -307,15 +309,19 @@ func (e *editor) ops(ctx context.Context, id int, wi *api.WorkItem) ([]webapi.Js
 	if o.title != "" {
 		set("System.Title", o.title)
 	}
-	if e.body == nil && (o.body.Given() || o.body.Editor) {
-		body, err := o.body.Read(e.f, currentBody(wi))
+	if e.body != nil || o.body.Given() || o.body.Editor {
+		field, err := e.proc.BodyField(ctx, typ)
 		if err != nil {
 			return nil, err
 		}
-		e.body = &body
-	}
-	if e.body != nil {
-		ops = append(ops, shared.BodyOps("System.Description", *e.body, wi, o.markdown)...)
+		if e.body == nil {
+			body, err := o.body.Read(e.f, currentBody(wi, field))
+			if err != nil {
+				return nil, err
+			}
+			e.body = &body
+		}
+		ops = append(ops, shared.BodyOps(field, *e.body, wi, o.markdown)...)
 	}
 	if o.state != "" {
 		s, err := e.resolveState(ctx, typ, o.state)
@@ -347,7 +353,7 @@ func (e *editor) ops(ctx context.Context, id int, wi *api.WorkItem) ([]webapi.Js
 		if err != nil {
 			return nil, err
 		}
-		ops = append(ops, v.Op())
+		ops = append(ops, v.Ops(wi, o.markdown)...)
 	}
 	rels, err := e.relationOps(id, wi)
 	return append(ops, rels...), err
@@ -439,7 +445,7 @@ func (e *editor) pick(ctx context.Context, wi *api.WorkItem) error {
 		case "Title":
 			o.title, err = p.Input("Title", str(wi, "System.Title"))
 		case "Body":
-			err = e.pickBody(wi)
+			err = e.pickBody(ctx, wi)
 		case "State":
 			err = e.pickState(ctx, wi)
 		case "Assignee":
@@ -473,12 +479,16 @@ func (e *editor) pick(ctx context.Context, wi *api.WorkItem) error {
 	return nil
 }
 
-func (e *editor) pickBody(wi *api.WorkItem) error {
+func (e *editor) pickBody(ctx context.Context, wi *api.WorkItem) error {
+	field, err := e.proc.BodyField(ctx, str(wi, "System.WorkItemType"))
+	if err != nil {
+		return err
+	}
 	cfg, err := e.f.Config()
 	if err != nil {
 		return err
 	}
-	body, err := cmdutil.Edit(e.f.IOStreams, cmdutil.ResolveEditor(cfg), currentBody(wi))
+	body, err := cmdutil.Edit(e.f.IOStreams, cmdutil.ResolveEditor(cfg), currentBody(wi, field))
 	if err == nil && strings.TrimSpace(body) != "" {
 		e.body = &body
 	}
@@ -518,10 +528,10 @@ func (e *editor) pickPriority(wi *api.WorkItem) error {
 	return nil
 }
 
-// currentBody is the description to edit: Markdown as is, HTML as plain text.
-func currentBody(wi *api.WorkItem) string {
-	s := str(wi, "System.Description")
-	if shared.IsMarkdown(wi, "System.Description") {
+// currentBody is the body field's text to edit: Markdown as is, HTML as plain text.
+func currentBody(wi *api.WorkItem, field string) string {
+	s := str(wi, field)
+	if shared.IsMarkdown(wi, field) {
 		return s
 	}
 	return shared.HTMLToText(s)

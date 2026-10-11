@@ -233,6 +233,24 @@ func TestWIDeleteURLRef(t *testing.T) {
 	assert.Contains(t, e.errOut.String(), "ado wi restore "+url)
 }
 
+func TestWIDeleteURLRefNeverEchoesUserinfo(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		t.Run(strconv.FormatBool(tty), func(t *testing.T) {
+			e := newWIDeleteEnv(t, tty)
+			e.stubDelete(t, 9, wiDeleteOK())
+			ref := "https://user:s3cretpat@dev.azure.com/" + e.org + "/My%20Proj/_workitems/edit/9"
+
+			require.NoError(t, e.run(t, ref, "-y"))
+			assert.Equal(t, []string{"9"}, e.deletes)
+			assert.Contains(t, e.errOut.String(), "ado wi restore https://dev.azure.com/"+e.org+"/My%20Proj/_workitems/edit/9")
+			for _, s := range []string{e.out.String(), e.errOut.String()} {
+				assert.NotContains(t, s, "s3cretpat")
+				assert.NotContains(t, s, "user:")
+			}
+		})
+	}
+}
+
 func TestWIDeleteInvalidRef(t *testing.T) {
 	e := newWIDeleteEnv(t, false)
 	err := e.run(t, "abc", "-y")

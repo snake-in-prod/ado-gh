@@ -55,12 +55,22 @@ func newWICreateEnv(t *testing.T, tty bool) *wiCreateEnv {
 	return e
 }
 
-func (e *wiCreateEnv) stubProcess(t *testing.T) {
+func (e *wiCreateEnv) stubProcess(t *testing.T) { e.stubProcessOf(t, "agile") }
+
+func (e *wiCreateEnv) stubProcessOf(t *testing.T, process string) {
 	t.Helper()
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypes"),
-		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, "agile", "types"))))
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, process, "types"))))
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypecategories"),
-		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, "agile", "categories"))))
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, process, "categories"))))
+}
+
+// stubBugFields answers the Bug type's field list with the process's fixture (Repro Steps,
+// no Description).
+func (e *wiCreateEnv) stubBugFields(t *testing.T, process string) {
+	t.Helper()
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypes/Bug/fields"),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, process+"_type_bug_fields.json"))))
 }
 
 func (e *wiCreateEnv) stubMe() {
@@ -262,6 +272,7 @@ func TestWICreateTTYPrompts(t *testing.T) {
 	editor, _ := editortest.Command(t, "TestWICreateEditorHelperProcess", "Edited body")
 	t.Setenv("ADO_EDITOR", editor)
 	e.stubProcess(t)
+	e.stubBugFields(t, "agile")
 	e.stubMe()
 	e.stubCreate(t, http.StatusOK, "")
 	// Type: the sorted usable Agile types are Bug, Epic, Feature, Issue, Task, User Story.
@@ -274,8 +285,8 @@ func TestWICreateTTYPrompts(t *testing.T) {
 	assert.Equal(t, "/"+e.org+"/My Proj/_apis/wit/workitems/$Bug", e.paths[0])
 	assert.Equal(t, []map[string]any{
 		wiCreateOp("add", "/fields/System.Title", "Prompted title"),
-		wiCreateOp("add", "/fields/System.Description", "Edited body"),
-		wiCreateOp("add", "/multilineFieldsFormat/System.Description", "Markdown"),
+		wiCreateOp("add", "/fields/Microsoft.VSTS.TCM.ReproSteps", "Edited body"),
+		wiCreateOp("add", "/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps", "Markdown"),
 		wiCreateOp("add", "/fields/System.AssignedTo", "me@example.com"),
 		wiCreateOp("add", "/fields/Microsoft.VSTS.Common.Priority", float64(3)),
 	}, e.ops[0])
@@ -316,6 +327,16 @@ func TestWICreateTTYBadPriority(t *testing.T) {
 	e.stubProcess(t)
 	e.in.WriteString("T\n2\n5\n0\n9\n")
 	require.EqualError(t, e.run(t, "--type", "bug"), `invalid priority "9": must be between 1 and 4`)
+}
+
+func TestWICreateTTYBadParent(t *testing.T) {
+	e := newWICreateEnv(t, true)
+	editor, _ := editortest.Command(t, "TestWICreateEditorHelperProcess", "")
+	t.Setenv("ADO_EDITOR", editor)
+	e.stubProcess(t)
+	e.in.WriteString("T\n2\n6\n0\nx\n")
+	require.ErrorContains(t, e.run(t, "--type", "bug"), `invalid work item reference "x"`)
+	assert.Empty(t, e.ops)
 }
 
 func TestWICreateTTYMetadata(t *testing.T) {
@@ -377,9 +398,40 @@ func TestWICreateWebTypeOnly(t *testing.T) {
 	assert.Equal(t, []string{"https://dev.azure.com/" + e.org + "/My%20Proj/_workitems/create/Bug"}, e.browser.URLs)
 }
 
+func TestWICreateBugBodyGoesToReproSteps(t *testing.T) {
+	for _, process := range []string{"agile", "scrum"} {
+		t.Run(process, func(t *testing.T) {
+			e := newWICreateEnv(t, false)
+			e.stubProcessOf(t, process)
+			e.stubBugFields(t, process)
+			e.stubFields(t)
+			e.stubCreate(t, http.StatusOK, "")
+			require.NoError(t, e.run(t, "--type", "bug", "-t", "Crash", "-b", "Steps **1**", "-f", "Acceptance Criteria=- [ ] fixed"))
+			e.reg.Verify(t)
+			assert.Equal(t, []map[string]any{
+				wiCreateOp("add", "/fields/System.Title", "Crash"),
+				wiCreateOp("add", "/fields/Microsoft.VSTS.TCM.ReproSteps", "Steps **1**"),
+				wiCreateOp("add", "/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps", "Markdown"),
+				wiCreateOp("add", "/fields/Microsoft.VSTS.Common.AcceptanceCriteria", "- [ ] fixed"),
+				wiCreateOp("add", "/multilineFieldsFormat/Microsoft.VSTS.Common.AcceptanceCriteria", "Markdown"),
+			}, e.ops[0], "the bug body goes to Repro Steps; an html --field is Markdown too")
+		})
+	}
+}
+
+func TestWICreateBugBodyFieldsError(t *testing.T) {
+	e := newWICreateEnv(t, false)
+	e.stubProcess(t)
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypes/Bug/fields"),
+		httpmock.StatusJSONResponse(http.StatusInternalServerError, map[string]any{"message": "boom"}))
+	require.ErrorContains(t, e.run(t, "--type", "bug", "-t", "T", "-b", "x"), "boom")
+	assert.Empty(t, e.ops)
+}
+
 func TestWICreateWebTooLong(t *testing.T) {
 	e := newWICreateEnv(t, false)
 	e.stubProcess(t)
+	e.stubBugFields(t, "agile")
 	body := filepath.Join(t.TempDir(), "body.md")
 	require.NoError(t, os.WriteFile(body, []byte(strings.Repeat("x", 8192)), 0o600))
 	require.EqualError(t, e.run(t, "-w", "--type", "bug", "-F", body), "cannot open in browser: maximum URL length exceeded")

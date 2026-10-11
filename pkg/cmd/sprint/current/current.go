@@ -73,14 +73,10 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	its, err := c.TeamIterations(ctx, team, true)
+	it, err := shared.FindIteration(ctx, c, team, "")
 	if err != nil {
 		return err
 	}
-	if len(its) == 0 {
-		return fmt.Errorf("team %q has no current sprint; set sprint dates in the team settings", team)
-	}
-	it := its[0]
 	if o.web {
 		return cmdutil.OpenInBrowser(f, adocontext.TaskboardURL(project, team, it.Path))
 	}

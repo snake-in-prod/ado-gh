@@ -56,7 +56,7 @@ needs "Permanently delete work items".`,
 type item struct {
 	id     int
 	client *api.WorkItemClient
-	// hint is the ref for the restore hint: the ID, or the URL as given.
+	// hint is the ref for the restore hint: the ID, or the work item's web URL for a URL ref.
 	hint string
 }
 
@@ -120,7 +120,8 @@ func resolve(ctx context.Context, f *cmdutil.Factory, refs []string) ([]item, er
 				return nil, err
 			}
 		} else {
-			hint = shellQuote(ref)
+			// Never echo ref itself: a URL's userinfo may hold a PAT.
+			hint = shellQuote(adocontext.WorkItemURL(project, id))
 		}
 		key := adocontext.Repo{Host: project.Host, Org: strings.ToLower(project.Org), Project: strings.ToLower(project.Project)}
 		k := fmt.Sprint(key, id)

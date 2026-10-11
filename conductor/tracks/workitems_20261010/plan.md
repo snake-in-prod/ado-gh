@@ -128,6 +128,7 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
     - [x] Implement; classify in `noWebCmds` with reason
 - [x] Task: `ado board` `f9b5be1`
     - [x] Write tests: default level from `GetBacklogConfigurations().RequirementBacklog` (or `GetBacklogs` `type == "requirement"`), `features`/`epics`/level name, `GetBoard(name)` columns and fields; cards from a team-scoped WIQL (category via IN GROUP, `@TeamAreas`, `State <> Removed`, completed items limited by recent ChangedDate) plus a batch call with the WEF column/done fields; cards placed by `fields.columnField`/`doneField`, not `System.BoardColumn`; `itemLimit` 0 = no limit; nil `isSplit` = false; `-a` filter, JSON shape, `-w`
+    - Note (review 2026-10-11): cards are filtered by the board's state-mapped work item types and states instead of `IN GROUP` + `State <> Removed`, so bugs shown on the backlog appear too.
     - [x] Implement; classify in `webCmds`
 - [x] Task: Web audit and docs `f9b5be1`
     - [x] Sprint/board URL builders in internal/adocontext/weburl.go (taskboard `{team}/{project}/{encodeURIComponent(rest)}`, board `_boards/board/t/{team}/{backlogLevelId}`)

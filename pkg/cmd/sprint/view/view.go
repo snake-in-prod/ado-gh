@@ -100,7 +100,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	it, err := findIteration(ctx, c, team, o.iteration)
+	it, err := shared.FindIteration(ctx, c, team, o.iteration)
 	if err != nil {
 		return err
 	}
@@ -161,30 +161,6 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return nil
 	}
 	return printItems(ios, it, nest(items))
-}
-
-// findIteration returns team's current iteration when name is empty, else the team iteration
-// with that name or path (any case, `/` or `\` separated).
-func findIteration(ctx context.Context, c *api.WorkItemClient, team, name string) (api.Iteration, error) {
-	its, err := c.TeamIterations(ctx, team, name == "")
-	if err != nil {
-		return api.Iteration{}, err
-	}
-	if name == "" {
-		if len(its) == 0 {
-			return api.Iteration{}, fmt.Errorf("team %q has no current sprint; set sprint dates in the team settings", team)
-		}
-		return its[0], nil
-	}
-	path := strings.ReplaceAll(name, "/", `\`)
-	names := make([]string, len(its))
-	for i, it := range its {
-		if strings.EqualFold(it.Name, name) || strings.EqualFold(it.Path, path) {
-			return it, nil
-		}
-		names[i] = it.Name
-	}
-	return api.Iteration{}, fmt.Errorf("team %q has no sprint %q; its sprints: %s", team, name, strings.Join(names, ", "))
 }
 
 // filterIDs keeps the ids matching --type and --assignee, through a WIQL query.

@@ -166,18 +166,22 @@ func (s *StateChange) changeOne(ctx context.Context, f *cmdutil.Factory, cache m
 		if err != nil {
 			return err
 		}
-		ops = append(ops, v.Op())
+		ops = append(ops, v.Ops(wi, false)...)
 	}
-	if s.Comment != "" {
-		ops = append(ops, BodyOps("System.History", s.Comment, nil, false)...)
+	send := func(ops []webapi.JsonPatchOperation) (*api.WorkItem, error) {
+		return p.client.UpdateWorkItem(ctx, id, ops)
 	}
-	_, err = p.client.UpdateWorkItem(ctx, id, ops)
-	if err != nil && s.Comment != "" && historyRejected(err) {
-		// The org takes no Markdown History: change the state, then comment through the
-		// comments API, which keeps the Markdown.
-		if _, err = p.client.UpdateWorkItem(ctx, id, ops[:len(ops)-2]); err == nil {
-			if _, cerr := p.client.AddComment(ctx, id, s.Comment, true); cerr != nil {
-				return fmt.Errorf("work item %d is now %s, but adding the comment failed: %w", id, target, cerr)
+	if s.Comment == "" {
+		_, err = SendWithHTMLFallback(ops, send)
+	} else {
+		_, err = send(append(slices.Clone(ops), BodyOps("System.History", s.Comment, nil, false)...))
+		if err != nil && historyRejected(err) {
+			// The org takes no Markdown History: change the state (Markdown field values as HTML
+			// if need be), then comment through the comments API, which keeps the Markdown.
+			if _, err = SendWithHTMLFallback(ops, send); err == nil {
+				if _, cerr := p.client.AddComment(ctx, id, s.Comment, true); cerr != nil {
+					return fmt.Errorf("work item %d is now %s, but adding the comment failed: %w", id, target, cerr)
+				}
 			}
 		}
 	}

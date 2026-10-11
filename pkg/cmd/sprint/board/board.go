@@ -10,6 +10,7 @@ import (
 
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/columns"
+	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
 	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -85,7 +86,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	it, err := findIteration(ctx, c, team, o.iteration)
+	it, err := shared.FindIteration(ctx, c, team, o.iteration)
 	if err != nil {
 		return err
 	}
@@ -107,16 +108,20 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return o.exporter.Write(ios, out)
 	}
 	if !ios.IsStdoutTTY() {
+		tp := tableprinter.New(ios)
 		for _, col := range cols {
 			for _, wi := range col.items {
 				var p string
 				if n := parent(wi.Fields); n != nil {
 					p = strconv.Itoa(*n)
 				}
-				fmt.Fprintf(ios.Out, "%s\t%d\t%s\t%s\t%s\n", col.name, wi.ID, str(wi.Fields, "System.Title"), assignee(wi.Fields), p)
+				for _, v := range []string{col.name, strconv.Itoa(wi.ID), str(wi.Fields, "System.Title"), assignee(wi.Fields), p} {
+					tp.AddField(tableprinter.OneLine(v))
+				}
+				tp.EndRow()
 			}
 		}
-		return nil
+		return tp.Render()
 	}
 	cs := ios.ColorScheme()
 	fmt.Fprintf(ios.Out, "%s %s\n\n", cs.Bold(it.Name), cs.Gray(it.Path))
@@ -124,33 +129,12 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	for i, col := range cols {
 		view[i].Name = col.name
 		for _, wi := range col.items {
-			view[i].Cards = append(view[i].Cards, columns.Card{ID: wi.ID, Title: str(wi.Fields, "System.Title"), Assignee: assignee(wi.Fields)})
+			view[i].Cards = append(view[i].Cards, columns.Card{ID: wi.ID,
+				Title: tableprinter.OneLine(str(wi.Fields, "System.Title")), Assignee: assignee(wi.Fields)})
 		}
 	}
 	columns.Render(ios.Out, cs, ios.TerminalWidth(), view)
 	return nil
-}
-
-// findIteration returns team's current iteration when arg is "", else the team iteration
-// named arg or at path arg (any case, `\` or `/` separated, optional leading `\`).
-func findIteration(ctx context.Context, c *api.WorkItemClient, team, arg string) (api.Iteration, error) {
-	its, err := c.TeamIterations(ctx, team, arg == "")
-	if err != nil {
-		return api.Iteration{}, err
-	}
-	if arg == "" {
-		if len(its) == 0 {
-			return api.Iteration{}, fmt.Errorf("team %q has no current sprint; set sprint dates in the team settings", team)
-		}
-		return its[0], nil
-	}
-	path := strings.TrimPrefix(strings.ReplaceAll(arg, "/", `\`), `\`)
-	for _, it := range its {
-		if strings.EqualFold(it.Name, arg) || strings.EqualFold(it.Path, path) {
-			return it, nil
-		}
-	}
-	return api.Iteration{}, fmt.Errorf("sprint %q is not one of team %q's iterations; see ado sprint list", arg, team)
 }
 
 // taskboard returns team's taskboard columns for the iteration with ID iterationID, with

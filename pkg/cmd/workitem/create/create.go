@@ -29,8 +29,10 @@ type options struct {
 	typ, title, assignee, area, iteration, parent, team string
 	tags, fields                                        []string
 	priority                                            int
-	web                                                 bool
-	body                                                cmdutil.BodyFlags
+	// parentID is the parsed --parent (or prompted parent); 0 for none.
+	parentID int
+	web      bool
+	body     cmdutil.BodyFlags
 }
 
 // NewCmdCreate returns the `workitem create` command.
@@ -46,7 +48,8 @@ task, feature or epic. --field sets any field by friendly or reference name.
 
 On a terminal, a missing type or title is prompted for, the description is written in
 your editor, and you can add metadata before submitting. Otherwise --type and --title
-are required. The description is sent as Markdown.
+are required. The description is sent as Markdown; for bugs whose form has Repro Steps
+instead of a description (Agile, Scrum, CMMI), it goes to Repro Steps.
 
 With --web, the new work item form opens prefilled with the given values; --parent can't
 be prefilled and is ignored.`,
@@ -58,10 +61,8 @@ be prefilled and is ignored.`,
 			if cmd.Flags().Changed("priority") && (o.priority < 1 || o.priority > 4) {
 				return cmdutil.FlagErrorf("--priority must be between 1 and 4")
 			}
-			if o.parent != "" {
-				if _, _, err := shared.ParseRef(o.parent); err != nil {
-					return cmdutil.FlagErrorf("invalid --parent: %v", err)
-				}
+			if err := o.setParent(o.parent); err != nil {
+				return cmdutil.FlagErrorf("invalid --parent: %v", err)
 			}
 			if !f.IOStreams.CanPrompt() {
 				var missing []string
@@ -149,7 +150,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 
 	resolver := &api.IdentityResolver{HTTP: hc, OrgURL: orgURL, Prompter: f.Prompter}
-	ops, err := buildOps(ctx, f, c, resolver, project, typ, body, o)
+	ops, err := buildOps(ctx, f, c, proc, resolver, project, typ, body, o)
 	if err != nil {
 		return err
 	}
@@ -163,10 +164,9 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		}
 		return cmdutil.OpenInBrowser(f, u)
 	}
-	if o.parent != "" {
-		id, _, _ := shared.ParseRef(o.parent) // checked in RunE
+	if o.parentID > 0 {
 		ops = append(ops, addOp("/relations/-", map[string]any{
-			"rel": "System.LinkTypes.Hierarchy-Reverse", "url": orgURL + "_apis/wit/workItems/" + strconv.Itoa(id),
+			"rel": "System.LinkTypes.Hierarchy-Reverse", "url": orgURL + "_apis/wit/workItems/" + strconv.Itoa(o.parentID),
 		}))
 	}
 
@@ -244,14 +244,29 @@ func promptMetadata(p *cmdutil.Prompter, o *options) error {
 		case "Priority":
 			err = promptPriority(p, o)
 		case "Parent":
-			if o.parent, err = p.Input("Parent work item ID", o.parent); err == nil && o.parent != "" {
-				_, _, err = shared.ParseRef(o.parent)
+			var parent string
+			if parent, err = p.Input("Parent work item ID", o.parent); err == nil {
+				err = o.setParent(parent)
 			}
 		}
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// setParent stores the parent reference ref ("" for none) and its parsed ID.
+func (o *options) setParent(ref string) error {
+	o.parent, o.parentID = ref, 0
+	if ref == "" {
+		return nil
+	}
+	id, _, err := shared.ParseRef(ref)
+	if err != nil {
+		return err
+	}
+	o.parentID = id
 	return nil
 }
 
@@ -274,8 +289,8 @@ func promptPriority(p *cmdutil.Prompter, o *options) error {
 
 // buildOps resolves the field values of o into JSON Patch ops for a typ work item. The parent
 // link is left out: it can't be prefilled on the web form.
-func buildOps(ctx context.Context, f *cmdutil.Factory, c *api.WorkItemClient, resolver *api.IdentityResolver,
-	project adocontext.Repo, typ, body string, o *options,
+func buildOps(ctx context.Context, f *cmdutil.Factory, c *api.WorkItemClient, proc *shared.Process,
+	resolver *api.IdentityResolver, project adocontext.Repo, typ, body string, o *options,
 ) ([]webapi.JsonPatchOperation, error) {
 	var ops []webapi.JsonPatchOperation
 	set := func(field string, value any) {
@@ -285,7 +300,11 @@ func buildOps(ctx context.Context, f *cmdutil.Factory, c *api.WorkItemClient, re
 		set("System.Title", o.title)
 	}
 	if body != "" {
-		ops = append(ops, shared.BodyOps("System.Description", body, nil, false)...)
+		field, err := proc.BodyField(ctx, typ)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, shared.BodyOps(field, body, nil, false)...)
 	}
 	identity := func(ctx context.Context, v string) (string, error) {
 		u, err := resolver.ResolveUser(ctx, v)
@@ -336,7 +355,7 @@ func buildOps(ctx context.Context, f *cmdutil.Factory, c *api.WorkItemClient, re
 		if err != nil {
 			return nil, err
 		}
-		ops = append(ops, v.Op())
+		ops = append(ops, v.Ops(nil, false)...)
 	}
 	return ops, nil
 }

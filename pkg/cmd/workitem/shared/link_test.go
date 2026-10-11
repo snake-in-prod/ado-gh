@@ -174,6 +174,19 @@ func TestLinkParserRepoErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "the IDs of repository My Proj/web are unknown")
 }
 
+func TestLinkParserArtifactsNeedRepoWithProjectOverride(t *testing.T) {
+	for _, typ := range []string{"pr", "commit", "branch"} {
+		t.Run(typ, func(t *testing.T) {
+			// No HTTP client or git: nothing may be called.
+			p := &LinkParser{F: &cmdutil.Factory{RepoOverride: "org/My Proj"}}
+			_, err := p.Parse(context.Background(), typ, "0123abc")
+			var fe *cmdutil.FlagError
+			require.ErrorAs(t, err, &fe)
+			assert.ErrorContains(t, err, "-R org/My Proj names only ORG/PROJECT; use -R ORG/PROJECT/REPO")
+		})
+	}
+}
+
 func TestLinkParserCommit(t *testing.T) {
 	commitURL := "vstfs:///Git/Commit/" + linkTestProjectID + "%2F" + linkTestRepoID + "%2F" + linkTestSHA
 
@@ -202,7 +215,7 @@ func TestLinkParserCommit(t *testing.T) {
 	})
 	t.Run("short sha with -R needs the full sha", func(t *testing.T) {
 		e := newLinkTestEnv(t)
-		e.f.RepoOverride = "My Proj/web"
+		e.f.RepoOverride = e.org + "/My Proj/web"
 		e.stubRepo()
 		_, err := e.p.Parse(context.Background(), "commit", "0123abc")
 		assert.EqualError(t, err, "cannot resolve short commit 0123abc without a local clone; pass the full 40-character SHA")

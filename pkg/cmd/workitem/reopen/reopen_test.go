@@ -105,5 +105,5 @@ func TestWIReopenFlags(t *testing.T) {
 
 func TestWIReopenArgs(t *testing.T) {
 	_, err := wiReopenRun(t, false, false)
-	assert.Error(t, err)
+	assert.EqualError(t, err, "requires at least 1 arg(s), only received 0")
 }

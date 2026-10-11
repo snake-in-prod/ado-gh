@@ -18,7 +18,17 @@ const (
 	CategoryRemoved    = "Removed"
 )
 
-const hiddenCategory = "Microsoft.HiddenCategory"
+const (
+	hiddenCategory = "Microsoft.HiddenCategory"
+	bugCategory    = "Microsoft.BugCategory"
+)
+
+// Fields --body writes to.
+const (
+	DescriptionField = "System.Description"
+	// ReproStepsField is what the Agile, Scrum and CMMI Bug forms show instead of Description.
+	ReproStepsField = "Microsoft.VSTS.TCM.ReproSteps"
+)
 
 // typeAliases maps the --type aliases to their category and to the type name tried when the
 // project has no such category.
@@ -46,6 +56,8 @@ type Process struct {
 	categories []api.WorkItemTypeCategory
 	// usable are the names of the types users may pick: not disabled, not Hidden.
 	usable []string
+	// bodyFields caches BodyField per lowercased type name.
+	bodyFields map[string]string
 }
 
 // NewProcess returns a Process reading the metadata of client's project.
@@ -125,6 +137,38 @@ func (p *Process) usableType(name string) (string, bool) {
 		return "", false
 	}
 	return p.usable[i], true
+}
+
+// BodyField returns the field --body writes for a typ work item: Repro Steps for a type of the
+// Bug category that has that field (Agile, Scrum and CMMI bugs, whose forms show no
+// Description), else System.Description. Looked up once per type.
+func (p *Process) BodyField(ctx context.Context, typ string) (string, error) {
+	if err := p.load(ctx); err != nil {
+		return "", err
+	}
+	key := strings.ToLower(typ)
+	if f, ok := p.bodyFields[key]; ok {
+		return f, nil
+	}
+	field := DescriptionField
+	isBug := slices.ContainsFunc(p.categories, func(c api.WorkItemTypeCategory) bool {
+		return strings.EqualFold(c.ReferenceName, bugCategory) &&
+			slices.ContainsFunc(c.Types, func(t string) bool { return strings.EqualFold(t, typ) })
+	})
+	if isBug {
+		refs, err := p.client.TypeFieldRefs(ctx, typ)
+		if err != nil {
+			return "", err
+		}
+		if slices.ContainsFunc(refs, func(r string) bool { return strings.EqualFold(r, ReproStepsField) }) {
+			field = ReproStepsField
+		}
+	}
+	if p.bodyFields == nil {
+		p.bodyFields = map[string]string{}
+	}
+	p.bodyFields[key] = field
+	return field, nil
 }
 
 // States returns the states of type typ (any type, also disabled or Hidden ones) in workflow

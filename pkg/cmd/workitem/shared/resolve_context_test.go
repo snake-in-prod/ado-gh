@@ -165,3 +165,43 @@ func TestResolveIdentityFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, IdentityFilter{Value: "ann@contoso.com"}, got)
 }
+
+func TestFindIteration(t *testing.T) {
+	c, reg, org := newContextTestClient(t)
+	route := org + "/Proj/Web%20Team/_apis/work/teamsettings/iterations"
+	all := `{"count":2,"value":[
+		{"id":"a0000000-0000-0000-0000-000000000003","name":"Sprint 3","path":"Proj\\Release 1\\Sprint 3"},
+		{"id":"a0000000-0000-0000-0000-000000000004","name":"Sprint 4","path":"Proj\\Release 1\\Sprint 4"}]}`
+	var timeframes []string
+	stub := func(body string) {
+		reg.Register(httpmock.REST(http.MethodGet, route), func(r *http.Request) (*http.Response, error) {
+			timeframes = append(timeframes, r.URL.Query().Get("$timeframe"))
+			return httpmock.StringResponse(body)(r)
+		})
+	}
+	ctx := context.Background()
+	for _, name := range []string{"sprint 4", `\Proj\Release 1\Sprint 4`, "Proj/Release 1/sprint 4", `proj\release 1\sprint 4`} {
+		stub(all)
+		it, err := FindIteration(ctx, c, "Web Team", name)
+		require.NoError(t, err, name)
+		assert.Equal(t, "a0000000-0000-0000-0000-000000000004", it.ID, name)
+	}
+
+	stub(all)
+	_, err := FindIteration(ctx, c, "Web Team", "Sprint 9")
+	require.EqualError(t, err, `team "Web Team" has no sprint "Sprint 9"; its sprints: Sprint 3, Sprint 4`)
+
+	stub(`{"count":1,"value":[{"id":"a0000000-0000-0000-0000-000000000003","name":"Sprint 3","path":"Proj\\Release 1\\Sprint 3"}]}`)
+	it, err := FindIteration(ctx, c, "Web Team", "")
+	require.NoError(t, err)
+	assert.Equal(t, "Sprint 3", it.Name)
+
+	stub(`{"count":0,"value":[]}`)
+	_, err = FindIteration(ctx, c, "Web Team", "")
+	require.EqualError(t, err, `team "Web Team" has no current sprint; set sprint dates in the team settings`)
+	assert.Equal(t, []string{"", "", "", "", "", "current", "current"}, timeframes, "only the current lookup filters on the server")
+
+	reg.Register(httpmock.REST(http.MethodGet, route), httpmock.StatusJSONResponse(http.StatusInternalServerError, map[string]any{"message": "boom"}))
+	_, err = FindIteration(ctx, c, "Web Team", "Sprint 3")
+	assert.ErrorContains(t, err, "boom")
+}

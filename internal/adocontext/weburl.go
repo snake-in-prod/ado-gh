@@ -44,7 +44,11 @@ func PRURL(repo Repo, id int) string {
 // {project}/_sprints/taskboard/{team}/{project}/{rest of the path, escaped as one segment}.
 // ponytail: the URL form is undocumented (from microsoft/vsts-team-calendar); fix here if it moves.
 func TaskboardURL(project Repo, team, path string) string {
-	rest := strings.TrimPrefix(strings.TrimPrefix(path, `\`), project.Project)
+	rest := strings.TrimPrefix(path, `\`)
+	// The project name in the path has the server's casing, project.Project the user's.
+	if n := len(project.Project); len(rest) >= n && strings.EqualFold(rest[:n], project.Project) {
+		rest = rest[n:]
+	}
 	return ProjectURL(project) + "/_sprints/taskboard/" + url.PathEscape(team) + "/" +
 		url.PathEscape(project.Project) + "/" + url.PathEscape(strings.TrimPrefix(rest, `\`))
 }

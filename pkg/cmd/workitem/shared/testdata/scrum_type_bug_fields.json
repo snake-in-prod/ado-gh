@@ -1,0 +1,119 @@
+{
+  "count": 13,
+  "value": [
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": true,
+      "referenceName": "System.Title",
+      "name": "Title",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Title"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": true,
+      "referenceName": "System.State",
+      "name": "State",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.State"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.Reason",
+      "name": "Reason",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Reason"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.AssignedTo",
+      "name": "Assigned To",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.AssignedTo"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.AreaPath",
+      "name": "Area Path",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.AreaPath"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.IterationPath",
+      "name": "Iteration Path",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.IterationPath"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.Tags",
+      "name": "Tags",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Tags"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.TCM.ReproSteps",
+      "name": "Repro Steps",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.TCM.ReproSteps"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.TCM.SystemInfo",
+      "name": "System Info",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.TCM.SystemInfo"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.Common.AcceptanceCriteria",
+      "name": "Acceptance Criteria",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.Common.AcceptanceCriteria"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.Common.Priority",
+      "name": "Priority",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.Common.Priority"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [
+        "1 - Critical",
+        "2 - High",
+        "3 - Medium",
+        "4 - Low"
+      ],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.Common.Severity",
+      "name": "Severity",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.Common.Severity"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.Scheduling.Effort",
+      "name": "Effort",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.Scheduling.Effort"
+    }
+  ]
+}

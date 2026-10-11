@@ -45,6 +45,17 @@ func (v FieldValue) Op() webapi.JsonPatchOperation {
 	return webapi.JsonPatchOperation{Op: &webapi.OperationValues.Add, Path: &path, Value: v.Value}
 }
 
+// Ops returns the JSON Patch ops for the field. A value for a large-text (html) field is
+// Markdown and goes through BodyOps: it keeps the field's format on current (nil when
+// creating) unless forceMarkdown, and is sent with its multilineFieldsFormat op otherwise.
+// Other values give Op.
+func (v FieldValue) Ops(current *api.WorkItem, forceMarkdown bool) []webapi.JsonPatchOperation {
+	if s, ok := v.Value.(string); ok && strings.EqualFold(v.Field.Type, "html") {
+		return BodyOps(v.Field.ReferenceName, s, current, forceMarkdown)
+	}
+	return []webapi.JsonPatchOperation{v.Op()}
+}
+
 // Resolve parses arg ("Name=Value"; an empty value clears the field) for a work item of type
 // typ. Name is a friendly or reference name, matched case-insensitively. The value is checked
 // against the field: identity fields go through Identity, picklists must hold one of the type's

@@ -25,6 +25,9 @@ const (
 
 var gfm = goldmark.New(goldmark.WithExtensions(extension.GFM))
 
+// convertMarkdown renders Markdown to HTML; a variable so tests can make it fail.
+var convertMarkdown = gfm.Convert
+
 // IsMarkdown reports whether field of wi is stored as Markdown. Field and format compare
 // case-insensitively; a field missing from multilineFieldsFormat is HTML.
 func IsMarkdown(wi *api.WorkItem, field string) bool {
@@ -88,10 +91,13 @@ func SendWithHTMLFallback(ops []webapi.JsonPatchOperation, send func([]webapi.Js
 	return send(htmlOps)
 }
 
-// MarkdownToHTML converts GitHub-flavoured Markdown to HTML; raw HTML in md is dropped.
+// MarkdownToHTML converts GitHub-flavoured Markdown to HTML; raw HTML in md is dropped. If
+// the conversion fails, md is returned HTML-escaped rather than as a partial body.
 func MarkdownToHTML(md string) string {
 	var b bytes.Buffer
-	_ = gfm.Convert([]byte(md), &b) // writing to a bytes.Buffer cannot fail
+	if err := convertMarkdown([]byte(md), &b); err != nil {
+		return html.EscapeString(md)
+	}
 	return b.String()
 }
 

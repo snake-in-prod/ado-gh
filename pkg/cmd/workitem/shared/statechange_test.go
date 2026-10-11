@@ -382,6 +382,42 @@ func TestStateChangeCommentFallbackCommentFails(t *testing.T) {
 	require.EqualError(t, err, "work item 7 is now Done, but adding the comment failed: comments are off (HTTP 400)")
 }
 
+func TestStateChangeHTMLField(t *testing.T) {
+	const ac = "Microsoft.VSTS.Common.AcceptanceCriteria"
+	e := newStateTestEnv(t, false)
+	e.stubProcess(t, "agile")
+	e.stubItem(7, "User Story", "Active")
+	e.reg.Register(httpmock.REST(http.MethodGet, e.path("fields")),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, "fields.json"))))
+	e.stubPatch(t, 7, http.StatusBadRequest, "X", "Invalid path /multilineFieldsFormat/"+ac)
+	e.stubPatch(t, 7, http.StatusOK, "", "")
+
+	require.NoError(t, e.run(StateChange{Refs: []string{"7"}, Category: CategoryCompleted, Fields: []string{"Acceptance Criteria=*ok*"}}))
+	assert.Equal(t, [][]map[string]any{
+		stateTestOps("Closed", stateTestOp("add", "/fields/"+ac, "*ok*"), stateTestOp("add", "/multilineFieldsFormat/"+ac, "Markdown")),
+		stateTestOps("Closed", stateTestOp("add", "/fields/"+ac, "<p><em>ok</em></p>\n")),
+	}, e.patches[7], "Markdown with its format op, then HTML when the org has no Markdown")
+}
+
+func TestStateChangeCommentFallbackWithHTMLField(t *testing.T) {
+	const ac = "Microsoft.VSTS.Common.AcceptanceCriteria"
+	e := newStateTestEnv(t, false)
+	e.stubProcess(t, "agile")
+	e.stubItem(7, "User Story", "Active")
+	e.reg.Register(httpmock.REST(http.MethodGet, e.path("fields")),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, "fields.json"))))
+	e.stubPatch(t, 7, http.StatusBadRequest, "X", "Invalid path /multilineFieldsFormat/System.History")
+	e.stubPatch(t, 7, http.StatusBadRequest, "X", "Invalid path /multilineFieldsFormat/"+ac)
+	e.stubPatch(t, 7, http.StatusOK, "", "")
+	e.stubComment(t, 7, http.StatusOK)
+
+	require.NoError(t, e.run(StateChange{Refs: []string{"7"}, Category: CategoryCompleted, Comment: "c", Fields: []string{"Acceptance Criteria=*ok*"}}))
+	require.Len(t, e.patches[7], 3)
+	assert.Equal(t, stateTestOps("Closed", stateTestOp("add", "/fields/"+ac, "<p><em>ok</em></p>\n")), e.patches[7][2],
+		"no History and the field as HTML")
+	assert.Equal(t, []map[string]string{{"text": "c", "format": "markdown"}}, e.comments)
+}
+
 func TestStateChangeRevConflict(t *testing.T) {
 	e := newStateTestEnv(t, false)
 	e.stubProcess(t, "basic")

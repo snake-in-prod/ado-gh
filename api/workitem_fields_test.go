@@ -47,7 +47,7 @@ func TestWorkItemClient_FieldsSkipsDeletedAndMapsErrors(t *testing.T) {
 	assert.Equal(t, []Field{{Name: "Title", ReferenceName: "System.Title", Type: "string"}}, fields)
 
 	_, err = c.Fields(context.Background())
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "authentication failed for dev.azure.com (HTTP 401)")
 }
 
 func TestWorkItemClient_FieldAllowedValues(t *testing.T) {
@@ -76,4 +76,22 @@ func TestWorkItemClient_FieldAllowedValues(t *testing.T) {
 
 	_, err = c.FieldAllowedValues(ctx, "Bug", "Custom.Missing")
 	assert.True(t, IsNotFound(err))
+}
+
+func TestWorkItemClient_TypeFieldRefs(t *testing.T) {
+	org := "witypefieldsorg"
+	c, reg := newWITClient(t, org)
+	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/wit/workitemtypes/Bug/fields"),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, "agile_type_bug_fields.json"))))
+	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/wit/workitemtypes/Nope/fields"),
+		httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "TF51536: no type Nope"}))
+	ctx := context.Background()
+
+	refs, err := c.TypeFieldRefs(ctx, "Bug")
+	require.NoError(t, err)
+	assert.Contains(t, refs, "Microsoft.VSTS.TCM.ReproSteps")
+	assert.NotContains(t, refs, "System.Description")
+
+	_, err = c.TypeFieldRefs(ctx, "Nope")
+	assert.True(t, IsNotFound(err), "%v", err)
 }

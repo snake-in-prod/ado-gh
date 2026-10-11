@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
@@ -72,13 +73,14 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	c := api.NewWorkItemClient(hc, orgURL, project.Project)
 	ios := f.IOStreams
 	cs := ios.ColorScheme()
-	failed := false
+	var done, failed []string
 	for _, id := range ids {
 		if _, err := c.UpdateWorkItem(ctx, id, []webapi.JsonPatchOperation{op}); err != nil {
 			fmt.Fprintf(ios.ErrOut, "%s Failed to update #%d: %v\n", cs.Red("X"), id, err)
-			failed = true
+			failed = append(failed, strconv.Itoa(id))
 			continue
 		}
+		done = append(done, strconv.Itoa(id))
 		switch {
 		case !ios.IsStdoutTTY():
 		case o.unassign:
@@ -87,7 +89,13 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			fmt.Fprintf(ios.ErrOut, "%s Assigned #%d to %s\n", cs.Green("✓"), id, name)
 		}
 	}
-	if failed {
+	if len(failed) > 0 {
+		if len(ids) > 1 {
+			if len(done) == 0 {
+				done = []string{"none"}
+			}
+			fmt.Fprintf(ios.ErrOut, "assigned: %s; failed: %s\n", strings.Join(done, ", "), strings.Join(failed, ", "))
+		}
 		return cmdutil.SilentError
 	}
 	return nil

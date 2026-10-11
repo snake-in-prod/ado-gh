@@ -248,6 +248,7 @@ func TestWIEditBodyFormat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newWIEditEnv(t, false)
+			e.stubProcess(t)
 			e.stubItem(t, 1, tt.fields, tt.formats, nil)
 			e.stubUpdate(t, 1, http.StatusOK, "", "")
 			require.NoError(t, e.run(t, append([]string{"1", "-b", "**b**"}, tt.args...)...))
@@ -256,8 +257,104 @@ func TestWIEditBodyFormat(t *testing.T) {
 	}
 }
 
+// stubProcessOf serves process's types and categories, and its Bug type's fields.
+func (e *wiEditEnv) stubProcessOf(t *testing.T, process string) {
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypes"),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, process, "types"))))
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypecategories"),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Process(t, process, "categories"))))
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/wit/workitemtypes/Bug/fields"),
+		httpmock.JSONResponse(json.RawMessage(witfixtures.Read(t, process+"_type_bug_fields.json"))))
+}
+
+func TestWIEditBugBodyGoesToReproSteps(t *testing.T) {
+	const repro = "Microsoft.VSTS.TCM.ReproSteps"
+	tests := []struct {
+		name, process string
+		fields        map[string]any
+		args          []string
+		want          []map[string]any
+	}{
+		{"agile html repro steps keep html", "agile", map[string]any{repro: "<div>old</div>"}, nil,
+			[]map[string]any{wiEditOp("add", "/fields/"+repro, "<p><strong>b</strong></p>\n")}},
+		{"scrum empty repro steps become markdown", "scrum", nil, nil,
+			[]map[string]any{wiEditOp("add", "/fields/"+repro, "**b**"), wiEditOp("add", "/multilineFieldsFormat/"+repro, "Markdown")}},
+		{"scrum --markdown switches", "scrum", map[string]any{repro: "<div>old</div>"}, []string{"--markdown"},
+			[]map[string]any{wiEditOp("add", "/fields/"+repro, "**b**"), wiEditOp("add", "/multilineFieldsFormat/"+repro, "Markdown")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newWIEditEnv(t, false)
+			e.stubProcessOf(t, tt.process)
+			fields := map[string]any{"System.WorkItemType": "Bug"}
+			for k, v := range tt.fields {
+				fields[k] = v
+			}
+			e.stubItem(t, 1, fields, nil, nil)
+			e.stubUpdate(t, 1, http.StatusOK, "", "")
+			require.NoError(t, e.run(t, append([]string{"1", "-b", "**b**"}, tt.args...)...))
+			e.reg.Verify(t)
+			assert.Equal(t, append([]map[string]any{wiEditRevTest}, tt.want...), e.ops[1][0])
+		})
+	}
+}
+
+func TestWIEditBugEditorShowsReproSteps(t *testing.T) {
+	e := newWIEditEnv(t, true)
+	editor, seen := editortest.Command(t, "TestWIEditEditorHelperProcess", "Edited")
+	t.Setenv("ADO_EDITOR", editor)
+	e.stubProcessOf(t, "agile")
+	e.stubItem(t, 1, map[string]any{"System.WorkItemType": "Bug", "Microsoft.VSTS.TCM.ReproSteps": "<div>1. open</div>"}, nil, nil)
+	e.stubUpdate(t, 1, http.StatusOK, "", "")
+	require.NoError(t, e.run(t, "1", "-e"))
+	assert.Equal(t, "1. open", wiEditSeen(t, seen))
+	assert.Equal(t, []map[string]any{wiEditRevTest, wiEditOp("add", "/fields/Microsoft.VSTS.TCM.ReproSteps", "<p>Edited</p>\n")}, e.ops[1][0])
+}
+
+func TestWIEditHTMLFieldFlag(t *testing.T) {
+	const ac = "Microsoft.VSTS.Common.AcceptanceCriteria"
+	tests := []struct {
+		name    string
+		fields  map[string]any
+		formats map[string]any
+		args    []string
+		want    []map[string]any
+	}{
+		{"html value keeps html", map[string]any{ac: "<div>old</div>"}, nil, nil,
+			[]map[string]any{wiEditOp("add", "/fields/"+ac, "<ul>\n<li>done</li>\n</ul>\n")}},
+		{"empty value becomes markdown", nil, nil, nil,
+			[]map[string]any{wiEditOp("add", "/fields/"+ac, "- done"), wiEditOp("add", "/multilineFieldsFormat/"+ac, "Markdown")}},
+		{"markdown value stays markdown", map[string]any{ac: "x"}, map[string]any{ac: "Markdown"}, nil,
+			[]map[string]any{wiEditOp("add", "/fields/"+ac, "- done"), wiEditOp("add", "/multilineFieldsFormat/"+ac, "Markdown")}},
+		{"--markdown switches", map[string]any{ac: "<div>old</div>"}, nil, []string{"--markdown"},
+			[]map[string]any{wiEditOp("add", "/fields/"+ac, "- done"), wiEditOp("add", "/multilineFieldsFormat/"+ac, "Markdown")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newWIEditEnv(t, false)
+			e.stubFields(t)
+			e.stubItem(t, 1, tt.fields, tt.formats, nil)
+			e.stubUpdate(t, 1, http.StatusOK, "", "")
+			require.NoError(t, e.run(t, append([]string{"1", "-f", "Acceptance Criteria=- done"}, tt.args...)...))
+			assert.Equal(t, append([]map[string]any{wiEditRevTest}, tt.want...), e.ops[1][0])
+		})
+	}
+}
+
+func TestWIEditHTMLFieldFlagFallback(t *testing.T) {
+	e := newWIEditEnv(t, false)
+	e.stubFields(t)
+	e.stubItem(t, 1, nil, nil, nil)
+	e.stubUpdate(t, 1, http.StatusBadRequest, "X", "Invalid path /multilineFieldsFormat/Microsoft.VSTS.Common.AcceptanceCriteria")
+	e.stubUpdate(t, 1, http.StatusOK, "", "")
+	require.NoError(t, e.run(t, "1", "-f", "Acceptance Criteria=*hi*"))
+	require.Len(t, e.ops[1], 2)
+	assert.Equal(t, []map[string]any{wiEditRevTest, wiEditOp("add", "/fields/Microsoft.VSTS.Common.AcceptanceCriteria", "<p><em>hi</em></p>\n")}, e.ops[1][1])
+}
+
 func TestWIEditHTMLFallback(t *testing.T) {
 	e := newWIEditEnv(t, false)
+	e.stubProcess(t)
 	e.stubItem(t, 1, nil, nil, nil)
 	e.stubUpdate(t, 1, http.StatusBadRequest, "X", "Invalid path /multilineFieldsFormat/System.Description")
 	e.stubUpdate(t, 1, http.StatusOK, "", "")
@@ -414,6 +511,7 @@ func TestWIEditEditorFlag(t *testing.T) {
 	e := newWIEditEnv(t, true)
 	editor, seen := editortest.Command(t, "TestWIEditEditorHelperProcess", "Edited")
 	t.Setenv("ADO_EDITOR", editor)
+	e.stubProcess(t)
 	e.stubItem(t, 1, map[string]any{"System.Description": "current **md**"}, map[string]any{"System.Description": "Markdown"}, nil)
 	e.stubUpdate(t, 1, http.StatusOK, "", "")
 	require.NoError(t, e.run(t, "1", "-e"))

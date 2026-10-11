@@ -109,9 +109,12 @@ open/closed onto the categories:
 - Description, Repro Steps and other long text fields, and comments, are sent
   as Markdown. If the organization doesn't support Markdown fields, `ado`
   retries once with the Markdown converted to HTML.
-- A field already stored as HTML stays HTML: `ado wi edit --body` converts
-  your Markdown to HTML for it. `--markdown` switches the field to Markdown,
-  which Azure DevOps can't undo.
+- `-b/--body` sets Description, except on bugs whose form shows Repro Steps
+  instead (Agile, Scrum, CMMI): there it sets Repro Steps. Long text fields set
+  with `-f Name=Value` are Markdown too.
+- A field already stored as HTML stays HTML: `ado wi edit --body` (or `-f`)
+  converts your Markdown to HTML for it. `--markdown` switches the field to
+  Markdown, which Azure DevOps can't undo.
 - `ado wi view` renders Markdown on a terminal and converts HTML to plain
   text. Piped output is the raw field value.
 

@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/columns"
+	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
 	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -126,6 +128,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options, levelArg string) e
 	}
 	out := ios.Out
 	if !ios.IsStdoutTTY() {
+		tp := tableprinter.New(ios)
 		for _, col := range cols {
 			for _, it := range col.Items {
 				name := col.Name
@@ -135,10 +138,13 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options, levelArg string) e
 				case col.IsSplit:
 					name += "/Doing"
 				}
-				fmt.Fprintf(out, "%s\t%d\t%s\t%s\n", name, it.ID, it.Title, it.assigneeName())
+				for _, v := range []string{name, strconv.Itoa(it.ID), it.Title, it.assigneeName()} {
+					tp.AddField(tableprinter.OneLine(v))
+				}
+				tp.EndRow()
 			}
 		}
-		return nil
+		return tp.Render()
 	}
 	cs := ios.ColorScheme()
 	fmt.Fprintf(out, "%s\n\n", cs.Bold(level.Name+" · "+team))
@@ -146,7 +152,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options, levelArg string) e
 	for i, col := range cols {
 		rcols[i] = columns.Column{Name: col.Name, WIPLimit: col.WIPLimit, Split: col.IsSplit}
 		for _, it := range col.Items {
-			card := columns.Card{ID: it.ID, Title: it.Title, Assignee: it.assigneeName()}
+			card := columns.Card{ID: it.ID, Title: tableprinter.OneLine(it.Title), Assignee: it.assigneeName()}
 			if it.Done {
 				rcols[i].Done = append(rcols[i].Done, card)
 			} else {
@@ -197,19 +203,14 @@ func boardWIQL(project, team string, b *api.Board, orderField string, assignee s
 	clauses := []string{
 		"[System.TeamProject] = @project",
 		"[System.WorkItemType] IN " + quoteList(types),
-		"[System.AreaPath] = @TeamAreas(" + quote("["+project+`]\`+team) + ")",
+		"[System.AreaPath] = @TeamAreas(" + shared.QuoteWIQL("["+project+`]\`+team) + ")",
 		"[System.State] IN " + quoteList(states),
 	}
 	if len(done) > 0 {
 		clauses = append(clauses, fmt.Sprintf("([System.State] NOT IN %s OR [System.ChangedDate] >= @Today - %d)", quoteList(done), recentDoneDays))
 	}
-	switch {
-	case assignee.Me:
-		clauses = append(clauses, "[System.AssignedTo] = @Me")
-	case assignee.None:
-		clauses = append(clauses, "[System.AssignedTo] = ''")
-	case assignee.Value != "":
-		clauses = append(clauses, "[System.AssignedTo] = "+quote(assignee.Value))
+	if c := shared.IdentityClause("System.AssignedTo", assignee); c != "" {
+		clauses = append(clauses, c)
 	}
 	order := "[System.Id] ASC"
 	if orderField != "" && !strings.ContainsAny(orderField, "[]") {
@@ -218,16 +219,13 @@ func boardWIQL(project, team string, b *api.Board, orderField string, assignee s
 	return "SELECT [System.Id] FROM WorkItems WHERE " + strings.Join(clauses, " AND ") + " ORDER BY " + order
 }
 
-// quote returns s as a WIQL string literal.
-func quote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
-
 // quoteList returns the sorted, deduplicated values as a WIQL list: ('a', 'b').
 func quoteList(values []string) string {
 	slices.Sort(values)
 	values = slices.Compact(values)
 	quoted := make([]string, len(values))
 	for i, v := range values {
-		quoted[i] = quote(v)
+		quoted[i] = shared.QuoteWIQL(v)
 	}
 	return "(" + strings.Join(quoted, ", ") + ")"
 }

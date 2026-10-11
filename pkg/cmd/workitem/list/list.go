@@ -299,8 +299,11 @@ func printTable(ios *iostreams.IOStreams, project adocontext.Repo, items []api.W
 		}
 		tp.AddField(assignee)
 		tp.AddField(strings.Join(tags(wi.Fields), ", "), tableprinter.WithColor(cs.Gray))
-		changed, _ := time.Parse(time.RFC3339Nano, str(wi.Fields, "System.ChangedDate"))
-		tp.AddTimeField(now, changed, cs.Gray)
+		if changed, err := time.Parse(time.RFC3339Nano, str(wi.Fields, "System.ChangedDate")); err == nil {
+			tp.AddTimeField(now, changed, cs.Gray)
+		} else {
+			tp.AddField("") // no usable date: leave the cell empty rather than show year 1
+		}
 		tp.EndRow()
 	}
 	return tp.Render()

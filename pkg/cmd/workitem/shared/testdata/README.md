@@ -65,6 +65,8 @@ task and Hidden categories from the Basic capture (they are the same in every pr
 | `fields.json` | `{project}/_apis/wit/fields` | live Basic project fields (`supportedOperations` dropped) plus hand-written Story Points, Severity, Repro Steps, Acceptance Criteria, Value Area, Business Value and the inherited picklist `Custom.CustomerImpact`. Note `System.AssignedTo` is `type: string` with `isIdentity: true` |
 | `live_basic_type_issue_fields.json` | `{project}/_apis/wit/workitemtypes/Issue/fields?$expand=allowedValues` | live; `System.State`, `System.Reason` and `Microsoft.VSTS.Common.Priority` carry allowed values, identity fields an empty list |
 | `inherited_type_customerrequest_fields.json` | `{project}/_apis/wit/workitemtypes/Customer Request/fields?$expand=allowedValues` | hand-written; `Custom.CustomerImpact` allowed values High, Medium, Low |
+| `agile_type_bug_fields.json` | `{project}/_apis/wit/workitemtypes/Bug/fields` (Agile) | hand-written from the Agile Bug form: Repro Steps and System Info, no Description |
+| `scrum_type_bug_fields.json` | `{project}/_apis/wit/workitemtypes/Bug/fields` (Scrum) | hand-written from the Scrum Bug form: Repro Steps, System Info and Effort, no Description |
 | `live_relationtypes.json` | `_apis/wit/workitemrelationtypes` | live (org-level, same for every process) |
 
 ## Backlogs and boards

@@ -164,6 +164,14 @@ func TestSprintBoard_NonTTY(t *testing.T) {
 	assert.Equal(t, "To Do\t12\tAdd tests\t\t7\nReview\t11\tWrite the parser\tAda\t7\n", e.out.String())
 }
 
+func TestSprintBoard_NonTTYTabInTitle(t *testing.T) {
+	e := newSpBoardEnv(t, false, "Web%20Team", spBoardCurrent)
+	e.stubCustom(`[{"workItemId":11,"column":"Review","columnId":"` + spBoardColRev + `","state":"Active"}]`)
+	e.stubBatch(t, spBoardItem(11, "Task", "Active", "Write\tthe\nparser", "Ada\tL", 7))
+	require.NoError(t, e.run(t, "--team", "Web Team"))
+	assert.Equal(t, "Review\t11\tWrite the parser\tAda L\t7\n", e.out.String(), "tabs and newlines never split a row")
+}
+
 func TestSprintBoard_JSON(t *testing.T) {
 	e := newSpBoardEnv(t, false, "Web%20Team", spBoardCurrent)
 	e.stubCustomBoard(t)
@@ -227,7 +235,7 @@ func TestSprintBoard_IterationArg(t *testing.T) {
 func TestSprintBoard_IterationErrors(t *testing.T) {
 	e := newSpBoardEnv(t, false, "Web%20Team", spBoardAll)
 	require.EqualError(t, e.run(t, "--team", "Web Team", "Sprint 9"),
-		`sprint "Sprint 9" is not one of team "Web Team"'s iterations; see ado sprint list`)
+		`team "Web Team" has no sprint "Sprint 9"; its sprints: Sprint 2, Sprint 3`)
 
 	e = newSpBoardEnv(t, false, "Other", `{"count":0,"value":[]}`)
 	require.EqualError(t, e.run(t, "--team", "Other"), `team "Other" has no current sprint; set sprint dates in the team settings`)

@@ -54,3 +54,9 @@ func TestNonTTYTSV(t *testing.T) {
 		"1\tFix bug\t2026-10-10T09:00:00Z\n"+
 		"22\tAdd feature\t\n", render(t, false, true))
 }
+
+func TestOneLine(t *testing.T) {
+	if got := OneLine("a\tb\r\nc\nd\re"); got != "a b c d e" {
+		t.Errorf("OneLine = %q", got)
+	}
+}

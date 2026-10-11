@@ -182,6 +182,14 @@ func TestBoard_NonTTY(t *testing.T) {
 		e.out.String())
 }
 
+func TestBoard_NonTTYTabInTitle(t *testing.T) {
+	e := newBoardEnv(t, false)
+	e.stubBoard("Stories", boardStories)
+	e.stubCards(t, boardCard(3, "Bug", "Crash\ton\r\nsave", "New", map[string]any{"WEF_1_Kanban.Column": "New"}))
+	require.NoError(t, e.run(t))
+	assert.Equal(t, "New\t3\tCrash on save\t\n", e.out.String(), "tabs and newlines never split a row")
+}
+
 func TestBoard_JSON(t *testing.T) {
 	e := newBoardEnv(t, false)
 	e.stubBoard("Stories", boardStories)

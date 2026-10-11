@@ -309,6 +309,20 @@ func TestListJSONEmptyValues(t *testing.T) {
 	assert.NotNil(t, e.batches[0]["fields"], "without the fields field only the listed fields are fetched")
 }
 
+func TestListMissingChangedDate(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		t.Run(fmt.Sprintf("tty %v", tty), func(t *testing.T) {
+			e := newWIListEnv(t, tty)
+			e.stubWIQL(t, 2)
+			e.stubBatch(t, map[string]any{"id": 2, "fields": map[string]any{"System.Title": "Bare", "System.ChangedDate": "soon"}})
+			require.NoError(t, e.run(t))
+			assert.NotContains(t, e.out.String(), "0001", "no zero time")
+			assert.NotContains(t, e.out.String(), "years ago", "no zero time")
+			assert.Contains(t, e.out.String(), "Bare")
+		})
+	}
+}
+
 func TestListJSONEmpty(t *testing.T) {
 	e := newWIListEnv(t, false)
 	e.stubWIQL(t)

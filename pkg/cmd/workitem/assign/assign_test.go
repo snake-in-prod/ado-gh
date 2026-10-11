@@ -144,6 +144,28 @@ func TestWIAssignPartialFailure(t *testing.T) {
 	assert.Contains(t, e.errOut.String(), "X Failed to update #1: ")
 	assert.Contains(t, e.errOut.String(), "TF401232")
 	assert.Contains(t, e.errOut.String(), "✓ Assigned #2 to Me\n")
+	assert.Contains(t, e.errOut.String(), "assigned: 2; failed: 1\n")
+}
+
+func TestWIAssignPartialFailureNonTTY(t *testing.T) {
+	e := newWIAssignEnv(t, false)
+	e.stubMe()
+	e.stubUpdate(t, 1, http.StatusOK)
+	e.stubUpdate(t, 2, http.StatusNotFound)
+	e.stubUpdate(t, 3, http.StatusNotFound)
+
+	require.ErrorIs(t, e.run(t, "1", "2", "3"), cmdutil.SilentError)
+	assert.NotContains(t, e.errOut.String(), "✓", "no per-item success lines off a TTY")
+	assert.Contains(t, e.errOut.String(), "assigned: 1; failed: 2, 3\n")
+}
+
+func TestWIAssignAllFail(t *testing.T) {
+	e := newWIAssignEnv(t, false)
+	e.stubMe()
+	e.stubUpdate(t, 1, http.StatusNotFound)
+	e.stubUpdate(t, 2, http.StatusNotFound)
+	require.ErrorIs(t, e.run(t, "1", "2"), cmdutil.SilentError)
+	assert.Contains(t, e.errOut.String(), "assigned: none; failed: 1, 2\n")
 }
 
 func TestWIAssignArgErrors(t *testing.T) {

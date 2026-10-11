@@ -81,3 +81,27 @@ func ResolveIdentityFilter(ctx context.Context, r *api.IdentityResolver, v strin
 	}
 	return IdentityFilter{Value: u.FieldValue()}, nil
 }
+
+// FindIteration returns team's current iteration when name is "", else the team iteration
+// named name or at path name (any case, `/` or `\` separated, optional leading `\`).
+func FindIteration(ctx context.Context, c *api.WorkItemClient, team, name string) (api.Iteration, error) {
+	its, err := c.TeamIterations(ctx, team, name == "")
+	if err != nil {
+		return api.Iteration{}, err
+	}
+	if name == "" {
+		if len(its) == 0 {
+			return api.Iteration{}, fmt.Errorf("team %q has no current sprint; set sprint dates in the team settings", team)
+		}
+		return its[0], nil
+	}
+	path := strings.TrimPrefix(strings.ReplaceAll(name, "/", `\`), `\`)
+	names := make([]string, len(its))
+	for i, it := range its {
+		if strings.EqualFold(it.Name, name) || strings.EqualFold(it.Path, path) {
+			return it, nil
+		}
+		names[i] = it.Name
+	}
+	return api.Iteration{}, fmt.Errorf("team %q has no sprint %q; its sprints: %s", team, name, strings.Join(names, ", "))
+}

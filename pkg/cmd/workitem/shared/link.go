@@ -115,6 +115,9 @@ func artifact(url, name string) Link {
 }
 
 func (p *LinkParser) pullRequest(ctx context.Context, ref string) (Link, error) {
+	if err := p.needRepo(); err != nil {
+		return Link{}, err
+	}
 	pr, _, _, err := prshared.Find(ctx, p.F, ref)
 	if err != nil {
 		return Link{}, err
@@ -157,10 +160,24 @@ func (p *LinkParser) resolveCommit(ctx context.Context, sha string) (string, err
 	return "", fmt.Errorf("commit %s not found in the local clone; fetch it or pass the full 40-character SHA", sha)
 }
 
+// needRepo refuses pull request, commit and branch links when -R names only ORG/PROJECT, which
+// project-scoped commands accept but which has no repository (BaseRepo would misread it as
+// PROJECT/REPO).
+func (p *LinkParser) needRepo() error {
+	if strings.Count(p.F.RepoOverride, "/") == 1 {
+		return cmdutil.FlagErrorf("pull request, commit and branch links need a repository, and -R %s names only ORG/PROJECT; "+
+			"use -R ORG/PROJECT/REPO or run inside a clone", p.F.RepoOverride)
+	}
+	return nil
+}
+
 // loadRepo looks up the GUIDs of the base repository and its project once.
 func (p *LinkParser) loadRepo(ctx context.Context) error {
 	if p.git != nil {
 		return nil
+	}
+	if err := p.needRepo(); err != nil {
+		return err
 	}
 	repo, err := p.F.BaseRepo()
 	if err != nil {

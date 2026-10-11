@@ -21,7 +21,7 @@
 - **`github.com/charmbracelet/glamour`** v0.10.0 (same version as gh / go-gh): renders README markdown in `ado repo view` on a TTY. Called directly, not through go-gh `pkg/markdown`; style from colour state plus `GLAMOUR_STYLE`, wrap width `min(terminal width, 120)`.
   - *2026-10-11:* added for `repo view`; `CGO_ENABLED=0` build passes, `bin/ado` grew from 25,183,608 B to 34,379,098 B (+9.2 MB, mostly chroma syntax highlighting); see `archive/repo_browse_20261010/research.md` o6/o7.
 - **`golang.org/x/net/html`** (already in the module graph): small in-house HTML→text converter for work item fields stored as HTML (`<div>` lines, `<ol>` numbering, links, tables). **`github.com/yuin/goldmark`** v1.7.8 (already pulled in by glamour): Markdown→HTML when writing to a field kept in HTML format. Both become direct dependencies; no new modules.
-  - *2026-10-11:* chosen over `k3a/html2text` (collapses ADO `<div>` lines, ignores tables) and `jaytaylor/html2text` (unpinned, extra deps); see `tracks/workitems_20261010/research.md` o9/o7.
+  - *2026-10-11:* chosen over `k3a/html2text` (collapses ADO `<div>` lines, ignores tables) and `jaytaylor/html2text` (unpinned, extra deps); see `archive/workitems_20261010/research.md` o9/o7.
 - **`golang.org/x/sync`** (`errgroup`): bounded parallel blob downloads in `ado pr diff` outside a clone.
   - *2026-10-11:* already an indirect dependency; promoted to direct by the pr_parity review fixes.
 - **`MakeNowJust/heredoc`**: help text and examples.

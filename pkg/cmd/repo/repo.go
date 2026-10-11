@@ -2,6 +2,8 @@
 package repo
 
 import (
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/clone"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/create"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/view"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -16,6 +18,8 @@ func NewCmdRepo(f *cmdutil.Factory) *cobra.Command {
 		GroupID: "core",
 	}
 	cmd.AddCommand(
+		clone.NewCmdClone(f),
+		create.NewCmdCreate(f),
 		list.NewCmdList(f),
 		view.NewCmdView(f),
 	)

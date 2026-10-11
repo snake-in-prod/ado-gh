@@ -45,6 +45,7 @@ func TestSet(t *testing.T) {
 		{"global", []string{"editor", "vim -n"}, "|editor", "vim -n"},
 		{"org", []string{"org", "contoso"}, "|org", "contoso"},
 		{"host", []string{"prompt", "disabled", "--host", "dev.azure.com"}, "dev.azure.com|prompt", "disabled"},
+		{"git_protocol host", []string{"git_protocol", "ssh", "--host", "ssh.dev.azure.com"}, "ssh.dev.azure.com|git_protocol", "ssh"},
 		{"other host", []string{"browser", "firefox", "--host", "contoso.visualstudio.com"}, "contoso.visualstudio.com|browser", "firefox"},
 	}
 	for _, tt := range tests {
@@ -72,6 +73,7 @@ func TestSetErrors(t *testing.T) {
 	}{
 		{"unknown key", &fakeConfig{}, nil, []string{"nope", "x"}, `unknown config key "nope"`},
 		{"invalid value", &fakeConfig{}, nil, []string{"prompt", "maybe"}, `invalid value "maybe" for prompt; valid values: enabled, disabled`},
+		{"invalid git_protocol", &fakeConfig{}, nil, []string{"git_protocol", "git"}, `invalid value "git" for git_protocol; valid values: https, ssh`},
 		{"config error", nil, boom, []string{"editor", "vim"}, "boom"},
 		{"write error", &fakeConfig{values: map[string]string{}, writeErr: boom}, nil, []string{"editor", "vim"}, "failed to write config: boom"},
 		{"missing value", &fakeConfig{}, nil, []string{"editor"}, "accepts 2 arg(s)"},

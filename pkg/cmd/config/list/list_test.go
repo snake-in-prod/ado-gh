@@ -41,9 +41,9 @@ func TestList(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"non-TTY", false, nil, "browser=\neditor=vim\nentra_client_id=\norg=myorg\nprompt=enabled\n"},
-		{"TTY marks unset", true, nil, "browser=(not set)\neditor=vim\nentra_client_id=(not set)\norg=myorg\nprompt=enabled\n"},
-		{"host", false, []string{"--host", "dev.azure.com"}, "browser=\neditor=vim\nentra_client_id=\norg=myorg\nprompt=disabled\n"},
+		{"non-TTY", false, nil, "browser=\neditor=vim\nentra_client_id=\ngit_protocol=https\norg=myorg\nprompt=enabled\n"},
+		{"TTY marks unset", true, nil, "browser=(not set)\neditor=vim\nentra_client_id=(not set)\ngit_protocol=https\norg=myorg\nprompt=enabled\n"},
+		{"host", false, []string{"--host", "dev.azure.com"}, "browser=\neditor=vim\nentra_client_id=\ngit_protocol=https\norg=myorg\nprompt=disabled\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

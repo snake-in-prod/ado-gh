@@ -175,6 +175,30 @@ func TestGitignoreTemplates(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, he.StatusCode)
 }
 
+func TestCreateRepository(t *testing.T) {
+	org := "repo-create"
+	c, reg := newTestRepoClient(t, org, "My Proj")
+	path := org + "/My%20Proj/_apis/git/repositories"
+	var bodies []map[string]any
+	reg.Register(httpmock.REST(http.MethodPost, path), repoCapture(t, &bodies, httpmock.StatusJSONResponse(http.StatusCreated, map[string]any{
+		"id": repoTestID, "name": "svc", "project": map[string]any{"name": "My Proj"},
+		"webUrl": "https://dev.azure.com/o/My%20Proj/_git/svc",
+	})))
+	reg.Register(httpmock.REST(http.MethodPost, path), httpmock.StatusJSONResponse(http.StatusConflict,
+		map[string]any{"message": "TF400948: A Git repository with the name svc already exists."}))
+	ctx := context.Background()
+
+	got, err := c.CreateRepository(ctx, "svc")
+	require.NoError(t, err)
+	assert.Equal(t, Repository{ID: repoTestID, Name: "svc", Project: "My Proj", WebURL: "https://dev.azure.com/o/My%20Proj/_git/svc"}, got)
+	assert.Equal(t, map[string]any{"name": "svc"}, bodies[0])
+
+	_, err = c.CreateRepository(ctx, "svc")
+	var he *HTTPError
+	require.ErrorAs(t, err, &he)
+	assert.Contains(t, he.Message, "TF400948")
+}
+
 func TestInitialPush(t *testing.T) {
 	org := "repo-push"
 	c, reg := newTestRepoClient(t, org, "proj")

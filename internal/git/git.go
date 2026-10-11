@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 )
@@ -48,6 +49,31 @@ type Client struct {
 	Dir string
 	// Run executes git and returns stdout; nil runs the git binary. Tests replace it.
 	Run func(ctx context.Context, dir string, args ...string) ([]byte, error)
+	// Stream executes git with s attached; nil runs the git binary. Tests replace it.
+	Stream func(ctx context.Context, dir string, s Streams, args ...string) error
+}
+
+// Streams are the standard streams a streamed git command is attached to.
+type Streams struct {
+	In          io.Reader
+	Out, ErrOut io.Writer
+}
+
+// ExecStream runs git with args attached to s, so the user sees git's progress and prompts.
+// Failures are *Error with an empty Stderr: git already wrote it to s.ErrOut.
+func (c *Client) ExecStream(ctx context.Context, s Streams, args ...string) error {
+	if c.Stream != nil {
+		return c.Stream(ctx, c.Dir, s, args...)
+	}
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = c.Dir
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = s.In, s.Out, s.ErrOut
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return &Error{Args: args, ExitCode: exitErr.ExitCode()}
+	}
+	return err
 }
 
 // Exec runs git with args and returns stdout; failures are *Error.

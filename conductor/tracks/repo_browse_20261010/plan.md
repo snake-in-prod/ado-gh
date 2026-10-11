@@ -40,19 +40,19 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 2: `repo clone` and `repo create`
 
-- [ ] Task: `git_protocol` config key
-    - [ ] Write tests: per-host get/set (incl. the `ssh.dev.azure.com` vs `dev.azure.com` host-key case), default `https`, invalid value rejected by `ado config set`, `TestFind` key list updated
-    - [ ] Implement Options entry `{Key: "git_protocol", Default: "https", AllowedValues: ["https","ssh"]}`
-- [ ] Task: `ado repo clone`
-    - [ ] Write tests: `internal/git` streaming exec (stdin/stdout/stderr to IOStreams) with its own stub hook; `gittest.Runner` records the dir argument
-    - [ ] Write tests (stubbed git runner): HTTPS (`remoteUrl`, `org@` kept) vs SSH (`sshUrl`) by protocol, no token added to any URL, full URL passed through as given, HTTPS URL containing a password refused with a credential-manager hint and not echoed (o14), argv exactly `clone <gitflags> -- <url> <dir>` split via `ArgsLenAtDash`, repo names starting with `-`, optional `<directory>` (`.`/`..` and path separators rejected), default directory = decoded repo name passed explicitly (`My Repo`; `.git` suffix with `--bare`/`--mirror`) (o13), fork adds `upstream` (and `-u` rename) via `remote add -- <name> <url>` + `fetch <name>` in the clone dir with parent URL fallback via `RepositoryByID`, fork clone sets no `ado-resolved` and has no `--no-upstream` (o12), git failure → non-zero exit (1) with git's stderr shown and no URL echoed (`SilentError`)
-    - [ ] Implement streaming exec and Runner dir recording in `internal/git`
-    - [ ] Implement `repo clone`
-- [ ] Task: `ado repo create`
-    - [ ] Write tests: create in `--project`/current project, `--add-readme` and `-g` produce one initial push (one commit on `refs/heads/main`, 40-zero `oldObjectId`, README `newContent` rawtext `# <name>\n` (o9), .gitignore `newContentTemplate{name: "<T>.gitignore", type: "gitignore"}`), unknown gitignore template lists close matches (template names minus `.gitignore`, case-insensitive), `--clone` clones after create, name conflict (`TF400948` in `HTTPError.Message`) → exit 1, initial push failure → warning on stderr, URL still printed, exit 1, empty repo kept (o10), TTY prompts, non-TTY missing name fails naming `<name>`, prints web URL
-    - [ ] Implement `repo create`
-    - [ ] Note for Phase 2 manual verification: confirm `newContentTemplate` .gitignore expansion and the TF400948 HTTP status against a real organization
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: repo clone and repo create' (Protocol in workflow.md)
+- [x] Task: `git_protocol` config key `29b9484`
+    - [x] Write tests: per-host get/set (incl. the `ssh.dev.azure.com` vs `dev.azure.com` host-key case), default `https`, invalid value rejected by `ado config set`, `TestFind` key list updated
+    - [x] Implement Options entry `{Key: "git_protocol", Default: "https", AllowedValues: ["https","ssh"]}`
+- [x] Task: `ado repo clone` `9d7aba5`
+    - [x] Write tests: `internal/git` streaming exec (stdin/stdout/stderr to IOStreams) with its own stub hook; `gittest.Runner` records the dir argument
+    - [x] Write tests (stubbed git runner): HTTPS (`remoteUrl`, `org@` kept) vs SSH (`sshUrl`) by protocol, no token added to any URL, full URL passed through as given, HTTPS URL containing a password refused with a credential-manager hint and not echoed (o14), argv exactly `clone <gitflags> -- <url> <dir>` split via `ArgsLenAtDash`, repo names starting with `-`, optional `<directory>` (`.`/`..` and path separators rejected), default directory = decoded repo name passed explicitly (`My Repo`; `.git` suffix with `--bare`/`--mirror`) (o13), fork adds `upstream` (and `-u` rename) via `remote add -- <name> <url>` + `fetch <name>` in the clone dir with parent URL fallback via `RepositoryByID`, fork clone sets no `ado-resolved` and has no `--no-upstream` (o12), git failure → non-zero exit (1) with git's stderr shown and no URL echoed (`SilentError`)
+    - [x] Implement streaming exec and Runner dir recording in `internal/git`
+    - [x] Implement `repo clone`
+- [x] Task: `ado repo create` `75d5691`
+    - [x] Write tests: create in `--project`/current project, `--add-readme` and `-g` produce one initial push (one commit on `refs/heads/main`, 40-zero `oldObjectId`, README `newContent` rawtext `# <name>\n` (o9), .gitignore `newContentTemplate{name: "<T>.gitignore", type: "gitignore"}`), unknown gitignore template lists close matches (template names minus `.gitignore`, case-insensitive), `--clone` clones after create, name conflict (`TF400948` in `HTTPError.Message`) → exit 1, initial push failure → warning on stderr, URL still printed, exit 1, empty repo kept (o10), TTY prompts, non-TTY missing name fails naming `<name>`, prints web URL
+    - [x] Implement `repo create`
+    - [x] Note for Phase 2 manual verification: confirm `newContentTemplate` .gitignore expansion and the TF400948 HTTP status against a real organization — verified live 2026-10-11: Go template expanded server-side, README `# <name>\n`, TF400948 is HTTP 409, soft delete 204 → recycle bin
+- [x] Task: Conductor - User Manual Verification 'Phase 2: repo clone and repo create' (Protocol in workflow.md)
 
 ## Phase 3: `repo delete`, `repo restore` and `repo set-default`
 

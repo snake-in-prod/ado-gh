@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os/exec"
@@ -127,5 +128,50 @@ func TestRealGit(t *testing.T) {
 func TestMissingBinary(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	_, err := (&Client{}).Exec(context.Background(), "status")
+	assert.True(t, errors.Is(err, exec.ErrNotFound), err)
+}
+
+// TestExecStreamRealGit streams the git binary's output and stderr to the given writers.
+func TestExecStreamRealGit(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	ctx := context.Background()
+	dir := t.TempDir()
+	t.Setenv("GIT_CEILING_DIRECTORIES", dir)
+	var out, errOut bytes.Buffer
+	c := &Client{Dir: dir}
+	s := Streams{In: &bytes.Buffer{}, Out: &out, ErrOut: &errOut}
+
+	require.NoError(t, c.ExecStream(ctx, s, "init", "--quiet"))
+	require.NoError(t, c.ExecStream(ctx, s, "rev-parse", "--git-dir"))
+	assert.Equal(t, ".git\n", out.String())
+
+	err := c.ExecStream(ctx, s, "rev-parse", "--verify", "nope")
+	var gerr *Error
+	require.ErrorAs(t, err, &gerr)
+	assert.Equal(t, 128, gerr.ExitCode)
+	assert.Empty(t, gerr.Stderr, "stderr went to the stream")
+	assert.NotEmpty(t, errOut.String())
+}
+
+func TestExecStreamHook(t *testing.T) {
+	var gotDir string
+	var gotArgs []string
+	var out bytes.Buffer
+	c := &Client{Dir: "d", Stream: func(_ context.Context, dir string, s Streams, args ...string) error {
+		gotDir, gotArgs = dir, args
+		_, err := s.Out.Write([]byte("hi"))
+		return err
+	}}
+	require.NoError(t, c.ExecStream(context.Background(), Streams{Out: &out}, "clone", "--", "u"))
+	assert.Equal(t, "d", gotDir)
+	assert.Equal(t, []string{"clone", "--", "u"}, gotArgs)
+	assert.Equal(t, "hi", out.String())
+}
+
+func TestExecStreamMissingBinary(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	err := (&Client{}).ExecStream(context.Background(), Streams{}, "status")
 	assert.True(t, errors.Is(err, exec.ErrNotFound), err)
 }

@@ -144,6 +144,17 @@ func (c *RepoClient) Repository(ctx context.Context, nameOrID string) (Repositor
 	return toRepository(*out), nil
 }
 
+// CreateRepository creates the empty repository name in the project.
+func (c *RepoClient) CreateRepository(ctx context.Context, name string) (Repository, error) {
+	out, err := c.Git.CreateRepository(ctx, git.CreateRepositoryArgs{
+		GitRepositoryToCreate: &git.GitRepositoryCreateOptions{Name: &name}, Project: c.project(),
+	})
+	if err != nil {
+		return Repository{}, mapErr(err)
+	}
+	return toRepository(*out), nil
+}
+
 // RootItems lists the files and folders at the root of repo on branch (with or without
 // "refs/heads/"), or on the default branch when branch is "".
 func (c *RepoClient) RootItems(ctx context.Context, repo, branch string) ([]TreeEntry, error) {

@@ -1,6 +1,7 @@
 package gittest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -77,4 +78,37 @@ func TestRunnerZeroValue(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, out)
 	assert.Equal(t, []string{"fetch"}, r.Mutations())
+}
+
+func TestRunnerStreamAndDirs(t *testing.T) {
+	r := &Runner{
+		Replies: map[string]string{"rev-parse --git-dir": ".git\n"},
+		Fails: map[string]error{
+			"clone -- u d": &git.Error{Args: []string{"clone", "--", "u", "d"}, ExitCode: 128, Stderr: "fatal: nope\n"},
+		},
+	}
+	ctx := context.Background()
+	var out, errOut bytes.Buffer
+	s := git.Streams{Out: &out, ErrOut: &errOut}
+
+	err := (&git.Client{Dir: "x", Stream: r.Stream}).ExecStream(ctx, s, "clone", "--", "u", "d")
+	var gitErr *git.Error
+	require.ErrorAs(t, err, &gitErr)
+	assert.Equal(t, 128, gitErr.ExitCode)
+	assert.Empty(t, gitErr.Stderr, "stderr is streamed, not kept")
+	assert.Equal(t, "fatal: nope\n", errOut.String())
+
+	require.NoError(t, (&git.Client{Dir: "d", Stream: r.Stream}).ExecStream(ctx, s, "rev-parse", "--git-dir"))
+	assert.Equal(t, ".git\n", out.String())
+	_, err = (&git.Client{Run: r.Run}).Exec(ctx, "status")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"clone -- u d", "rev-parse --git-dir", "status"}, r.Calls)
+	assert.Equal(t, []string{"x", "d", ""}, r.Dirs)
+
+	boom := errors.New("boom")
+	r.Fails["fetch"] = boom
+	require.ErrorIs(t, r.Stream(ctx, "", git.Streams{}, "fetch"), boom)
+	require.NoError(t, r.Stream(ctx, "", git.Streams{}, "rev-parse", "--git-dir"), "nil streams are skipped")
+	require.Error(t, r.Stream(ctx, "", git.Streams{}, "clone", "--", "u", "d"), "nil ErrOut is skipped")
 }

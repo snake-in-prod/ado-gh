@@ -6,31 +6,31 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ---
 
-## Phase 1: Pipeline Foundation
+## Phase 1: Pipeline Foundation [checkpoint: b46d6de]
 
-- [x] Task: Fixtures `10e36f1`
+- [x] Task: Fixtures `b46d6de`
     - [x] httpmock `BuildLocations`, `PipelinesLocations`, `ApprovalLocations` (in the same `StubLocations` call as build/pipelines), `ReleaseLocations` and `StubVSRM` (modelled on `StubSearch`), with a test driving the real SDK clients like `TestWorkItemLocations`; one org name per test (SDK caches discovery per base URL)
     - [x] Timeline fixtures with real shapes: YAML Stage → Phase → Job → Task, stage-less `__default`, classic Phase roots (no stages), retried stage attempt, Stage → `Checkpoint` → `Checkpoint.Approval` + `Checkpoint.TaskCheck` (pending approval + check), completed task with `log: null`, skipped task
     - [x] Definition fixtures: `process` 1 / 2 + `yamlFilename`, `repository` TfsGit + `defaultBranch`, `queueStatus` paused and disabled, `latestCompletedBuild`, two same-named definitions in different folders
     - [x] Artifact fixtures: Container (`#/<id>/<name>`, `%24format=zip`), PipelineArtifact (artprod URL, `artifactsize`), FilePath (`file://` UNC)
     - [x] Error fixtures: build-queue 400 with `customProperties.ValidationResults`, `PipelineValidationException`, definition 409 revision conflict
-- [x] Task: API layer (`api/pipeline.go`, `pkg/cmd/pipeline/shared`) `d025517`
+- [x] Task: API layer (`api/pipeline.go`, `pkg/cmd/pipeline/shared`) `b46d6de`
     - [x] Write tests: `build`/`pipelines`/`pipelinesapproval` `ClientImpl`s from `NewSDKClient`; Build API wrappers (definitions, builds, timeline, logs, artifacts, `UpdateBuild` for cancel and `retry=true`), Pipelines API runs, stage retry via `UpdateStage{state:retry, forceRetryAllJobs:false}` keyed by the stage `identifier` (no `retryDependencies`), approvals; raw `SDK.Send` full-definitions read (`includeAllProperties` + `includeLatestBuilds`, `[]build.BuildDefinition`, continuation paging); raw-map definition GET/PUT that changes only `queueStatus`; logs streamed via `GetBuildLog` (never `GetBuildLogLines`); errors trimmed, `mapErr` includes `customProperties.ValidationResults[].message`; build-specific revision-conflict check (409, or 400 mentioning revision)
     - [x] Write tests (shared transport): `--debug` logs every request URL without its query string, for all hosts; download errors unwrap `*url.Error` so no URL is printed; a redirect from artprod to `*.blob.core.windows.net` carries no Authorization header and no `sig` appears in the debug log
     - [x] Implement wrappers and transport fix
-- [x] Task: Pipeline and run references `10e057e`
+- [x] Task: Pipeline and run references `b46d6de`
     - [x] Write tests: ID, name, folder path (both separators; normalizer turns `/` into `\` and adds a leading `\`), server `name=` pre-filter then exact case-insensitive name/folder match; ambiguous name lists matches; URL forms `_build?definitionId`, `_build/index?definitionId`, `_build/results?buildId`, `_build/index?buildid` (case-insensitive key, extra params ignored) and REST `_apis/build/definitions/N`, `_apis/build/builds/N`, `_apis/pipelines/P/runs/N`; errors never echo the ref; run ID/URL; no-arg run → TTY prompt over recent runs / non-TTY error
     - [x] Implement resolvers; factor org/project splitting out of `pkg/cmd/workitem/shared/ref.go`; add `PipelineURL`/`RunURL` to `internal/adocontext/weburl.go`
-- [x] Task: Default pipeline resolution `688dff7`
+- [x] Task: Default pipeline resolution `b46d6de`
     - [x] Write tests: current repo GUID via `RepoClient.Repository`, then `GetDefinitions(repositoryId=<guid>, repositoryType=TfsGit)`; disabled definitions excluded, paused ones kept (they can still be queued manually); one definition → used; several → TTY select / non-TTY error listing names; none → error with hint
     - [x] Implement
-- [x] Task: Status model and exit codes `713afc4`
+- [x] Task: Status model and exit codes `b46d6de`
     - [x] Write tests: status/result → mark and color (failure mark "X", matching `pr checks` and the work item commands), result → exit code (0/1/2), partiallySucceeded → 1
     - [x] Implement
-- [x] Task: Timeline tree model and renderer `7f08306`
+- [x] Task: Timeline tree model and renderer `b46d6de`
     - [x] Write tests: tree rebuilt from flat records by `parentId`, siblings sorted by `order`; Stage → Job → Task with the Phase level collapsed; missing/null parent → root (classic without stages); implicit `__default` stage hidden, its jobs shown at the top level as with classic builds; retried nodes deduped by `identifier` (fallback `name`) keeping the highest `attempt`, latest attempt only with "attempt N" next to the node (no older-attempt fetches); durations; issues collected as annotations; pending from non-completed `Checkpoint.*` records keyed by `identifier` with `id` fallback; Checkpoint records hidden from the tree; unknown `Checkpoint.*` shown as "waiting: <name>"; verbose vs default expansion; failed jobs auto-expanded; JSON tree shape
     - [x] Implement (renderer shared with `release`); promote `timeOf` from `pkg/cmd/pr/shared/checks.go:237`; copy the `buildTree`/`walk` pattern from `pkg/cmd/workitem/query/render.go`
-- [x] Task: Live test environment: setup and teardown `0000000`
+- [x] Task: Live test environment: setup and teardown `b46d6de`
     - [x] Note: steps that change the org (classic toggles, agent registration, throwaway repo) are run by the main session during manual verification, with the user's prior approval (granted in o23–o25), not by swarm workers. Credential: Entra login.
     - [x] Setup prerequisites: self-hosted agent registered in WSL in the `Default` pool (temporary; done 2026-10-12, user starts `run.sh`); org-level "Disable creation of classic build/release pipelines" toggles turned off for the test
     - [x] Setup repo: throwaway repo `ado-live` in project `ado-gh` holding `azure-pipelines.yml`
@@ -41,23 +41,23 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 2: `list`, `view`, `logs`
 
-- [ ] Task: Command group and `run` alias
-    - [ ] Write tests: `ado pipeline` and `ado run` resolve to the same group
-    - [ ] Implement group
-- [ ] Task: `ado pipeline list`
-    - [ ] Write tests (runs): each filter → query param, `queryOrder=queueTimeDescending` sent, `-u`/`@me` resolved via `IdentityResolver.Resolve`, branch normalization, `-b` matches `sourceBranch` only (PR-validation runs need `-e pullRequest`), `-c` filtered client-side while paging with the continuation token, narrowed by `-b`/definition in the server query, page cap and a warning when results may be incomplete (matches spanning pages), `--limit` default 20, TTY table vs TSV, JSON fields, empty message
-    - [ ] Write tests (definitions): `-d` via the full-definitions read, `--folder`, `--match`, `-a` includes disabled, type/repo/last result (`latestCompletedBuild.result`) columns, JSON fields
-    - [ ] Implement `list`; classify in `TestWebFlagAudit`
-- [ ] Task: Shared log fetcher
-    - [ ] Write tests: record `log.id` → streamed `GetBuildLog`, Task-record logs only (job logs duplicate them), `job<TAB>task<TAB>` prefixing via `bufio.Reader` (a >64 KiB line), `--job`/`--task`/`--failed` filters, `--output` layout written through the shared `os.Root` helper after name sanitization (Windows reserved names, `:*?"<>|`, control characters, trailing dots/spaces), traversal attempts confined to dir
-    - [ ] Implement (used by `view --log`, `logs`, `release logs`)
-- [ ] Task: `ado pipeline view`
-    - [ ] Write tests: summary fields, tree default/`-v`, Annotations and Waiting sections (Waiting lists non-approval `Checkpoint` children by timeline name and state, timeline only, no checks API), `--log`, `--log-failed`, `--job`, `--exit-status`, JSON incl. `stages`/`pendingApprovals`, `-w`
-    - [ ] Implement `view`; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline logs`
-    - [ ] Write tests: stdout stream, filters, `-o` writes tree, `--follow` (inside a `testing/synctest` bubble with a `time.Ticker`, as `pr checks` and `api/throttle_test.go` do) prints task logs as timeline records complete, keeps polling completed records with `log: null` until they or their parent job get a `log.id`, and stops at run completion
-    - [ ] Implement `logs`; classify in `TestWebFlagAudit`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: list, view, logs' (Protocol in workflow.md)
+- [x] Task: Command group and `run` alias `29a845a`
+    - [x] Write tests: `ado pipeline` and `ado run` resolve to the same group
+    - [x] Implement group
+- [x] Task: `ado pipeline list` `0820775`
+    - [x] Write tests (runs): each filter → query param, `queryOrder=queueTimeDescending` sent, `-u`/`@me` resolved via `IdentityResolver.Resolve`, branch normalization, `-b` matches `sourceBranch` only (PR-validation runs need `-e pullRequest`), `-c` filtered client-side while paging with the continuation token, narrowed by `-b`/definition in the server query, page cap and a warning when results may be incomplete (matches spanning pages), `--limit` default 20, TTY table vs TSV, JSON fields, empty message
+    - [x] Write tests (definitions): `-d` via the full-definitions read, `--folder`, `--match`, `-a` includes disabled, type/repo/last result (`latestCompletedBuild.result`) columns, JSON fields
+    - [x] Implement `list`; classify in `TestWebFlagAudit`
+- [x] Task: Shared log fetcher `7a20d66`
+    - [x] Write tests: record `log.id` → streamed `GetBuildLog`, Task-record logs only (job logs duplicate them), `job<TAB>task<TAB>` prefixing via `bufio.Reader` (a >64 KiB line), `--job`/`--task`/`--failed` filters, `--output` layout written through the shared `os.Root` helper after name sanitization (Windows reserved names, `:*?"<>|`, control characters, trailing dots/spaces), traversal attempts confined to dir
+    - [x] Implement (used by `view --log`, `logs`, `release logs`)
+- [x] Task: `ado pipeline view` `eac292b`
+    - [x] Write tests: summary fields, tree default/`-v`, Annotations and Waiting sections (Waiting lists non-approval `Checkpoint` children by timeline name and state, timeline only, no checks API), `--log`, `--log-failed`, `--job`, `--exit-status`, JSON incl. `stages`/`pendingApprovals`, `-w`
+    - [x] Implement `view`; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline logs` `c2884e1`
+    - [x] Write tests: stdout stream, filters, `-o` writes tree, `--follow` (inside a `testing/synctest` bubble with a `time.Ticker`, as `pr checks` and `api/throttle_test.go` do) prints task logs as timeline records complete, keeps polling completed records with `log: null` until they or their parent job get a `log.id`, and stops at run completion
+    - [x] Implement `logs`; classify in `TestWebFlagAudit`
+- [x] Task: Conductor - User Manual Verification 'Phase 2: list, view, logs' (Protocol in workflow.md)
 
 ## Phase 3: `run`, `watch`, `cancel`, `rerun`
 

@@ -7,6 +7,7 @@ import (
 	boardCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/board"
 	browseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/browse"
 	configCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/config"
+	pipelineCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline"
 	prCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pr"
 	repoCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/repo"
 	sprintCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/sprint"
@@ -41,7 +42,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
+	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
 	return cmd
 }
 

@@ -79,10 +79,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	prURL := shared.PRURL(repoURL, *pr)
 
 	if o.web {
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "Opening %s in your browser.\n", prURL)
-		}
-		return f.Browser.Browse(prURL)
+		return cmdutil.OpenInBrowser(f, prURL)
 	}
 
 	fetch := func() ([]shared.Check, shared.CheckCounts, error) {

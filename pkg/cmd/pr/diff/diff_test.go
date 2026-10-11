@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/internal/git/gittest"
@@ -18,20 +19,13 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-type cmdDiffBrowser struct{ urls []string }
-
-func (b *cmdDiffBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type cmdDiffEnv struct {
 	org         string
 	reg         *httpmock.Registry
 	git         *gittest.Runner
 	ios         *iostreams.IOStreams
 	out, errOut *bytes.Buffer
-	browser     *cmdDiffBrowser
+	browser     *browsertest.Browser
 }
 
 // newCmdDiffEnv returns an env for its own org (the SDK caches locations per base URL).
@@ -47,7 +41,7 @@ func newCmdDiffEnv(t *testing.T, tty bool) *cmdDiffEnv {
 	reg := &httpmock.Registry{}
 	t.Cleanup(func() { reg.Verify(t) })
 	return &cmdDiffEnv{org: org, reg: reg, git: &gittest.Runner{Replies: map[string]string{}, Fails: map[string]error{}},
-		ios: ios, out: out, errOut: errOut, browser: &cmdDiffBrowser{}}
+		ios: ios, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 }
 
 // stubPR stubs the SDK location lookup and pull request 7 of ORG/proj/web.
@@ -94,7 +88,7 @@ func TestDiffWeb(t *testing.T) {
 			e.stubPR()
 			require.NoError(t, e.run(t, "7", "--web"))
 			u := "https://dev.azure.com/" + e.org + "/proj/_git/web/pullrequest/7?_a=files"
-			assert.Equal(t, []string{u}, e.browser.urls)
+			assert.Equal(t, []string{u}, e.browser.URLs)
 			if tty {
 				assert.Equal(t, "Opening "+u+" in your browser.\n", e.errOut.String())
 			} else {

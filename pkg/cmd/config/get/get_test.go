@@ -34,7 +34,7 @@ func run(cfg cmdutil.Config, cfgErr error, args ...string) (string, error) {
 }
 
 func TestGet(t *testing.T) {
-	cfg := memConfig{"|editor": "vim", "dev.azure.com|editor": "code"}
+	cfg := memConfig{"|editor": "vim", "dev.azure.com|editor": "code", "|org": "myorg"}
 	tests := []struct {
 		name string
 		args []string
@@ -45,6 +45,7 @@ func TestGet(t *testing.T) {
 		{"host falls back to global", []string{"editor", "--host", "contoso.visualstudio.com"}, "vim\n"},
 		{"default", []string{"prompt"}, "enabled\n"},
 		{"unset", []string{"browser"}, "\n"},
+		{"org", []string{"org"}, "myorg\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

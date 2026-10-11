@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
@@ -29,20 +30,13 @@ const (
 	checksCmdComments  = "c6a1889d-b943-4856-b76f-9e46bb6b0df2"
 )
 
-type checksCmdBrowser struct{ urls []string }
-
-func (b *checksCmdBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type checksCmdEnv struct {
 	org     string
 	reg     *httpmock.Registry
 	ios     *iostreams.IOStreams
 	out     *bytes.Buffer
 	errOut  *bytes.Buffer
-	browser *checksCmdBrowser
+	browser *browsertest.Browser
 	// polls are the (fake) times of every policy evaluations request.
 	polls []time.Time
 }
@@ -61,7 +55,7 @@ func newChecksCmdEnv(t *testing.T, tty bool) *checksCmdEnv {
 	org := "prchecks-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
 	reg := &httpmock.Registry{}
 	reg.StubLocations(org, httpmock.GitPRLocations...)
-	return &checksCmdEnv{org: org, reg: reg, ios: ios, out: out, errOut: errOut, browser: &checksCmdBrowser{}}
+	return &checksCmdEnv{org: org, reg: reg, ios: ios, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 }
 
 func (e *checksCmdEnv) run(t *testing.T, args ...string) error {
@@ -306,7 +300,7 @@ func TestChecksWeb(t *testing.T) {
 			e.stubChecksPR()
 			require.NoError(t, e.run(t, "12", "--web"))
 			e.reg.Verify(t)
-			assert.Equal(t, []string{e.prURL()}, e.browser.urls)
+			assert.Equal(t, []string{e.prURL()}, e.browser.URLs)
 			if tty {
 				assert.Equal(t, "Opening "+e.prURL()+" in your browser.\n", e.errOut.String())
 			} else {

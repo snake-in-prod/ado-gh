@@ -3,7 +3,6 @@ package diff
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -58,13 +57,8 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	ios := f.IOStreams
 	if o.web {
-		u := shared.PRURL(shared.RepoURL(repo), *pr) + "?_a=files"
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "Opening %s in your browser.\n", u)
-		}
-		return f.Browser.Browse(u)
+		return cmdutil.OpenInBrowser(f, shared.PRURL(shared.RepoURL(repo), *pr)+"?_a=files")
 	}
 	// The clone path needs the cwd to be a clone with a remote for the PR's repository; not
 	// being in a git repository at all (no remotes) means the API path.

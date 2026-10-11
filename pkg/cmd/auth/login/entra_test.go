@@ -24,16 +24,6 @@ const (
 	zeroTID = "00000000-0000-0000-0000-000000000000"
 )
 
-type fakeBrowser struct {
-	urls []string
-	err  error
-}
-
-func (b *fakeBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return b.err
-}
-
 type call struct{ method, tenant string }
 
 // fakeMSAL stands in for MSAL; Interactive opens the browser like MSAL does.
@@ -137,7 +127,7 @@ func TestEntraLoginBrowser(t *testing.T) {
 
 	assert.Equal(t, "client-id", m.clientID)
 	assert.Equal(t, []call{{"interactive", tid}}, m.calls)
-	assert.Equal(t, []string{"https://login.microsoftonline.com/" + tid + "/oauth2/v2.0/authorize"}, e.browser.urls,
+	assert.Equal(t, []string{"https://login.microsoftonline.com/" + tid + "/oauth2/v2.0/authorize"}, e.browser.URLs,
 		"MSAL's openURL is the ado browser")
 	assert.Empty(t, e.reg.Requests[0].Header.Get("Authorization"), "tenant discovery is unauthenticated")
 	assert.Equal(t, "Bearer at-"+tid, e.reg.Requests[1].Header.Get("Authorization"))
@@ -160,13 +150,13 @@ func TestEntraLoginDevice(t *testing.T) {
 	assert.Equal(t, []call{{"device", tid}}, m.calls)
 	assert.Contains(t, e.errOut.String(), "enter the code ABCD", "device code message on stderr")
 	assert.Empty(t, e.out.String())
-	assert.Empty(t, e.browser.urls)
+	assert.Empty(t, e.browser.URLs)
 }
 
 func TestEntraLoginBrowserFallsBackToDeviceCode(t *testing.T) {
 	e, m := setupEntra(t)
 	e.selectEntra("")
-	e.browser.err = errors.New("xdg-open not found")
+	e.browser.Err = errors.New("xdg-open not found")
 	e.stubDiscovery("contoso", tid)
 	e.reg.Register(httpmock.REST("GET", "contoso/_apis/connectionData"), connectionData("1234"))
 

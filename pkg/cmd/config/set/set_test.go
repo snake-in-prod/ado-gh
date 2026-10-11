@@ -43,6 +43,7 @@ func TestSet(t *testing.T) {
 		wantVal string
 	}{
 		{"global", []string{"editor", "vim -n"}, "|editor", "vim -n"},
+		{"org", []string{"org", "contoso"}, "|org", "contoso"},
 		{"host", []string{"prompt", "disabled", "--host", "dev.azure.com"}, "dev.azure.com|prompt", "disabled"},
 		{"other host", []string{"browser", "firefox", "--host", "contoso.visualstudio.com"}, "contoso.visualstudio.com|browser", "firefox"},
 	}

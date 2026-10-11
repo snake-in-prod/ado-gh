@@ -107,10 +107,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			q.Set("targetRef", base)
 		}
 		u := shared.RepoURL(repo) + "/pullrequestcreate?" + q.Encode()
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "Opening %s in your browser.\n", u)
-		}
-		return f.Browser.Browse(u)
+		return cmdutil.OpenInBrowser(f, u)
 	}
 
 	hc, err := authshared.HTTPClient(ctx, f, repo.Host, repo.Org)

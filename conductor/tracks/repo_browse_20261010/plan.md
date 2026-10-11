@@ -6,37 +6,37 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ---
 
-## Phase 1: Repo Foundation, `repo list`, `repo view`
+## Phase 1: Repo Foundation, `repo list`, `repo view` [checkpoint: c2f44e1]
 
-- [ ] Task: `org` config key (o2)
-    - [ ] Write tests: global `org` key in `pkg/cmd/config/shared` Options (public, no per-host use), `ado config set/get/list org`, `TestFind` key list updated (options_test.go:26)
-    - [ ] Implement `org` Options entry
-- [ ] Task: Repo reference parsing and API layer (`internal/adocontext`, `api/repo.go`, `pkg/cmd/repo/shared`)
-    - [ ] Write tests: `ParseRepoRef(arg, base)` in `internal/adocontext` (reusing `parseRepoArg`/`validSegment`/`ParseRemoteURL`): parse `repo`, `project/repo`, `org/project/repo`, URLs (dev.azure.com, visualstudio.com, ssh); web URLs with `?path=`, `?version=`, a fragment or trailing sub-paths (`/pullrequest/N`, `/commit/<sha>`) cleaned before parsing; bare name inherits host/org/project from BaseRepo (incl. visualstudio.com) → `ADO_ORG`/`ADO_PROJECT` → config `org` (o2); missing piece error names it; input URL never echoed
-    - [ ] Write tests: repo and PR web URL helpers (`RepoURL`/`PRURL`) available from `internal/adocontext` so `repo` and `browse` don't import `pr/shared`
-    - [ ] Write tests: `api/repo.go` `RepoClient` following `PRClient`: `ListRepositories` via `GetRepositories` (nil Project = org-wide, no project segment), `Repository` via `GetRepositoryWithParent(IncludeParent=true)`, `RootItems(ctx, branch)` via `GetItems` (scopePath `/`, OneLevel, version descriptor only with `-b`), README content via existing `BlobContent(objectId)`; own JSON struct (nil → zero values), `refs/heads/` stripped
-    - [ ] Write tests: gitignore templates = raw GET `{project}/_apis/git/templates?type=gitignore&api-version=7.1` (or `sdk.Client.Send` with location f88d498e-52c3-422a-a5f2-994f4265a25b), names only; pushes via `CreatePush`; recycle bin wraps `DeleteRepository`, `DeleteRepositoryFromRecycleBin`, plus `GetRecycleBinRepositories` and `RestoreRepositoryFromRecycleBin` (PATCH `{"deleted": false}`) for `repo restore` (o11)
-    - [ ] Implement `ParseRepoRef` and move or wrap `prshared.RepoURL`/`PRURL` into `internal/adocontext`
-    - [ ] Implement `api/repo.go` wrappers; add recycle-bin location a663da97-81db-4eb3-8b83-287670f63073 (`{project}/_apis/git/recycleBin/repositories/{repositoryId}`) to httpmock
-- [ ] Task: Shared browser helper (`cmdutil.OpenInBrowser`)
-    - [ ] Write tests: TTY prints `Opening <url> in your browser.` with the full URL (o3) to stderr, non-TTY silent, launcher precedence `ADO_BROWSER` > config `browser` > `BROWSER` > OS default (o1), launcher errors surfaced (shared recording stub launcher)
-    - [ ] Write tests: pr `view`/`list`/`create`/`diff`/`comment`/`checks` `--web` keep their "Opening" assertions through `OpenInBrowser` and the shared stub
-    - [ ] Implement `OpenInBrowser(f, url)` in `pkg/cmdutil/browser.go` wrapping `f.Browser` (stdout-TTY check, message on stderr); the `browser` config key and go-gh `pkg/browser` launcher already exist
-    - [ ] Migrate the six pr `--web` call sites to `OpenInBrowser` and replace the per-file browser stubs with one shared recording stub
-- [ ] Task: `ado repo list`
-    - [ ] Write tests: current project default, `<org>` org-wide (project column, URL without project segment), `<org>/<project>`, `--limit`, name sort, filter → sort → limit client-side on one unpaged response, `--disabled/--no-disabled` + hidden `--archived` aliases, `--fork`/`--source` exclusive, `--match` glob, repos with null `isFork`/`isDisabled`/`size`/`defaultBranch`/`webUrl` render, empty repo shows `empty` in the info column and JSON `defaultBranch` `""` (o5), TTY table vs TSV, `--json` fields without `parentRepository` (o4), empty-result message
-    - [ ] Implement `repo list`
-- [ ] Task: Record glamour dependency
-    - [ ] Record `bin/ado` size before adding glamour
-    - [ ] Update `tech-stack.md`: `github.com/charmbracelet/glamour` v0.10.0 (same as gh/go-gh), called directly, not through go-gh `pkg/markdown` (o6), with dated note; then `go get github.com/charmbracelet/glamour@v0.10.0`
-    - [ ] Check `CGO_ENABLED=0 go build ./...` passes and record `bin/ado` size after
-- [ ] Task: Windows virtual terminal processing (`pkg/iostreams`)
-    - [ ] Write tests: VT processing enabled on stdout/stderr when colour is enabled on Windows; skipped when colour is disabled or output is not a TTY (stubbed console-mode hook)
-    - [ ] Implement VT enabling in iostreams (no-op on other platforms)
-- [ ] Task: `ado repo view`
-    - [ ] Write tests: metadata fields, human-readable size (small new formatter), README discovery (case-insensitive root `README*`, root folder entry filtered, markdown extension `.md`/`.markdown`/`.mdown`/`.mkdown` first, then first in sorted order (o8)), `--branch`, glamour on TTY vs raw piped, non-markdown README raw, BOM/CRLF stripped, style from colour state + `GLAMOUR_STYLE` only with detection only on a real TTY (o7), wrap `min(TerminalWidth, 120)` with no width override (o7), empty repo (nil `defaultBranch`, size 0) makes no Items call, listing 404 → missing README message, disabled repo metadata-only with no Items call, `--json` incl. `readme`, `-w` via `OpenInBrowser`
-    - [ ] Implement `repo view`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Repo Foundation, repo list, repo view' (Protocol in workflow.md)
+- [x] Task: `org` config key (o2) `c2f44e1`
+    - [x] Write tests: global `org` key in `pkg/cmd/config/shared` Options (public, no per-host use), `ado config set/get/list org`, `TestFind` key list updated (options_test.go:26)
+    - [x] Implement `org` Options entry
+- [x] Task: Repo reference parsing and API layer (`internal/adocontext`, `api/repo.go`, `pkg/cmd/repo/shared`) `c2f44e1`
+    - [x] Write tests: `ParseRepoRef(arg, base)` in `internal/adocontext` (reusing `parseRepoArg`/`validSegment`/`ParseRemoteURL`): parse `repo`, `project/repo`, `org/project/repo`, URLs (dev.azure.com, visualstudio.com, ssh); web URLs with `?path=`, `?version=`, a fragment or trailing sub-paths (`/pullrequest/N`, `/commit/<sha>`) cleaned before parsing; bare name inherits host/org/project from BaseRepo (incl. visualstudio.com) → `ADO_ORG`/`ADO_PROJECT` → config `org` (o2); missing piece error names it; input URL never echoed
+    - [x] Write tests: repo and PR web URL helpers (`RepoURL`/`PRURL`) available from `internal/adocontext` so `repo` and `browse` don't import `pr/shared`
+    - [x] Write tests: `api/repo.go` `RepoClient` following `PRClient`: `ListRepositories` via `GetRepositories` (nil Project = org-wide, no project segment), `Repository` via `GetRepositoryWithParent(IncludeParent=true)`, `RootItems(ctx, branch)` via `GetItems` (scopePath `/`, OneLevel, version descriptor only with `-b`), README content via existing `BlobContent(objectId)`; own JSON struct (nil → zero values), `refs/heads/` stripped
+    - [x] Write tests: gitignore templates = raw GET `{project}/_apis/git/templates?type=gitignore&api-version=7.1` (or `sdk.Client.Send` with location f88d498e-52c3-422a-a5f2-994f4265a25b), names only; pushes via `CreatePush`; recycle bin wraps `DeleteRepository`, `DeleteRepositoryFromRecycleBin`, plus `GetRecycleBinRepositories` and `RestoreRepositoryFromRecycleBin` (PATCH `{"deleted": false}`) for `repo restore` (o11)
+    - [x] Implement `ParseRepoRef` and move or wrap `prshared.RepoURL`/`PRURL` into `internal/adocontext`
+    - [x] Implement `api/repo.go` wrappers; add recycle-bin location a663da97-81db-4eb3-8b83-287670f63073 (`{project}/_apis/git/recycleBin/repositories/{repositoryId}`) to httpmock
+- [x] Task: Shared browser helper (`cmdutil.OpenInBrowser`) `c2f44e1`
+    - [x] Write tests: TTY prints `Opening <url> in your browser.` with the full URL (o3) to stderr, non-TTY silent, launcher precedence `ADO_BROWSER` > config `browser` > `BROWSER` > OS default (o1), launcher errors surfaced (shared recording stub launcher)
+    - [x] Write tests: pr `view`/`list`/`create`/`diff`/`comment`/`checks` `--web` keep their "Opening" assertions through `OpenInBrowser` and the shared stub
+    - [x] Implement `OpenInBrowser(f, url)` in `pkg/cmdutil/browser.go` wrapping `f.Browser` (stdout-TTY check, message on stderr); the `browser` config key and go-gh `pkg/browser` launcher already exist
+    - [x] Migrate the six pr `--web` call sites to `OpenInBrowser` and replace the per-file browser stubs with one shared recording stub
+- [x] Task: `ado repo list` `c2f44e1`
+    - [x] Write tests: current project default, `<org>` org-wide (project column, URL without project segment), `<org>/<project>`, `--limit`, name sort, filter → sort → limit client-side on one unpaged response, `--disabled/--no-disabled` + hidden `--archived` aliases, `--fork`/`--source` exclusive, `--match` glob, repos with null `isFork`/`isDisabled`/`size`/`defaultBranch`/`webUrl` render, empty repo shows `empty` in the info column and JSON `defaultBranch` `""` (o5), TTY table vs TSV, `--json` fields without `parentRepository` (o4), empty-result message
+    - [x] Implement `repo list`
+- [x] Task: Record glamour dependency `c2f44e1`
+    - [x] Record `bin/ado` size before adding glamour (25,183,608 B)
+    - [x] Update `tech-stack.md`: `github.com/charmbracelet/glamour` v0.10.0 (same as gh/go-gh), called directly, not through go-gh `pkg/markdown` (o6), with dated note; then `go get github.com/charmbracelet/glamour@v0.10.0`
+    - [x] Check `CGO_ENABLED=0 go build ./...` passes and record `bin/ado` size after (34,379,098 B, +9.2 MB)
+- [x] Task: Windows virtual terminal processing (`pkg/iostreams`) `c2f44e1`
+    - [x] Write tests: VT processing enabled on stdout/stderr when colour is enabled on Windows; skipped when colour is disabled or output is not a TTY (stubbed console-mode hook)
+    - [x] Implement VT enabling in iostreams (no-op on other platforms)
+- [x] Task: `ado repo view` `c2f44e1`
+    - [x] Write tests: metadata fields, human-readable size (small new formatter), README discovery (case-insensitive root `README*`, root folder entry filtered, markdown extension `.md`/`.markdown`/`.mdown`/`.mkdown` first, then first in sorted order (o8)), `--branch`, glamour on TTY vs raw piped, non-markdown README raw, BOM/CRLF stripped, style from colour state + `GLAMOUR_STYLE` only with detection only on a real TTY (o7), wrap `min(TerminalWidth, 120)` with no width override (o7), empty repo (nil `defaultBranch`, size 0) makes no Items call, listing 404 → missing README message, disabled repo metadata-only with no Items call, `--json` incl. `readme`, `-w` via `OpenInBrowser`
+    - [x] Implement `repo view`
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Repo Foundation, repo list, repo view' (Protocol in workflow.md)
 
 ## Phase 2: `repo clone` and `repo create`
 

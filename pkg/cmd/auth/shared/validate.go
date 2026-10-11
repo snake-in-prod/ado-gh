@@ -7,9 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 )
 
@@ -22,13 +21,9 @@ type User struct {
 	DisplayName string
 }
 
-// OrgURL returns the organization's base URL, ending in "/": https://{org}.visualstudio.com/
-// for that host, https://dev.azure.com/{org}/ otherwise (incl. the SSH hosts).
+// OrgURL returns the organization's base URL; see adocontext.OrgURL.
 func OrgURL(host, org string) string {
-	if strings.HasSuffix(host, ".visualstudio.com") && host != "vs-ssh.visualstudio.com" {
-		return "https://" + host + "/"
-	}
-	return "https://dev.azure.com/" + url.PathEscape(org) + "/"
+	return adocontext.OrgURL(host, org)
 }
 
 // Validate checks the credential hc sends against the org-scoped connectionData API and

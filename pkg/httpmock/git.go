@@ -42,3 +42,19 @@ var GitPRLocations = []Location{
 	{ID: "72c7ddf8-2cdc-4f60-90cd-ab71c14a399b", Area: "wit", ResourceName: "workItems",
 		RouteTemplate: "{project}/_apis/wit/workitems/{id}"},
 }
+
+// GitRepoLocations are the Git API locations used by the repository commands, for StubLocations.
+var GitRepoLocations = []Location{
+	{ID: "225f7195-f9c7-4d14-ab28-a83f7ff77e1f", Area: "git", ResourceName: "repositories",
+		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}"},
+	{ID: "fb93c0db-47ed-4a31-8c20-47552878fb44", Area: "git", ResourceName: "items",
+		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/items"},
+	{ID: "7b28e929-2c99-405d-9c5c-6167a06e6816", Area: "git", ResourceName: "blobs",
+		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/blobs/{sha1}"},
+	{ID: "ea98d07b-3c87-4971-8ede-a613694ffb55", Area: "git", ResourceName: "pushes",
+		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/pushes/{pushId}"},
+	{ID: "f88d498e-52c3-422a-a5f2-994f4265a25b", Area: "git", ResourceName: "templates",
+		RouteTemplate: "{project}/_apis/{area}/{resource}"},
+	{ID: "a663da97-81db-4eb3-8b83-287670f63073", Area: "git", ResourceName: "recycleBinRepositories",
+		RouteTemplate: "{project}/_apis/git/recycleBin/repositories/{repositoryId}"},
+}

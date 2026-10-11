@@ -51,28 +51,55 @@ func ResolveBaseRepo(override string, remotes func() ([]git.Remote, error)) (Rep
 
 // parseRepoArg parses [ORG/]PROJECT/REPO from source (-R or ADO_REPO).
 func parseRepoArg(source, s string) (Repo, error) {
+	return parseSegments(source, s, nil, nil)
+}
+
+// parseSegments parses [ORG/]PROJECT/REPO from source. Missing parts come from base (when
+// non-nil and it resolves), else ADO_ORG / ADO_PROJECT, else configOrg (when non-nil) for the
+// organization.
+func parseSegments(source, s string, base func() (Repo, error), configOrg func() string) (Repo, error) {
 	segs := strings.Split(s, "/")
 	if len(segs) > 3 || slices.ContainsFunc(segs, func(s string) bool { return !validSegment(s) }) {
 		return Repo{}, fmt.Errorf("invalid %s %q: expected [ORG/]PROJECT/REPO", source, s)
 	}
-	if len(segs) < 3 {
-		org := os.Getenv("ADO_ORG")
-		if org == "" {
-			return Repo{}, fmt.Errorf("%s %q has no organization; use ORG/PROJECT/REPO or set ADO_ORG", source, s)
-		}
-		segs = append([]string{org}, segs...)
+	r := Repo{Host: hostDevAzure, Name: segs[len(segs)-1]}
+	switch len(segs) {
+	case 3:
+		r.Org, r.Project = segs[0], segs[1]
+		return r, nil
+	case 2:
+		r.Project = segs[0]
 	}
-	if len(segs) < 3 {
-		project := os.Getenv("ADO_PROJECT")
-		if project == "" {
+	if base != nil {
+		if b, err := base(); err == nil {
+			r.Host, r.Org = b.Host, b.Org
+			if r.Project == "" {
+				r.Project = b.Project
+			}
+			return r, nil
+		}
+	}
+	orgSource, orgHint := "ADO_ORG", "use ORG/PROJECT/REPO or set ADO_ORG"
+	r.Org = os.Getenv("ADO_ORG")
+	if configOrg != nil {
+		orgHint = "use ORG/PROJECT/REPO, set ADO_ORG or run `ado config set org <org>`"
+		if r.Org == "" {
+			orgSource, r.Org = "org config value", configOrg()
+		}
+	}
+	if r.Org == "" {
+		return Repo{}, fmt.Errorf("%s %q has no organization; %s", source, s, orgHint)
+	}
+	if r.Project == "" {
+		if r.Project = os.Getenv("ADO_PROJECT"); r.Project == "" {
 			return Repo{}, fmt.Errorf("%s %q has no project; use [ORG/]PROJECT/REPO or set ADO_PROJECT", source, s)
 		}
-		segs = []string{segs[0], project, segs[1]}
 	}
-	for i, env := range []string{"ADO_ORG", "ADO_PROJECT"} {
-		if !validSegment(segs[i]) {
-			return Repo{}, fmt.Errorf("invalid %s %q", env, segs[i])
-		}
+	if !validSegment(r.Org) {
+		return Repo{}, fmt.Errorf("invalid %s %q", orgSource, r.Org)
 	}
-	return Repo{Host: hostDevAzure, Org: segs[0], Project: segs[1], Name: segs[2]}, nil
+	if !validSegment(r.Project) { // only ADO_PROJECT can be invalid here
+		return Repo{}, fmt.Errorf("invalid ADO_PROJECT %q", r.Project)
+	}
+	return r, nil
 }

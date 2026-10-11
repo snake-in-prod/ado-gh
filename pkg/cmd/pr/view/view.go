@@ -104,10 +104,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	data := viewJSON{PRJSON: shared.ToJSON(*pr, shared.RepoURL(repo)), Description: pr.Description}
 
 	if o.web {
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "Opening %s in your browser.\n", data.URL)
-		}
-		return f.Browser.Browse(data.URL)
+		return cmdutil.OpenInBrowser(f, data.URL)
 	}
 
 	wants := func(field string) bool { return o.exporter != nil && slices.Contains(o.exporter.Fields, field) }

@@ -1,12 +1,14 @@
 package cmdutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	ghbrowser "github.com/cli/go-gh/v2/pkg/browser"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
 
@@ -88,6 +90,65 @@ func TestFactoryBrowserUsesResolvedLauncher(t *testing.T) {
 	err := f.Browser.Browse("https://dev.azure.com/org")
 	if err == nil || !strings.Contains(err.Error(), "cfg-launcher-missing") {
 		t.Errorf("err = %v, want config launcher used", err)
+	}
+}
+
+func TestOpenInBrowser(t *testing.T) {
+	const u = "https://dev.azure.com/org/My%20Proj/_git/web?a=1"
+	const msg = "Opening " + u + " in your browser.\n"
+	tests := []struct {
+		name    string
+		tty     bool
+		err     error
+		wantMsg string
+	}{
+		{name: "tty prints full URL on stderr", tty: true, wantMsg: msg},
+		{name: "non-tty silent", tty: false},
+		{name: "launcher error surfaced", tty: true, err: errors.New("boom"), wantMsg: msg},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ios, _, out, errOut := iostreams.Test()
+			ios.SetStdoutTTY(tt.tty)
+			b := &browsertest.Browser{Err: tt.err}
+			if err := OpenInBrowser(&Factory{IOStreams: ios, Browser: b}, u); !errors.Is(err, tt.err) {
+				t.Errorf("err = %v, want %v", err, tt.err)
+			}
+			if len(b.URLs) != 1 || b.URLs[0] != u {
+				t.Errorf("opened %q, want [%q]", b.URLs, u)
+			}
+			if errOut.String() != tt.wantMsg || out.Len() != 0 {
+				t.Errorf("stderr %q stdout %q, want stderr %q", errOut.String(), out.String(), tt.wantMsg)
+			}
+		})
+	}
+}
+
+// TestOpenInBrowserLauncherPrecedence runs the production Factory browser with missing
+// launchers, so the surfaced error names the launcher that was chosen.
+func TestOpenInBrowserLauncherPrecedence(t *testing.T) {
+	tests := []struct {
+		name                        string
+		adoBrowser, cfg, envBrowser string
+		want                        string
+	}{
+		{"ADO_BROWSER first", "ado-env-missing", "cfg-missing", "env-missing", "ado-env-missing"},
+		{"config second", "", "cfg-missing", "env-missing", "cfg-missing"},
+		{"BROWSER third", "", "", "env-missing", "env-missing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ghConfigWithBrowser(t)
+			t.Setenv("ADO_BROWSER", tt.adoBrowser)
+			t.Setenv("BROWSER", tt.envBrowser)
+			ios, _, _, _ := iostreams.Test()
+			f := NewFactory("1.0.0", ios)
+			f.Config = func() (Config, error) { return mapConfig{"browser": tt.cfg}, nil }
+			err := OpenInBrowser(f, "https://dev.azure.com/org")
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("err = %v, want launcher %q used", err, tt.want)
+			}
+		})
 	}
 }
 

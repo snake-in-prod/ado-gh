@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
@@ -20,19 +21,12 @@ import (
 
 const commentRepoPath = "/My%20Proj/_apis/git/repositories/web/pullRequests/12"
 
-type commentBrowser struct{ urls []string }
-
-func (b *commentBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type commentEnv struct {
 	org             string
 	reg             *httpmock.Registry
 	ios             *iostreams.IOStreams
 	in, out, errOut *bytes.Buffer
-	browser         *commentBrowser
+	browser         *browsertest.Browser
 	// calls records the HTTP writes in order with their JSON bodies.
 	calls  []string
 	bodies []map[string]any
@@ -50,7 +44,7 @@ func newCommentEnv(t *testing.T, tty bool) *commentEnv {
 	ios.SetStdinTTY(tty)
 	ios.SetStdoutTTY(tty)
 	org := "prcomment-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
-	return &commentEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, browser: &commentBrowser{}}
+	return &commentEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 }
 
 func (e *commentEnv) run(t *testing.T, args ...string) error {
@@ -312,7 +306,7 @@ func TestCommentWeb(t *testing.T) {
 
 	require.NoError(t, e.run(t, "12", "-w"))
 	e.reg.Verify(t)
-	assert.Equal(t, []string{e.prURL()}, e.browser.urls)
+	assert.Equal(t, []string{e.prURL()}, e.browser.URLs)
 	assert.Equal(t, "Opening "+e.prURL()+" in your browser.\n", e.errOut.String())
 	assert.Empty(t, e.writes())
 }

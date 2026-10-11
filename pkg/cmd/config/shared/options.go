@@ -22,6 +22,7 @@ var Options = []Option{
 	{Key: "browser", Description: "the web browser to use for opening URLs"},
 	{Key: "editor", Description: "the text editor program to use for authoring text"},
 	{Key: "entra_client_id", Description: "the Microsoft Entra ID app client ID used by Entra login"},
+	{Key: "org", Description: "the default Azure DevOps organization for repository names without one"},
 	{Key: "prompt", Description: "toggle interactive prompting in the terminal", Default: "enabled", AllowedValues: []string{"enabled", "disabled"}},
 }
 

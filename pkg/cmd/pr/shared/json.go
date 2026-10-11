@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"net/url"
 	"strconv"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
@@ -9,7 +8,6 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
-	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 )
 
 // JSONFields are the public `--json` fields of PRJSON.
@@ -75,9 +73,9 @@ func Labels(ls *[]core.WebApiTagDefinition) []LabelJSON {
 	return out
 }
 
-// RepoURL returns the web URL of repo, e.g. https://dev.azure.com/org/proj/_git/repo.
+// RepoURL returns the web URL of repo; see adocontext.RepoURL.
 func RepoURL(repo adocontext.Repo) string {
-	return authshared.OrgURL(repo.Host, repo.Org) + url.PathEscape(repo.Project) + "/_git/" + url.PathEscape(repo.Name)
+	return adocontext.RepoURL(repo)
 }
 
 // PRRepoURL returns the web URL of pr's own repository (from pr.Repository) in base's

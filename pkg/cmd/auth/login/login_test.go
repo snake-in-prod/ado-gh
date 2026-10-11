@@ -13,6 +13,7 @@ import (
 	"testing/iotest"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
@@ -36,7 +37,7 @@ type env struct {
 	// accessible switches to line-based prompts reading stdin one byte at a time, so
 	// several prompts can share stdin.
 	accessible bool
-	browser    *fakeBrowser
+	browser    *browsertest.Browser
 }
 
 func setup(t *testing.T) *env {
@@ -48,7 +49,7 @@ func setup(t *testing.T) *env {
 	t.Setenv("AZURE_DEVOPS_EXT_PAT", "")
 	keyring.MockInit()
 	ios, in, out, errOut := iostreams.Test()
-	e := &env{ios: ios, in: in, out: out, errOut: errOut, reg: &httpmock.Registry{}, configDir: dir, repoErr: errNoRepo, browser: &fakeBrowser{}}
+	e := &env{ios: ios, in: in, out: out, errOut: errOut, reg: &httpmock.Registry{}, configDir: dir, repoErr: errNoRepo, browser: &browsertest.Browser{}}
 	baseTransport = e.reg
 	t.Cleanup(func() { baseTransport = nil })
 	return e

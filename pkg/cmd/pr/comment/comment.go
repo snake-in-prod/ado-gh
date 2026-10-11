@@ -168,10 +168,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	ios := f.IOStreams
 	prURL := shared.PRURL(shared.RepoURL(repo), *pr)
 	if o.web {
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "Opening %s in your browser.\n", prURL)
-		}
-		return f.Browser.Browse(prURL)
+		return cmdutil.OpenInBrowser(f, prURL)
 	}
 
 	id := shared.Deref(pr.PullRequestId)

@@ -34,16 +34,16 @@ func run(tty bool, cfg cmdutil.Config, cfgErr error, args ...string) (string, er
 }
 
 func TestList(t *testing.T) {
-	cfg := memConfig{"|editor": "vim", "dev.azure.com|prompt": "disabled"}
+	cfg := memConfig{"|editor": "vim", "|org": "myorg", "dev.azure.com|prompt": "disabled"}
 	tests := []struct {
 		name string
 		tty  bool
 		args []string
 		want string
 	}{
-		{"non-TTY", false, nil, "browser=\neditor=vim\nentra_client_id=\nprompt=enabled\n"},
-		{"TTY marks unset", true, nil, "browser=(not set)\neditor=vim\nentra_client_id=(not set)\nprompt=enabled\n"},
-		{"host", false, []string{"--host", "dev.azure.com"}, "browser=\neditor=vim\nentra_client_id=\nprompt=disabled\n"},
+		{"non-TTY", false, nil, "browser=\neditor=vim\nentra_client_id=\norg=myorg\nprompt=enabled\n"},
+		{"TTY marks unset", true, nil, "browser=(not set)\neditor=vim\nentra_client_id=(not set)\norg=myorg\nprompt=enabled\n"},
+		{"host", false, []string{"--host", "dev.azure.com"}, "browser=\neditor=vim\nentra_client_id=\norg=myorg\nprompt=disabled\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"testing/iotest"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/internal/git/gittest"
@@ -28,13 +29,6 @@ const (
 	createMeID  = "33333333-3333-3333-3333-333333333333"
 )
 
-type createBrowser struct{ urls []string }
-
-func (b *createBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type createEnv struct {
 	org     string
 	reg     *httpmock.Registry
@@ -42,7 +36,7 @@ type createEnv struct {
 	in      *bytes.Buffer
 	out     *bytes.Buffer
 	errOut  *bytes.Buffer
-	browser *createBrowser
+	browser *browsertest.Browser
 	git     *gittest.Runner
 	// bodies holds the JSON bodies of POST/PATCH pull request requests in order.
 	bodies []map[string]any
@@ -59,7 +53,7 @@ func newCreateEnv(t *testing.T, tty bool) *createEnv {
 	ios.SetStdinTTY(tty)
 	ios.SetStdoutTTY(tty)
 	org := "prcreate-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
-	e := &createEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, browser: &createBrowser{}}
+	e := &createEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 	e.git = &gittest.Runner{Replies: map[string]string{
 		"symbolic-ref --quiet HEAD": "refs/heads/feature/x\n",
 		"remote -v": "upstream\thttps://dev.azure.com/other/P/_git/r (fetch)\n" +
@@ -315,7 +309,9 @@ func TestCreateNonTTYMissingTitle(t *testing.T) {
 func TestCreateWeb(t *testing.T) {
 	e := newCreateEnv(t, true)
 	require.NoError(t, e.run(t, "--web", "-B", "main"))
-	assert.Equal(t, []string{"https://dev.azure.com/" + e.org + "/My%20Proj/_git/web/pullrequestcreate?sourceRef=feature%2Fx&targetRef=main"}, e.browser.urls)
+	u := "https://dev.azure.com/" + e.org + "/My%20Proj/_git/web/pullrequestcreate?sourceRef=feature%2Fx&targetRef=main"
+	assert.Equal(t, []string{u}, e.browser.URLs)
+	assert.Contains(t, e.errOut.String(), "Opening "+u+" in your browser.\n")
 }
 
 func TestCreateFlagErrors(t *testing.T) {

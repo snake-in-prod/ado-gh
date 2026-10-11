@@ -48,6 +48,14 @@ func fromFiles(in, out, errOut *os.File) *IOStreams {
 		neverPrompt: os.Getenv("ADO_PROMPT_DISABLED") != "" || os.Getenv("CI") != "",
 	}
 	ios.colorEnabled = ghterm.IsColorForced() || (!ghterm.IsColorDisabled() && ios.stdoutTTY)
+	if ios.colorEnabled {
+		if ios.stdoutTTY {
+			enableVirtualTerminal(out)
+		}
+		if ios.stderrTTY {
+			enableVirtualTerminal(errOut)
+		}
+	}
 	return ios
 }
 

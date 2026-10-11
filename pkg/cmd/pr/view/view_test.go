@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
@@ -23,20 +24,13 @@ import (
 
 const viewProjectID = "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c"
 
-type viewBrowser struct{ urls []string }
-
-func (b *viewBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type viewEnv struct {
 	org     string
 	reg     *httpmock.Registry
 	ios     *iostreams.IOStreams
 	out     *bytes.Buffer
 	errOut  *bytes.Buffer
-	browser *viewBrowser
+	browser *browsertest.Browser
 }
 
 // newViewEnv returns an env for its own org (the SDK caches locations per base URL for the
@@ -53,7 +47,7 @@ func newViewEnv(t *testing.T, tty bool) *viewEnv {
 	org := "prview-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
 	reg := &httpmock.Registry{}
 	reg.StubLocations(org, httpmock.GitPRLocations...)
-	return &viewEnv{org: org, reg: reg, ios: ios, out: out, errOut: errOut, browser: &viewBrowser{}}
+	return &viewEnv{org: org, reg: reg, ios: ios, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 }
 
 func (e *viewEnv) run(t *testing.T, args ...string) error {
@@ -394,7 +388,7 @@ func TestViewWeb(t *testing.T) {
 	e.stubPR(viewPR())
 
 	require.NoError(t, e.run(t, "12", "--web"))
-	assert.Equal(t, []string{e.prURL()}, e.browser.urls)
+	assert.Equal(t, []string{e.prURL()}, e.browser.URLs)
 	assert.Equal(t, "Opening "+e.prURL()+" in your browser.\n", e.errOut.String())
 	assert.Empty(t, e.out.String())
 	assert.False(t, e.requested("/evaluations"))

@@ -21,6 +21,15 @@ type browserFunc func(string) error
 
 func (f browserFunc) Browse(u string) error { return f(u) }
 
+// OpenInBrowser opens u with f.Browser, first printing "Opening <u> in your browser." to
+// stderr when stdout is a terminal. Every --web flag goes through it.
+func OpenInBrowser(f *Factory, u string) error {
+	if f.IOStreams.IsStdoutTTY() {
+		fmt.Fprintf(f.IOStreams.ErrOut, "Opening %s in your browser.\n", u)
+	}
+	return f.Browser.Browse(u)
+}
+
 // ResolveBrowserLauncher returns the browser command from ADO_BROWSER, then the
 // ado config "browser" key, then BROWSER. GH_BROWSER and gh's config are ignored.
 func ResolveBrowserLauncher(cfg Config) string {

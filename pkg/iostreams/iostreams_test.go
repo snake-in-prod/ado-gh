@@ -155,3 +155,44 @@ func TestRefreshScreen(t *testing.T) {
 		t.Errorf("TTY RefreshScreen wrote %q, want %q", got, want)
 	}
 }
+
+func TestFromFilesEnablesVirtualTerminal(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		want bool
+	}{
+		{name: "colour on TTY", env: map[string]string{"ADO_FORCE_TTY": "1"}, want: true},
+		{name: "colour disabled", env: map[string]string{"ADO_FORCE_TTY": "1", "NO_COLOR": "1"}},
+		{name: "not a TTY", env: map[string]string{"CLICOLOR_FORCE": "1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearEnv(t)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+			var got []*os.File
+			orig := enableVirtualTerminal
+			t.Cleanup(func() { enableVirtualTerminal = orig })
+			enableVirtualTerminal = func(f *os.File) { got = append(got, f) }
+			in, out, _ := pipeFiles(t)
+			_, errOut, _ := pipeFiles(t)
+			fromFiles(in, out, errOut)
+			if !tt.want {
+				if len(got) != 0 {
+					t.Errorf("enableVirtualTerminal called %d times, want none", len(got))
+				}
+				return
+			}
+			if len(got) != 2 || got[0] != out || got[1] != errOut {
+				t.Errorf("enableVirtualTerminal calls = %v, want stdout then stderr", got)
+			}
+		})
+	}
+}
+
+func TestEnableVirtualTerminalDefault(t *testing.T) {
+	_, out, _ := pipeFiles(t)
+	enableVirtualTerminal(out) // no-op off Windows; ignores the error for a non-console handle on Windows
+}

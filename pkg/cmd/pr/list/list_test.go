@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/browsertest"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
@@ -23,20 +24,13 @@ const (
 	bobID = "22222222-2222-2222-2222-222222222222"
 )
 
-type listBrowser struct{ urls []string }
-
-func (b *listBrowser) Browse(u string) error {
-	b.urls = append(b.urls, u)
-	return nil
-}
-
 type listEnv struct {
 	org     string
 	reg     *httpmock.Registry
 	ios     *iostreams.IOStreams
 	out     *bytes.Buffer
 	errOut  *bytes.Buffer
-	browser *listBrowser
+	browser *browsertest.Browser
 }
 
 // newListEnv returns an env for its own org: the SDK caches locations per base URL for the
@@ -51,7 +45,7 @@ func newListEnv(t *testing.T, tty bool) *listEnv {
 	ios.SetStdoutTTY(tty)
 	ios.SetTerminalWidth(80)
 	org := "prlist-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
-	return &listEnv{org: org, reg: &httpmock.Registry{}, ios: ios, out: out, errOut: errOut, browser: &listBrowser{}}
+	return &listEnv{org: org, reg: &httpmock.Registry{}, ios: ios, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 }
 
 func (e *listEnv) run(t *testing.T, args ...string) error {
@@ -240,7 +234,7 @@ func TestListJSONEmptyIsArray(t *testing.T) {
 func TestListWeb(t *testing.T) {
 	e := newListEnv(t, true)
 	require.NoError(t, e.run(t, "--web", "-s", "completed"))
-	assert.Equal(t, []string{"https://dev.azure.com/" + e.org + "/My%20Proj/_git/web/pullrequests?_a=completed"}, e.browser.urls)
+	assert.Equal(t, []string{"https://dev.azure.com/" + e.org + "/My%20Proj/_git/web/pullrequests?_a=completed"}, e.browser.URLs)
 	assert.Contains(t, e.errOut.String(), "Opening https://dev.azure.com/"+e.org+"/My%20Proj/_git/web/pullrequests?_a=completed in your browser.")
 	assert.Empty(t, e.reg.Requests)
 }

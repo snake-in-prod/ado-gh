@@ -70,24 +70,24 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement view extension on the shared thread helpers
 - [x] Task: Conductor - User Manual Verification 'Phase 3: ado pr comment and Thread Visibility' (Protocol in workflow.md)
 
-## Phase 4: `ado pr diff`
+## Phase 4: `ado pr diff` [checkpoint: 6eee251]
 
-- [ ] Task: Record diff dependency
-    - [ ] Update `tech-stack.md`: add `github.com/aymanbagabas/go-udiff` v0.4.1 (MIT/BSD-3, copy of `x/tools/internal/diff`, go 1.24, no deps, already in go.sum, becomes a direct require) with dated note, then `go get`
-- [ ] Task: Local clone path
-    - [ ] Write tests (stubbed git runner): fetches source and target refs from the ADO remote (checkout's remote matching, fork fetch-by-URL), diffs the latest iteration's `commonRefCommit`..`sourceRefCommit` after `cat-file -e` checks, missing SHA → fetch by SHA → `git merge-base` fallback, git always run with `--no-color --no-ext-diff`, `--name-only` adds `--name-only` and disables `--patch`, `--patch` uses `format-patch --stdout <target>..<source>`, `--color` auto/always/never drives the ado colorizer (gh codes), `NO_COLOR` respected
-    - [ ] Implement clone path and the ANSI colorizer shared by every diff path
-- [ ] Task: API fallback path
-    - [ ] Write tests (httpmock): latest iteration changes (multi-page) → per-file unified hunks from base/source blobs, `changeType` parsed as comma-separated flags; header writer (`diff --git`, mode 100644, 7-char `index`, rename from/to without similarity, `/dev/null` only in `---`/`+++`, headers for empty added files); `ItemContentAt(path, commit)` fallback when `originalObjectId` is missing; fork new-side blobs from `forkSource.repository.id`; binary = NUL in first 8000 bytes; blob over 5 MB (size via `GetBlob`) → `file too large to diff` notice; golden go-udiff fixtures (add, delete, rename-only, rename+edit, binary add, empty new file, no trailing newline), not byte comparison with git; `--name-only` from change list, `--patch` outside clone errors, color applied only on TTY/`always`
-    - [ ] Write tests: blob downloads use 4 workers with deterministic output order; backoff on 429 `Retry-After` and on 200 responses carrying `Retry-After` or `X-RateLimit-Remaining=0`
-    - [ ] Implement api `BlobContent`, `Blob` (size), `ItemContentAt`; reuse Phase 3's `Iterations`/`IterationChanges`
-    - [ ] Implement Retry-After / X-RateLimit backoff in the api HTTP client (`api/http_client.go`)
-    - [ ] Implement API path (bounded 4-worker pool) reusing the colorizer
-- [ ] Task: `-w/--web` and path selection
-    - [ ] Write tests: `--web` opens Files tab URL; clone path chosen when cwd repo matches PR repo, API path otherwise
-    - [ ] Implement
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: ado pr diff' (Protocol in workflow.md)
-    - [ ] Check once on a real PR whether the latest iteration's `commonRefCommit` still matches the Files tab after only the target branch moved
+- [x] Task: Record diff dependency `6eee251`
+    - [x] Update `tech-stack.md`: add `github.com/aymanbagabas/go-udiff` v0.4.1 (MIT/BSD-3, copy of `x/tools/internal/diff`, go 1.24, no deps, already in go.sum, becomes a direct require) with dated note, then `go get`
+- [x] Task: Local clone path `6eee251`
+    - [x] Write tests (stubbed git runner): fetches source and target refs from the ADO remote (checkout's remote matching, fork fetch-by-URL), diffs the latest iteration's `commonRefCommit`..`sourceRefCommit` after `cat-file -e` checks, missing SHA → fetch by SHA → `git merge-base` fallback, git always run with `--no-color --no-ext-diff`, `--name-only` adds `--name-only` and disables `--patch`, `--patch` uses `format-patch --stdout <target>..<source>`, `--color` auto/always/never drives the ado colorizer (gh codes), `NO_COLOR` respected
+    - [x] Implement clone path and the ANSI colorizer shared by every diff path
+- [x] Task: API fallback path `6eee251`
+    - [x] Write tests (httpmock): latest iteration changes (multi-page) → per-file unified hunks from base/source blobs, `changeType` parsed as comma-separated flags; header writer (`diff --git`, mode 100644, 7-char `index`, rename from/to without similarity, `/dev/null` only in `---`/`+++`, headers for empty added files); `ItemContentAt(path, commit)` fallback when `originalObjectId` is missing; fork new-side blobs from `forkSource.repository.id`; binary = NUL in first 8000 bytes; blob over 5 MB (size via `GetBlob`) → `file too large to diff` notice; golden go-udiff fixtures (add, delete, rename-only, rename+edit, binary add, empty new file, no trailing newline), not byte comparison with git; `--name-only` from change list, `--patch` outside clone errors, color applied only on TTY/`always`
+    - [x] Write tests: blob downloads use 4 workers with deterministic output order; backoff on 429 `Retry-After` and on 200 responses carrying `Retry-After` or `X-RateLimit-Remaining=0`
+    - [x] Implement api `BlobContent`, `Blob` (size), `ItemContentAt`; reuse Phase 3's `Iterations`/`IterationChanges`
+    - [x] Implement Retry-After / X-RateLimit backoff in the api HTTP client (`api/http_client.go`)
+    - [x] Implement API path (bounded 4-worker pool) reusing the colorizer
+- [x] Task: `-w/--web` and path selection `6eee251`
+    - [x] Write tests: `--web` opens Files tab URL; clone path chosen when cwd repo matches PR repo, API path otherwise
+    - [x] Implement
+- [x] Task: Conductor - User Manual Verification 'Phase 4: ado pr diff' (Protocol in workflow.md)
+    - [x] Check once on a real PR whether the latest iteration's `commonRefCommit` still matches the Files tab after only the target branch moved — verified 2026-10-11: matches
 
 ## Phase 5: `ado pr checks`, `ado pr status`, Docs
 

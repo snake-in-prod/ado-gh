@@ -4,11 +4,8 @@ package checkout
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 
-	"github.com/snake-in-prod/ado-gh/internal/adocontext"
-	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -60,42 +57,17 @@ func run(ctx context.Context, f *cmdutil.Factory, ref string, o *options) error 
 		return fmt.Errorf("invalid source branch %q in pull request !%d", branch, id)
 	}
 	source = "refs/heads/" + branch
-	accessErr := func(err error) error {
-		return fmt.Errorf("cannot read the fork of pull request !%d; you need read access to the fork repository: %w", id, err)
-	}
 
 	// head is the repository holding the source branch.
-	head := repo
-	headURL := authshared.OrgURL(repo.Host, repo.Org) + url.PathEscape(repo.Project) + "/_git/" + url.PathEscape(repo.Name)
-	fork := pr.ForkSource != nil && pr.ForkSource.Repository != nil
-	if fork {
-		fr := pr.ForkSource.Repository
-		if fr.RemoteUrl == nil && fr.Id != nil {
-			if fr, err = c.RepositoryByID(ctx, fr.Id.String()); err != nil {
-				return accessErr(err)
-			}
-		}
-		if fr.RemoteUrl != nil {
-			headURL = *fr.RemoteUrl
-		}
-		// The URL is never echoed: it may carry userinfo. Parsing also rejects a "-" prefix.
-		if head, err = adocontext.ParseRemoteURL(headURL); err != nil {
-			return fmt.Errorf("pull request !%d has an unsupported fork URL", id)
-		}
+	head, headURL, fork, err := shared.SourceRepo(ctx, c, repo, pr)
+	if err != nil {
+		return err
 	}
-
 	remotes, err := f.GitClient.Remotes(ctx)
 	if err != nil {
 		return err
 	}
-	var remote string
-	for _, r := range remotes {
-		if rr, err := adocontext.ParseRemoteURL(r.FetchURL); err == nil && strings.EqualFold(rr.Org, head.Org) &&
-			strings.EqualFold(rr.Project, head.Project) && strings.EqualFold(rr.Name, head.Name) {
-			remote = r.Name
-			break
-		}
-	}
+	remote := shared.MatchRemote(remotes, head)
 
 	local := o.branch
 	if local == "" {
@@ -153,7 +125,7 @@ func run(ctx context.Context, f *cmdutil.Factory, ref string, o *options) error 
 	for i, args := range cmds {
 		if _, err := f.GitClient.Exec(ctx, args...); err != nil {
 			if i == 0 && fork && remote == "" {
-				return accessErr(err)
+				return shared.ForkAccessError(id, err)
 			}
 			return err
 		}

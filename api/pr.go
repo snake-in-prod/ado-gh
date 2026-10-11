@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strconv"
@@ -260,6 +261,36 @@ func (c *PRClient) IterationChanges(ctx context.Context, id, iter int) ([]git.Gi
 		}
 		skip = *out.NextSkip
 	}
+}
+
+// Blob fetches the metadata (objectId, size) of blob sha1 in the client's repository. An empty
+// Project addresses the repository by ID alone, as a pull request's fork must be.
+func (c *PRClient) Blob(ctx context.Context, sha1 string) (*git.GitBlobRef, error) {
+	out, err := c.Git.GetBlob(ctx, git.GetBlobArgs{RepositoryId: &c.Repo, Sha1: &sha1, Project: &c.Project})
+	return out, mapErr(err)
+}
+
+// BlobContent downloads the content of blob sha1 in the client's repository.
+func (c *PRClient) BlobContent(ctx context.Context, sha1 string) ([]byte, error) {
+	body, err := c.Git.GetBlobContent(ctx, git.GetBlobContentArgs{RepositoryId: &c.Repo, Sha1: &sha1, Project: &c.Project})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	defer body.Close()
+	return io.ReadAll(body)
+}
+
+// ItemContentAt downloads the content of the file at path as of commit.
+func (c *PRClient) ItemContentAt(ctx context.Context, path, commit string) ([]byte, error) {
+	body, err := c.Git.GetItemContent(ctx, git.GetItemContentArgs{
+		RepositoryId: &c.Repo, Path: &path, Project: &c.Project,
+		VersionDescriptor: &git.GitVersionDescriptor{Version: &commit, VersionType: &git.GitVersionTypeValues.Commit},
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	defer body.Close()
+	return io.ReadAll(body)
 }
 
 // Repository fetches the client's repository (e.g. for its default branch).

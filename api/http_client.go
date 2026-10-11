@@ -2,12 +2,15 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"maps"
 	"net/http"
 	"slices"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
@@ -34,8 +37,9 @@ type ClientOptions struct {
 }
 
 // NewHTTPClient returns the client shared by raw and SDK requests. Its transport sets
-// Authorization, User-Agent and X-TFS-FedAuthRedirect, logs when asked and turns
-// 401 and 203 (sign-in page) responses into *cmdutil.AuthError.
+// Authorization, User-Agent and X-TFS-FedAuthRedirect, logs when asked, turns
+// 401 and 203 (sign-in page) responses into *cmdutil.AuthError and honours Azure DevOps
+// throttling (see backoff).
 func NewHTTPClient(opts ClientOptions) *http.Client {
 	base := opts.Transport
 	// Wrapping another ado transport would run it too: it strips Authorization (it has
@@ -64,11 +68,23 @@ func NewSDKClient(hc *http.Client, baseURL string) *azuredevops.Client {
 	return azuredevops.NewClientWithOptions(&azuredevops.Connection{}, baseURL, azuredevops.WithHTTPClient(hc))
 }
 
+// Throttling limits: a 429 is retried at most maxRetries times; a server-requested delay is
+// capped at maxBackoff, and defaultBackoff is used when the server names none.
+const (
+	maxRetries     = 3
+	maxBackoff     = time.Minute
+	defaultBackoff = time.Second
+)
+
 type transport struct {
 	base      http.RoundTripper
 	userAgent string
 	token     func(*http.Request) (Token, error)
 	log       io.Writer
+
+	// notBefore holds back every request of the client after a throttling response.
+	mu        sync.Mutex
+	notBefore time.Time
 }
 
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -90,14 +106,44 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	start := time.Now()
-	t.logRequest(req)
-	resp, err := t.base.RoundTrip(req)
-	if err != nil {
-		t.logf("< error: %v\n\n", err)
-		return nil, err
+	// A body can be resent only if it can be re-read.
+	retryable := req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
+	var resp *http.Response
+	for attempt := 0; ; attempt++ {
+		if err := t.wait(req.Context()); err != nil {
+			return nil, err
+		}
+		if attempt > 0 && req.GetBody != nil {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, err
+			}
+			req.Body = body
+		}
+		start := time.Now()
+		t.logRequest(req)
+		var err error
+		if resp, err = t.base.RoundTrip(req); err != nil {
+			t.logf("< error: %v\n\n", err)
+			return nil, err
+		}
+		t.logf("< HTTP %d (%s)\n\n", resp.StatusCode, time.Since(start).Round(time.Millisecond))
+		d := backoff(resp)
+		if d == 0 {
+			break
+		}
+		t.mu.Lock()
+		if until := time.Now().Add(d); until.After(t.notBefore) {
+			t.notBefore = until
+		}
+		t.mu.Unlock()
+		t.logf("< throttled; waiting %s\n\n", d)
+		if resp.StatusCode != http.StatusTooManyRequests || attempt == maxRetries || !retryable {
+			break
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
 	}
-	t.logf("< HTTP %d (%s)\n\n", resp.StatusCode, time.Since(start).Round(time.Millisecond))
 
 	// Without a valid credential ADO answers 401, or 203 with an HTML sign-in page that
 	// the SDK would treat as success.
@@ -106,6 +152,40 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, &cmdutil.AuthError{Err: fmt.Errorf("authentication failed for %s (HTTP %d)", req.URL.Host, resp.StatusCode)}
 	}
 	return resp, nil
+}
+
+// wait blocks until the client may send again after throttling, or ctx ends.
+func (t *transport) wait(ctx context.Context) error {
+	t.mu.Lock()
+	d := time.Until(t.notBefore)
+	t.mu.Unlock()
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// backoff returns how long the client should pause after resp: Retry-After (seconds, capped at
+// maxBackoff) on any response, as Azure DevOps sends it on 200s too while delaying requests;
+// defaultBackoff for a 429 without it or for X-RateLimit-Remaining: 0; else 0.
+func backoff(resp *http.Response) time.Duration {
+	if s := resp.Header.Get("Retry-After"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
+			return min(time.Duration(n)*time.Second, maxBackoff)
+		}
+		return defaultBackoff
+	}
+	if resp.StatusCode == http.StatusTooManyRequests || resp.Header.Get("X-RateLimit-Remaining") == "0" {
+		return defaultBackoff
+	}
+	return 0
 }
 
 func (t *transport) logRequest(req *http.Request) {

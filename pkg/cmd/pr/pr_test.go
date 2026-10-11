@@ -15,6 +15,7 @@ func TestNewCmdPRRegistersSubcommands(t *testing.T) {
 		"ready":    "ready",
 		"reopen":   "reopen",
 		"create":   "create",
+		"diff":     "diff",
 		"edit":     "edit",
 		"list":     "list",
 		"merge":    "merge",

@@ -5,6 +5,7 @@ go 1.25.8
 require (
 	charm.land/huh/v2 v2.0.3
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1
+	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/cli/browser v1.3.0
 	github.com/cli/go-gh/v2 v2.16.2
 	github.com/google/uuid v1.6.0

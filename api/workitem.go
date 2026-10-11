@@ -138,10 +138,15 @@ type QueryItem struct {
 // or one-hop query.
 type QueryResult struct {
 	QueryType string
-	// Columns are the reference names of the query's columns.
-	Columns []string
-	IDs     []int
-	Links   []WorkItemLink
+	Columns   []QueryColumn
+	IDs       []int
+	Links     []WorkItemLink
+}
+
+// QueryColumn is a query column: a field's reference name and display name.
+type QueryColumn struct {
+	ReferenceName string
+	Name          string
 }
 
 // WorkItemLink is one row of a link query; SourceID 0 marks a root.
@@ -360,11 +365,11 @@ func (c *WorkItemClient) RelationTypes(ctx context.Context) ([]RelationType, err
 }
 
 // QueryWIQL runs a WIQL query, in the context of team when not "" (for team macros). top is
-// always sent as $top. A query over the 20,000-item limit returns an error suggesting
+// sent as $top when > 0. A query over the 20,000-item limit returns an error suggesting
 // narrower filters.
 func (c *WorkItemClient) QueryWIQL(ctx context.Context, wiql, team string, top int) (*QueryResult, error) {
 	res, err := c.Wit.QueryByWiql(ctx, workitemtracking.QueryByWiqlArgs{
-		Wiql: &workitemtracking.Wiql{Query: &wiql}, Project: &c.Project, Team: &team, Top: &top,
+		Wiql: &workitemtracking.Wiql{Query: &wiql}, Project: &c.Project, Team: &team, Top: topArg(top),
 	})
 	if err != nil {
 		return nil, queryErr(err)
@@ -378,7 +383,7 @@ func (c *WorkItemClient) QueryByID(ctx context.Context, id, team string, top int
 	if err != nil {
 		return nil, fmt.Errorf("invalid query ID %q", id)
 	}
-	res, err := c.Wit.QueryById(ctx, workitemtracking.QueryByIdArgs{Id: &qid, Project: &c.Project, Team: &team, Top: &top})
+	res, err := c.Wit.QueryById(ctx, workitemtracking.QueryByIdArgs{Id: &qid, Project: &c.Project, Team: &team, Top: topArg(top)})
 	if err != nil {
 		return nil, queryErr(err)
 	}
@@ -435,6 +440,14 @@ func (c *WorkItemClient) ClassificationNode(ctx context.Context, group, path str
 	}
 	out := toClassificationNode(*n)
 	return &out, nil
+}
+
+// topArg is top as an optional $top: nil (no limit) when <= 0.
+func topArg(top int) *int {
+	if top <= 0 {
+		return nil
+	}
+	return &top
 }
 
 // queryErr is mapErr with VS402337 (over 20,000 results) turned into advice.
@@ -520,7 +533,7 @@ func toQueryItems(qs []workitemtracking.QueryHierarchyItem) []QueryItem {
 func toQueryResult(r workitemtracking.WorkItemQueryResult) *QueryResult {
 	out := &QueryResult{QueryType: string(deref(r.QueryType))}
 	for _, col := range deref(r.Columns) {
-		out.Columns = append(out.Columns, deref(col.ReferenceName))
+		out.Columns = append(out.Columns, QueryColumn{ReferenceName: deref(col.ReferenceName), Name: deref(col.Name)})
 	}
 	for _, w := range deref(r.WorkItems) {
 		out.IDs = append(out.IDs, deref(w.Id))

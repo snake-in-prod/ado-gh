@@ -169,7 +169,7 @@ func TestWorkItemClient_QueryWIQL(t *testing.T) {
 	var body map[string]any
 	reg.Register(httpmock.REST(http.MethodPost, org+"/proj/_apis/wit/wiql"), func(r *http.Request) (*http.Response, error) {
 		top, body = r.URL.Query().Get("$top"), witJSONBody(t, r)
-		return httpmock.StringResponse(`{"queryType":"flat","columns":[{"referenceName":"System.Id"},{"referenceName":"System.Title"}],
+		return httpmock.StringResponse(`{"queryType":"flat","columns":[{"referenceName":"System.Id","name":"ID"},{"referenceName":"System.Title","name":"Title"}],
 			"workItems":[{"id":3},{"id":1}]}`)(r)
 	})
 	var teamTop string
@@ -183,13 +183,13 @@ func TestWorkItemClient_QueryWIQL(t *testing.T) {
 
 	res, err := c.QueryWIQL(ctx, "SELECT [System.Id] FROM WorkItems", "", 30)
 	require.NoError(t, err)
-	assert.Equal(t, "30", top, "$top is always sent")
+	assert.Equal(t, "30", top)
 	assert.Equal(t, map[string]any{"query": "SELECT [System.Id] FROM WorkItems"}, body)
-	assert.Equal(t, &QueryResult{QueryType: "flat", Columns: []string{"System.Id", "System.Title"}, IDs: []int{3, 1}}, res)
+	assert.Equal(t, &QueryResult{QueryType: "flat", Columns: []QueryColumn{{"System.Id", "ID"}, {"System.Title", "Title"}}, IDs: []int{3, 1}}, res)
 
-	res, err = c.QueryWIQL(ctx, "SELECT [System.Id] FROM WorkItemLinks", "Web Team", 200)
+	res, err = c.QueryWIQL(ctx, "SELECT [System.Id] FROM WorkItemLinks", "Web Team", 0)
 	require.NoError(t, err)
-	assert.Equal(t, "200", teamTop)
+	assert.Empty(t, teamTop, "no $top when top is 0")
 	assert.Equal(t, &QueryResult{QueryType: "oneHop", Links: []WorkItemLink{
 		{TargetID: 2}, {Rel: "System.LinkTypes.Related", SourceID: 2, TargetID: 4},
 	}}, res)

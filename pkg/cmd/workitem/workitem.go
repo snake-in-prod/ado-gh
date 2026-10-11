@@ -10,6 +10,8 @@ import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/edit"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/link"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/list"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/query"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/querylist"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/reopen"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/restore"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/unlink"
@@ -26,6 +28,8 @@ func NewCmdWorkItem(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"wi", "issue"},
 		GroupID: "core",
 	}
+	q := query.NewCmdQuery(f)
+	q.AddCommand(querylist.NewCmdList(f))
 	cmd.AddCommand(
 		assign.NewCmdAssign(f),
 		close.NewCmdClose(f),
@@ -35,6 +39,7 @@ func NewCmdWorkItem(f *cmdutil.Factory) *cobra.Command {
 		edit.NewCmdEdit(f),
 		link.NewCmdLink(f),
 		list.NewCmdList(f),
+		q,
 		reopen.NewCmdReopen(f),
 		restore.NewCmdRestore(f),
 		unlink.NewCmdUnlink(f),

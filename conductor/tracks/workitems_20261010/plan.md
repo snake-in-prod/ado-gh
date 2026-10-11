@@ -81,18 +81,18 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 - [x] Task: Conductor - User Manual Verification 'Phase 3: edit, close, reopen, comment, assign' (Protocol in workflow.md)
     - [x] Live checks with `ado-live-test` items: edit/close/reopen/comment/assign round-trips, `close -c` History Markdown; destroy items, empty recycle bin
 
-## Phase 4: `link`, `unlink`, `delete`, `restore`
+## Phase 4: `link`, `unlink`, `delete`, `restore` [checkpoint: 541a2bd]
 
-- [x] Task: Link target parsing `33b2125`
+- [x] Task: Link target parsing `541a2bd`
     - [x] Write tests: `--parent/--child/--related`, `--link Type=id` looked up in live `GetRelationTypes` (friendly or reference name, case-insensitive; custom types), `--pr` / `--commit` / `--branch` artifact URIs from repo context (branch URL-encoded after `GB`, short sha resolved to 40 chars), `--url` hyperlink, invalid type error
     - [x] Implement shared parser (also used by `edit --add-link/--remove-link`); commit and branch artifact builders beside `PullRequestArtifactURL`
-- [x] Task: `ado workitem link` / `unlink` `d418336`
+- [x] Task: `ado workitem link` / `unlink` `541a2bd`
     - [x] Write tests: adds relations; replacing a parent is one patch `test /rev` + `remove` + `add`, confirms on TTY / needs `--yes` non-TTY; TF201036/TF201035 matched by code (TF201035 = success); no auto-replace for Duplicate; unlink matches by `rel` + `/workItems/{id}` suffix, not exact URL; no match error
     - [x] Implement; classify in `noWebCmds`
-- [x] Task: `ado workitem delete` `e7da2c4`
+- [x] Task: `ado workitem delete` `541a2bd`
     - [x] Write tests: soft delete via `DeleteWorkItem` + restore hint `ado wi restore 123`, `--permanent` via `DeleteWorkItem{Destroy: true}` (not `DestroyWorkItem`), 403 hint naming "Delete and restore work items" / "Permanently delete work items", TTY confirm lists IDs/titles, `-y` skips, non-TTY without `--yes` refuses, multiple IDs loop over single `DeleteWorkItem` calls with a partial-failure summary; httpmock routes for DELETE with `destroy` and `workItemRelationTypes`
     - [x] Implement; classify in `noWebCmds`
-- [x] Task: `ado workitem restore` `6982047`
+- [x] Task: `ado workitem restore` `541a2bd`
     - [x] Write tests: `ado workitem restore <id>...` restores from the recycle bin (`PATCH recyclebin/{id}` `isDeleted=false`), multiple IDs with partial-failure summary, not-in-recycle-bin error, prints URL
     - [x] Implement `RestoreWorkItem` wrapper and command; classify in `noWebCmds`
 - [x] Task: Conductor - User Manual Verification 'Phase 4: link, unlink, delete, restore' (Protocol in workflow.md)
@@ -100,17 +100,17 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 
 ## Phase 5: `workitem query`
 
-- [ ] Task: Query input resolution
-    - [ ] Write tests: GUID → saved ID, `SELECT…` → WIQL, other text → saved path (My Queries / Shared Queries) via `GetQuery(path, $expand=wiql)` then `QueryById(id, Team)`, folder → "not a query" error, `--wiql-file` file and stdin, macros passed through, team-scoped WIQL endpoint with `--team`; mocks stub the SDK OPTIONS lookup
-    - [ ] Implement
-- [ ] Task: Result rendering
-    - [ ] Write tests: flat results use query columns (`columns[].referenceName`) via the Phase 1 batch fetcher; trees built from `workItemRelations` (no source = root, grouped by `source.id`, `rel` as link-type column), tree and one-hop rendered nested on TTY; flat `--limit` → `$top`; link queries send no `$top` and trim to `--limit` roots client-side; JSON flat array with known fields mapped to `wi list` names and others under a `fields` map keyed by reference name, nested link shape; note when results reach `--limit` or 20,000; `-w` for saved queries only
-    - [ ] Implement; classify in `webCmds`
-- [ ] Task: `ado workitem query list`
-    - [ ] Write tests: folder tree with paths/IDs, recursion with `GetQuery(folderId, $depth=2)` for folders with `hasChildren` and no `children`, `--folder` filter, JSON fields
-    - [ ] Implement; classify in `noWebCmds`
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: workitem query' (Protocol in workflow.md)
-    - [ ] Setup: shared flat and tree queries; live checks: `%2F`-encoded query paths, flat/tree results; delete test queries and `ado-live-test` items, empty recycle bin
+- [x] Task: Query input resolution `7649082`
+    - [x] Write tests: GUID → saved ID, `SELECT…` → WIQL, other text → saved path (My Queries / Shared Queries) via `GetQuery(path, $expand=wiql)` then `QueryById(id, Team)`, folder → "not a query" error, `--wiql-file` file and stdin, macros passed through, team-scoped WIQL endpoint with `--team`; mocks stub the SDK OPTIONS lookup
+    - [x] Implement
+- [x] Task: Result rendering `f5e1012`
+    - [x] Write tests: flat results use query columns (`columns[].referenceName`) via the Phase 1 batch fetcher; trees built from `workItemRelations` (no source = root, grouped by `source.id`, `rel` as link-type column), tree and one-hop rendered nested on TTY; flat `--limit` → `$top`; link queries send no `$top` and trim to `--limit` roots client-side; JSON flat array with known fields mapped to `wi list` names and others under a `fields` map keyed by reference name, nested link shape; note when results reach `--limit` or 20,000; `-w` for saved queries only
+    - [x] Implement; classify in `webCmds`
+- [x] Task: `ado workitem query list` `796e9e6`
+    - [x] Write tests: folder tree with paths/IDs, recursion with `GetQuery(folderId, $depth=2)` for folders with `hasChildren` and no `children`, `--folder` filter, JSON fields
+    - [x] Implement; classify in `noWebCmds`
+- [x] Task: Conductor - User Manual Verification 'Phase 5: workitem query' (Protocol in workflow.md)
+    - [x] Setup: shared flat and tree queries; live checks: `%2F`-encoded query paths, flat/tree results; delete test queries and `ado-live-test` items, empty recycle bin
 
 ## Phase 6: `sprint`, `board`, Web, Docs
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -46,7 +47,7 @@ func newWIEditEnv(t *testing.T, tty bool) *wiEditEnv {
 	ios.SetStdoutTTY(tty)
 	org := "wiedit-" + strings.NewReplacer("/", "-", " ", "-", "@", "-", ":", "-").Replace(strings.ToLower(t.Name()))
 	e := &wiEditEnv{org: org, reg: &httpmock.Registry{}, ios: ios, in: in, out: out, errOut: errOut, ops: map[int][][]map[string]any{}}
-	e.reg.StubLocations(org, httpmock.WorkItemLocations...)
+	e.reg.StubLocations(org, slices.Concat(httpmock.WorkItemLocations, httpmock.GitPRLocations)...)
 	return e
 }
 
@@ -316,6 +317,28 @@ func TestWIEditPartialFailure(t *testing.T) {
 	assert.Contains(t, e.errOut.String(), "failed to edit work item 2: TF401232")
 	assert.Contains(t, e.errOut.String(), "failed to edit work item 3: work item 3 changed since read; retry")
 	assert.Contains(t, e.errOut.String(), "edited: 1; failed: 2, 3")
+}
+
+func TestWIEditArtifactLinks(t *testing.T) {
+	e := newWIEditEnv(t, false)
+	const ids = "11111111-1111-1111-1111-111111111111%2F22222222-2222-2222-2222-222222222222%2F"
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	e.stubItem(t, 1, nil, nil, []map[string]any{
+		{"rel": "ArtifactLink", "url": "vstfs:///Git/Commit/" + ids + sha, "attributes": map[string]any{"name": "Fixed in Commit"}},
+	})
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/web"), httpmock.JSONResponse(map[string]any{
+		"id": "22222222-2222-2222-2222-222222222222", "project": map[string]any{"id": "11111111-1111-1111-1111-111111111111"},
+	}))
+	e.stubUpdate(t, 1, http.StatusOK, "", "")
+
+	require.NoError(t, e.run(t, "1", "--add-link", "branch:feature/x", "--remove-link", "commit:"+sha))
+	e.reg.Verify(t)
+	assert.Equal(t, []map[string]any{
+		wiEditRevTest,
+		wiEditOp("remove", "/relations/0", nil),
+		wiEditOp("add", "/relations/-", map[string]any{"rel": "ArtifactLink", "url": "vstfs:///Git/Ref/" + ids + "GBfeature%2Fx",
+			"attributes": map[string]any{"name": "Branch"}}),
+	}, e.ops[1][0])
 }
 
 func TestWIEditLinkErrors(t *testing.T) {

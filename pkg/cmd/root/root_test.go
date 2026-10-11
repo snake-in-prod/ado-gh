@@ -130,6 +130,10 @@ var noWebCmds = map[string]string{
 	"ado workitem comment": "prints the comment URL",
 	"ado workitem edit":    "changes fields; `ado wi view -w` opens the item",
 	"ado workitem reopen":  "changes state; `ado wi view -w` opens the item",
+	"ado workitem delete":  "removes the item",
+	"ado workitem link":    "changes links; `ado wi view -w` opens the item",
+	"ado workitem restore": "prints the work item URL",
+	"ado workitem unlink":  "changes links; `ado wi view -w` opens the item",
 	"ado browse":           "opens the browser by default (-n prints the URL)",
 }
 

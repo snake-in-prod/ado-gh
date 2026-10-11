@@ -6,9 +6,13 @@ import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/close"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/comment"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/create"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/delete"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/edit"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/link"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/reopen"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/restore"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/unlink"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/workitem/view"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -27,9 +31,13 @@ func NewCmdWorkItem(f *cmdutil.Factory) *cobra.Command {
 		close.NewCmdClose(f),
 		comment.NewCmdComment(f),
 		create.NewCmdCreate(f),
+		delete.NewCmdDelete(f),
 		edit.NewCmdEdit(f),
+		link.NewCmdLink(f),
 		list.NewCmdList(f),
 		reopen.NewCmdReopen(f),
+		restore.NewCmdRestore(f),
+		unlink.NewCmdUnlink(f),
 		view.NewCmdView(f),
 	)
 	return cmd

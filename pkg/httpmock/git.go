@@ -33,6 +33,8 @@ var GitPRLocations = []Location{
 		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}"},
 	{ID: "2d874a60-a811-4f62-9c9f-963a6ea0a55b", Area: "git", ResourceName: "refs",
 		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/refs"},
+	{ID: "c2570c3b-5b3f-41b8-98bf-5407bfde8d58", Area: "git", ResourceName: "commits",
+		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/commits/{commitId}"},
 	{ID: "fb93c0db-47ed-4a31-8c20-47552878fb44", Area: "git", ResourceName: "items",
 		RouteTemplate: "{project}/_apis/git/repositories/{repositoryId}/items"},
 	{ID: "7b28e929-2c99-405d-9c5c-6167a06e6816", Area: "git", ResourceName: "blobs",

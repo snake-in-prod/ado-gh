@@ -282,6 +282,7 @@ func TestGitPRLocations(t *testing.T) {
 	for _, id := range []string{
 		"9946fd70-0d40-406e-b686-b4744cbbcc37", // pull requests
 		"2d874a60-a811-4f62-9c9f-963a6ea0a55b", // refs
+		"c2570c3b-5b3f-41b8-98bf-5407bfde8d58", // commits
 		"b5f6bb4f-8d1e-4d79-8d11-4c9172c99c35", // pull request statuses
 		"d43911ee-6958-46b0-a42b-8445b8a0d004", // iterations
 		"4216bdcf-b6b1-4d59-8b82-c34cc183fc8b", // iteration changes

@@ -283,7 +283,8 @@ func TestWorkItemClient_CreateUpdateDelete(t *testing.T) {
 	})
 	reg.Register(httpmock.REST(http.MethodDelete, org+"/proj/_apis/wit/workitems/9"), func(r *http.Request) (*http.Response, error) {
 		hard = r.URL.Query().Get("destroy")
-		return httpmock.StringResponse(`{"id":9}`)(r)
+		// Live, destroy answers 204 with no body.
+		return httpmock.StatusStringResponse(http.StatusNoContent, "")(r)
 	})
 	ctx := context.Background()
 	add, title := webapi.OperationValues.Add, "/fields/System.Title"

@@ -40,6 +40,13 @@ func TestPullRequestArtifactURL(t *testing.T) {
 	assert.Equal(t, wiArtifact, PullRequestArtifactURL("p-guid", "r-guid", 9))
 }
 
+func TestCommitAndBranchArtifactURL(t *testing.T) {
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	assert.Equal(t, "vstfs:///Git/Commit/p-guid%2Fr-guid%2F"+sha, CommitArtifactURL("p-guid", "r-guid", sha))
+	assert.Equal(t, "vstfs:///Git/Ref/p-guid%2Fr-guid%2FGBfeat", BranchArtifactURL("p-guid", "r-guid", "feat"))
+	assert.Equal(t, "vstfs:///Git/Ref/p-guid%2Fr-guid%2FGBfeature%2Fa%20b%2Bc", BranchArtifactURL("p-guid", "r-guid", "refs/heads/feature/a b+c"))
+}
+
 func TestAddRelation(t *testing.T) {
 	org := "addrelorg"
 	c, reg := newRelationTestClient(t, org)

@@ -47,7 +47,8 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 
 --state takes a state of the work item's type (any case). --add-link and --remove-link
 take <type>:<target>: a link type by name (parent, child, related, "Tested By", ...)
-with a work item ID, or url:<URL> for a hyperlink. --field sets any field by friendly
+with a work item ID, pr:<number>, commit:<sha> or branch:<name> in the current
+repository, or url:<URL> for a hyperlink. --field sets any field by friendly
 or reference name; Name= clears it.
 
 --body keeps the description's format: a description stored as HTML gets the Markdown
@@ -253,14 +254,11 @@ func (e *editor) prepare(ctx context.Context) error {
 	if len(o.addLinks)+len(o.removeLinks) == 0 {
 		return nil
 	}
-	types, err := e.c.RelationTypes(ctx)
-	if err != nil {
-		return err
-	}
+	p := &shared.LinkParser{F: e.f, Client: e.c, OrgURL: e.orgURL}
 	parse := func(args []string) ([]shared.Link, error) {
 		var out []shared.Link
 		for _, a := range args {
-			l, err := shared.ParseLink(a, types, e.orgURL)
+			l, err := p.ParseArg(ctx, a)
 			if err != nil {
 				return nil, err
 			}
@@ -355,32 +353,15 @@ func (e *editor) ops(ctx context.Context, id int, wi *api.WorkItem) ([]webapi.Js
 	return append(ops, rels...), err
 }
 
-// relationOps removes the matching relations, highest index first so the indexes stay valid,
-// then adds the links wi doesn't have yet.
+// relationOps removes the matching relations, then adds the links wi doesn't have yet.
 func (e *editor) relationOps(id int, wi *api.WorkItem) ([]webapi.JsonPatchOperation, error) {
-	var remove []int
-	for _, l := range e.removeLinks {
-		i := -1
-		for j, r := range wi.Relations {
-			if l.Matches(r) && !slices.Contains(remove, j) {
-				i = j
-				break
-			}
-		}
-		if i < 0 {
-			return nil, fmt.Errorf("work item %d has no %s link", id, l)
-		}
-		remove = append(remove, i)
-	}
-	slices.Sort(remove)
-	slices.Reverse(remove)
-	var ops []webapi.JsonPatchOperation
-	for _, i := range remove {
-		ops = append(ops, patchOp(webapi.OperationValues.Remove, "/relations/"+strconv.Itoa(i), nil))
+	ops, err := shared.RemoveOps(id, wi.Relations, e.removeLinks)
+	if err != nil {
+		return nil, err
 	}
 	for _, l := range e.addLinks {
 		if !slices.ContainsFunc(wi.Relations, l.Matches) {
-			ops = append(ops, patchOp(webapi.OperationValues.Add, "/relations/-", map[string]any{"rel": l.Rel, "url": l.URL}))
+			ops = append(ops, l.AddOp())
 		}
 	}
 	return ops, nil

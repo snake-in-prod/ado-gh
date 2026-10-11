@@ -64,18 +64,18 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 - [x] Task: Conductor - User Manual Verification 'Phase 2: create, list, view, Aliases' (Protocol in workflow.md)
     - [x] Live checks with `ado-live-test` items: `@Me`, `@CurrentIteration('[P]\T')`, tag CONTAINS semantics, `-S` with an Entra token on almsearch (item a few minutes old), `create -w` prefill URL incl. Markdown-mode Description; destroy items, empty recycle bin
 
-## Phase 3: `edit`, `close`, `reopen`, `comment`, `assign`
+## Phase 3: `edit`, `close`, `reopen`, `comment`, `assign` [checkpoint: f843b18]
 
-- [x] Task: `ado workitem edit` `14897d4`
+- [x] Task: `ado workitem edit` `f843b18`
     - [x] Write tests: every flag → patch op, multiple IDs, `test /rev` conflict detected with `IsRevConflict` and its message; tags computed client-side (`replace` with the joined set, `add` when none, `replace ""` when all removed); `--add-link`/`--remove-link` with relation removes in descending index order inside one `test /rev` patch; `--body` keeps the field's current format, `--markdown` forces the switch to Markdown; TTY field picker, non-TTY no flags error, partial failure summary exit 1
     - [x] Implement `edit` (incl. `--markdown`); optionally drop the 412 assumption in api/pr_workitems_test.go:119; classify in `noWebCmds`
-- [x] Task: `ado workitem close` / `reopen` `57ad58f`
+- [x] Task: `ado workitem close` / `reopen` `f843b18`
     - [x] Write tests per process fixture: default Completed state, `--resolve` (category, then state named "Resolved", else error), `--removed`, `-r` pre-checked against the type-level `System.Reason` allowedValues while still relying on the server; TF401320 Required fixture (Resolved Reason) shown verbatim with a `-f` hint; `--state` override; `-c` comment sent as `/multilineFieldsFormat/System.History` = Markdown in the same patch, falling back to a separate `AddWorkItemComment(format=markdown)` if rejected; already-in-state warning exit 0; multiple IDs; `reopen` → Proposed state, falling back to the first In Progress state
     - [x] Implement; classify in `noWebCmds`
-- [x] Task: `ado workitem comment` `6837230`
+- [x] Task: `ado workitem comment` `f843b18`
     - [x] Write tests: body sources, editor on TTY, non-TTY missing `--body`, `AddWorkItemComment`/`UpdateWorkItemComment` with `format=markdown` (never `AddComment`/`UpdateComment`), `--edit-last`/`--delete-last` via `GetComments(order=desc)` filtered by the authenticated user's id with paging, "no own comment found", `--delete-last` confirm/`--yes` (soft delete; SDK returns only `error`), prints URL
     - [x] Implement (reuse shared body input helper); classify in `noWebCmds`
-- [x] Task: `ado workitem assign` `b4326a0`
+- [x] Task: `ado workitem assign` `f843b18`
     - [x] Write tests: default `@me`, `--to`, `--unassign`, multiple IDs
     - [x] Implement; classify in `noWebCmds`
 - [x] Task: Conductor - User Manual Verification 'Phase 3: edit, close, reopen, comment, assign' (Protocol in workflow.md)
@@ -83,20 +83,20 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 
 ## Phase 4: `link`, `unlink`, `delete`, `restore`
 
-- [ ] Task: Link target parsing
-    - [ ] Write tests: `--parent/--child/--related`, `--link Type=id` looked up in live `GetRelationTypes` (friendly or reference name, case-insensitive; custom types), `--pr` / `--commit` / `--branch` artifact URIs from repo context (branch URL-encoded after `GB`, short sha resolved to 40 chars), `--url` hyperlink, invalid type error
-    - [ ] Implement shared parser (also used by `edit --add-link/--remove-link`); commit and branch artifact builders beside `PullRequestArtifactURL`
-- [ ] Task: `ado workitem link` / `unlink`
-    - [ ] Write tests: adds relations; replacing a parent is one patch `test /rev` + `remove` + `add`, confirms on TTY / needs `--yes` non-TTY; TF201036/TF201035 matched by code (TF201035 = success); no auto-replace for Duplicate; unlink matches by `rel` + `/workItems/{id}` suffix, not exact URL; no match error
-    - [ ] Implement; classify in `noWebCmds`
-- [ ] Task: `ado workitem delete`
-    - [ ] Write tests: soft delete via `DeleteWorkItem` + restore hint `ado wi restore 123`, `--permanent` via `DeleteWorkItem{Destroy: true}` (not `DestroyWorkItem`), 403 hint naming "Delete and restore work items" / "Permanently delete work items", TTY confirm lists IDs/titles, `-y` skips, non-TTY without `--yes` refuses, multiple IDs loop over single `DeleteWorkItem` calls with a partial-failure summary; httpmock routes for DELETE with `destroy` and `workItemRelationTypes`
-    - [ ] Implement; classify in `noWebCmds`
-- [ ] Task: `ado workitem restore`
-    - [ ] Write tests: `ado workitem restore <id>...` restores from the recycle bin (`PATCH recyclebin/{id}` `isDeleted=false`), multiple IDs with partial-failure summary, not-in-recycle-bin error, prints URL
-    - [ ] Implement `RestoreWorkItem` wrapper and command; classify in `noWebCmds`
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: link, unlink, delete, restore' (Protocol in workflow.md)
-    - [ ] Live checks with `ado-live-test` items: `link --pr` with PR !1, `--commit`/`--branch` from this repo, delete + restore, `delete --permanent` with a Read & write PAT; destroy items, empty recycle bin
+- [x] Task: Link target parsing `33b2125`
+    - [x] Write tests: `--parent/--child/--related`, `--link Type=id` looked up in live `GetRelationTypes` (friendly or reference name, case-insensitive; custom types), `--pr` / `--commit` / `--branch` artifact URIs from repo context (branch URL-encoded after `GB`, short sha resolved to 40 chars), `--url` hyperlink, invalid type error
+    - [x] Implement shared parser (also used by `edit --add-link/--remove-link`); commit and branch artifact builders beside `PullRequestArtifactURL`
+- [x] Task: `ado workitem link` / `unlink` `d418336`
+    - [x] Write tests: adds relations; replacing a parent is one patch `test /rev` + `remove` + `add`, confirms on TTY / needs `--yes` non-TTY; TF201036/TF201035 matched by code (TF201035 = success); no auto-replace for Duplicate; unlink matches by `rel` + `/workItems/{id}` suffix, not exact URL; no match error
+    - [x] Implement; classify in `noWebCmds`
+- [x] Task: `ado workitem delete` `e7da2c4`
+    - [x] Write tests: soft delete via `DeleteWorkItem` + restore hint `ado wi restore 123`, `--permanent` via `DeleteWorkItem{Destroy: true}` (not `DestroyWorkItem`), 403 hint naming "Delete and restore work items" / "Permanently delete work items", TTY confirm lists IDs/titles, `-y` skips, non-TTY without `--yes` refuses, multiple IDs loop over single `DeleteWorkItem` calls with a partial-failure summary; httpmock routes for DELETE with `destroy` and `workItemRelationTypes`
+    - [x] Implement; classify in `noWebCmds`
+- [x] Task: `ado workitem restore` `6982047`
+    - [x] Write tests: `ado workitem restore <id>...` restores from the recycle bin (`PATCH recyclebin/{id}` `isDeleted=false`), multiple IDs with partial-failure summary, not-in-recycle-bin error, prints URL
+    - [x] Implement `RestoreWorkItem` wrapper and command; classify in `noWebCmds`
+- [x] Task: Conductor - User Manual Verification 'Phase 4: link, unlink, delete, restore' (Protocol in workflow.md)
+    - [x] Live checks with `ado-live-test` items: `link --pr` with PR !1, `--commit`/`--branch` from this repo, delete + restore, `delete --permanent` with a Read & write PAT; destroy items, empty recycle bin
 
 ## Phase 5: `workitem query`
 

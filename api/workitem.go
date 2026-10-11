@@ -244,13 +244,32 @@ func (c *WorkItemClient) UpdateWorkItem(ctx context.Context, id int, ops []webap
 }
 
 // DeleteWorkItem moves work item id to the recycle bin, or destroys it for good when destroy.
+// It sends the SDK's DeleteWorkItem request itself: destroy answers 204 with no body, which
+// the SDK fails to decode.
 func (c *WorkItemClient) DeleteWorkItem(ctx context.Context, id int, destroy bool) error {
-	args := workitemtracking.DeleteWorkItemArgs{Id: &id, Project: &c.Project}
+	q := url.Values{}
 	if destroy {
-		args.Destroy = &destroy
+		q.Set("destroy", "true")
 	}
-	_, err := c.Wit.DeleteWorkItem(ctx, args)
-	return mapErr(err)
+	resp, err := c.SDK.Send(ctx, http.MethodDelete, workItemLocation, "7.1-preview.3",
+		map[string]string{"project": c.Project, "id": strconv.Itoa(id)}, q, nil, "", "application/json", nil)
+	if err != nil {
+		return mapErr(err)
+	}
+	return resp.Body.Close()
+}
+
+// RestoreWorkItem brings work item id back from the recycle bin and returns its title. An item
+// not in the recycle bin answers 404.
+func (c *WorkItemClient) RestoreWorkItem(ctx context.Context, id int) (string, error) {
+	deleted := false
+	d, err := c.Wit.RestoreWorkItem(ctx, workitemtracking.RestoreWorkItemArgs{
+		Payload: &workitemtracking.WorkItemDeleteUpdate{IsDeleted: &deleted}, Id: &id, Project: &c.Project,
+	})
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return deref(d.Name), nil
 }
 
 // Comments returns one page of work item id's comments, newest first when desc, and the
@@ -524,6 +543,20 @@ func toClassificationNode(n workitemtracking.WorkItemClassificationNode) Classif
 // repository repoID in the project projectID (both GUIDs).
 func PullRequestArtifactURL(projectID, repoID string, id int) string {
 	return fmt.Sprintf("vstfs:///Git/PullRequestId/%s%%2F%s%%2F%d", projectID, repoID, id)
+}
+
+// CommitArtifactURL is the artifact URL work items link to for commit sha (the full 40
+// characters) of the repository repoID in the project projectID (both GUIDs).
+func CommitArtifactURL(projectID, repoID, sha string) string {
+	return fmt.Sprintf("vstfs:///Git/Commit/%s%%2F%s%%2F%s", projectID, repoID, sha)
+}
+
+// BranchArtifactURL is the artifact URL work items link to for branch (with or without
+// "refs/heads/") of the repository repoID in the project projectID (both GUIDs). The branch is
+// URL-encoded after "GB", so feature/x is GBfeature%2Fx.
+func BranchArtifactURL(projectID, repoID, branch string) string {
+	b := strings.ReplaceAll(url.QueryEscape(strings.TrimPrefix(branch, "refs/heads/")), "+", "%20")
+	return fmt.Sprintf("vstfs:///Git/Ref/%s%%2F%s%%2FGB%s", projectID, repoID, b)
 }
 
 // AddRelation adds a relation of type rel from work item id to url, with attributes when not

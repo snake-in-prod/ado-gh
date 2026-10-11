@@ -78,7 +78,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	if o.bodyFile != "" {
-		if o.body, err = shared.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
+		if o.body, err = cmdutil.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
 			return err
 		}
 	}

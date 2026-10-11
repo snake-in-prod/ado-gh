@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/policy"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/workitemtracking"
 )
 
 // prPageSize is the $top sent per pull request list page.
@@ -25,6 +23,8 @@ const prPageSize = 100
 type HTTPError struct {
 	StatusCode int
 	Message    string
+	// TypeKey is the server's exception type, e.g. TestPatchOperationFailedException.
+	TypeKey string
 }
 
 func (e *HTTPError) Error() string {
@@ -56,6 +56,9 @@ func mapErr(err error) error {
 	if w.Message != nil {
 		he.Message = *w.Message
 	}
+	if w.TypeKey != nil {
+		he.TypeKey = *w.TypeKey
+	}
 	return he
 }
 
@@ -64,7 +67,7 @@ type PRClient struct {
 	Git    git.Client
 	Policy policy.Client
 	// Wit links work items, which have no pull request side write API.
-	Wit     workitemtracking.Client
+	Wit     *WorkItemClient
 	Project string
 	// Repo is the repository name or ID.
 	Repo string
@@ -74,7 +77,7 @@ type PRClient struct {
 // requests through hc.
 func NewPRClient(hc *http.Client, orgURL, project, repo string) *PRClient {
 	sdk := NewSDKClient(hc, orgURL)
-	return &PRClient{Git: &git.ClientImpl{Client: *sdk}, Policy: &policy.ClientImpl{Client: *sdk}, Wit: &workitemtracking.ClientImpl{Client: *sdk}, Project: project, Repo: repo}
+	return &PRClient{Git: &git.ClientImpl{Client: *sdk}, Policy: &policy.ClientImpl{Client: *sdk}, Wit: NewWorkItemClient(hc, orgURL, project), Project: project, Repo: repo}
 }
 
 // PullRequest fetches one pull request with its full description.
@@ -430,53 +433,4 @@ func (c *PRClient) WorkItems(ctx context.Context, id int) ([]int, error) {
 		}
 	}
 	return ids, nil
-}
-
-// PullRequestArtifactURL is the artifact URL work items link to for pull request id of the
-// repository repoID in the project projectID (both GUIDs).
-func PullRequestArtifactURL(projectID, repoID string, id int) string {
-	return fmt.Sprintf("vstfs:///Git/PullRequestId/%s%%2F%s%%2F%d", projectID, repoID, id)
-}
-
-// LinkWorkItem adds an ArtifactLink from work item wi to artifactURL. An existing link is
-// success.
-func (c *PRClient) LinkWorkItem(ctx context.Context, wi int, artifactURL string) error {
-	op, path := webapi.OperationValues.Add, "/relations/-"
-	_, err := c.Wit.UpdateWorkItem(ctx, workitemtracking.UpdateWorkItemArgs{Id: &wi, Document: &[]webapi.JsonPatchOperation{{
-		Op: &op, Path: &path,
-		Value: map[string]any{"rel": "ArtifactLink", "url": artifactURL, "attributes": map[string]any{"name": "Pull Request"}},
-	}}})
-	if err = mapErr(err); err != nil && strings.Contains(err.Error(), "Relation already exists.") {
-		return nil
-	}
-	return err
-}
-
-// UnlinkWorkItem removes the first link of work item wi whose URL matches artifactURL (case
-// insensitively); its other links are kept. It returns false when there is no such link.
-func (c *PRClient) UnlinkWorkItem(ctx context.Context, wi int, artifactURL string) (bool, error) {
-	item, err := c.Wit.GetWorkItem(ctx, workitemtracking.GetWorkItemArgs{Id: &wi, Expand: &workitemtracking.WorkItemExpandValues.Relations})
-	if err != nil {
-		return false, mapErr(err)
-	}
-	var rels []workitemtracking.WorkItemRelation
-	if item.Relations != nil {
-		rels = *item.Relations
-	}
-	i := slices.IndexFunc(rels, func(r workitemtracking.WorkItemRelation) bool {
-		return r.Url != nil && strings.EqualFold(*r.Url, artifactURL)
-	})
-	if i < 0 {
-		return false, nil
-	}
-	// The rev test fails the patch if the work item changed since it was read.
-	test, remove, revPath, relPath := webapi.OperationValues.Test, webapi.OperationValues.Remove, "/rev", fmt.Sprintf("/relations/%d", i)
-	_, err = c.Wit.UpdateWorkItem(ctx, workitemtracking.UpdateWorkItemArgs{Id: &wi, Document: &[]webapi.JsonPatchOperation{
-		{Op: &test, Path: &revPath, Value: item.Rev},
-		{Op: &remove, Path: &relPath},
-	}})
-	if err != nil {
-		return false, mapErr(err)
-	}
-	return true, nil
 }

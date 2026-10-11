@@ -4,20 +4,16 @@ package view
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
-	"os"
 	"path"
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/glamour"
-	ghterm "github.com/cli/go-gh/v2/pkg/term"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
-	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
+	"github.com/snake-in-prod/ado-gh/pkg/markdown"
 	"github.com/spf13/cobra"
 )
 
@@ -103,7 +99,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options, repo adocontext.Re
 	case readmeName != "":
 		body = data.Readme
 		if ios.IsStdoutTTY() && isMarkdown(readmeName) {
-			if body, err = renderMarkdown(ios, body); err != nil {
+			if body, err = markdown.Render(ios, body); err != nil {
 				return err
 			}
 		}
@@ -188,40 +184,4 @@ func isMarkdown(name string) bool {
 		return true
 	}
 	return false
-}
-
-// isRealTerminal reports whether w is an actual terminal (not just ADO_FORCE_TTY): glamour's
-// background detection queries the terminal and must not run otherwise.
-var isRealTerminal = func(w io.Writer) bool {
-	f, ok := w.(*os.File)
-	return ok && ghterm.IsTerminal(f)
-}
-
-// markdownStyle picks the glamour style: notty without colour, else GLAMOUR_STYLE, else the
-// detected dark/light background on a real terminal, else dark.
-func markdownStyle(ios *iostreams.IOStreams) string {
-	if !ios.ColorEnabled() {
-		return "notty"
-	}
-	if s := os.Getenv("GLAMOUR_STYLE"); s != "" && s != "auto" {
-		return s
-	}
-	if isRealTerminal(ios.Out) {
-		return "auto"
-	}
-	return "dark"
-}
-
-func renderMarkdown(ios *iostreams.IOStreams, md string) (string, error) {
-	tr, err := glamour.NewTermRenderer(
-		glamour.WithStylePath(markdownStyle(ios)),
-		glamour.WithWordWrap(min(ios.TerminalWidth(), 120)),
-		glamour.WithEmoji(),
-		glamour.WithPreservedNewLines(),
-		glamour.WithTableWrap(false),
-	)
-	if err != nil {
-		return "", err
-	}
-	return tr.Render(md)
 }

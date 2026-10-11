@@ -107,6 +107,32 @@ func parseSegments(source, s string, base func() (Repo, error), configOrg func()
 	return r, nil
 }
 
+var errNoProject = errors.New("not an Azure DevOps repository; use -R ORG/PROJECT or set ADO_REPO")
+
+// ResolveBaseProject picks the target project of project-scoped commands (workitem, sprint,
+// board): -R also takes ORG/PROJECT there, so they work outside a git repository; anything else
+// resolves through baseRepo (-R [ORG/]PROJECT/REPO, ADO_REPO, git remotes). For ORG/PROJECT
+// the Name is empty.
+func ResolveBaseProject(override string, baseRepo func() (Repo, error)) (Repo, error) {
+	if strings.Count(override, "/") == 1 {
+		return ParseProject("-R", override)
+	}
+	r, err := baseRepo()
+	if errors.Is(err, errNoRepo) {
+		return Repo{}, errNoProject
+	}
+	return r, err
+}
+
+// ParseProject parses ORG/PROJECT on dev.azure.com from source (a flag name, for errors).
+func ParseProject(source, s string) (Repo, error) {
+	org, project, ok := strings.Cut(s, "/")
+	if !ok || !validSegment(org) || !validSegment(project) {
+		return Repo{}, fmt.Errorf("invalid %s %q: expected ORG/PROJECT", source, s)
+	}
+	return Repo{Host: hostDevAzure, Org: org, Project: project}, nil
+}
+
 // MatchRemote returns the name of the first remote whose fetch URL points at r, or "".
 func MatchRemote(remotes []git.Remote, r Repo) string {
 	for _, rm := range remotes {

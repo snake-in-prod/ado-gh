@@ -1,4 +1,4 @@
-package shared
+package cmdutil
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/editortest"
-	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +78,7 @@ func TestBodyFlagsRead(t *testing.T) {
 			in.WriteString(tt.stdin)
 			ios.SetStdinTTY(tt.tty)
 			ios.SetStdoutTTY(tt.tty)
-			f := &cmdutil.Factory{IOStreams: ios, Config: func() (cmdutil.Config, error) { return bodyTestConfig{}, nil }}
+			f := &Factory{IOStreams: ios, Config: func() (Config, error) { return bodyTestConfig{}, nil }}
 
 			var b BodyFlags
 			var got string
@@ -95,7 +94,7 @@ func TestBodyFlagsRead(t *testing.T) {
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, runErr, tt.wantErr)
-				var fe *cmdutil.FlagError
+				var fe *FlagError
 				assert.Equal(t, tt.flagErr, errors.As(runErr, &fe))
 				return
 			}

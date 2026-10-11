@@ -1,0 +1,89 @@
+{
+  "id": "00000000-0000-0000-0000-000000000904",
+  "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/_apis/work/boards/00000000-0000-0000-0000-000000000904",
+  "name": "Backlog items",
+  "revision": 0,
+  "columns": [
+    {
+      "id": "00000000-0000-0000-0000-000000001005",
+      "name": "New",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Product Backlog Item": "New"
+      },
+      "columnType": "incoming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001006",
+      "name": "Approved",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Product Backlog Item": "Approved"
+      },
+      "columnType": "inProgress",
+      "isSplit": false,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001007",
+      "name": "Committed",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Product Backlog Item": "Committed"
+      },
+      "columnType": "inProgress",
+      "isSplit": false,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001008",
+      "name": "Done",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Product Backlog Item": "Done"
+      },
+      "columnType": "outgoing"
+    }
+  ],
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": null,
+      "color": null
+    }
+  ],
+  "isValid": true,
+  "allowedMappings": {
+    "Incoming": {
+      "Product Backlog Item": [
+        "New"
+      ]
+    },
+    "InProgress": {
+      "Product Backlog Item": [
+        "Approved",
+        "Committed"
+      ]
+    },
+    "Outgoing": {
+      "Product Backlog Item": [
+        "Done"
+      ]
+    }
+  },
+  "canEdit": true,
+  "fields": {
+    "columnField": {
+      "referenceName": "WEF_00000000000000000000000000000A02_Kanban.Column",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A02_Kanban.Column"
+    },
+    "rowField": {
+      "referenceName": "WEF_00000000000000000000000000000A02_Kanban.Lane",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A02_Kanban.Lane"
+    },
+    "doneField": {
+      "referenceName": "WEF_00000000000000000000000000000A02_Kanban.Column.Done",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A02_Kanban.Column.Done"
+    }
+  }
+}

@@ -47,6 +47,12 @@ func (f *Factory) BaseRepoFromGit() bool {
 	return f.RepoOverride == "" && os.Getenv("ADO_REPO") == ""
 }
 
+// BaseProject resolves the target project of project-scoped commands (workitem, sprint, board):
+// -R ORG/PROJECT (Name is then empty), else BaseRepo.
+func (f *Factory) BaseProject() (adocontext.Repo, error) {
+	return adocontext.ResolveBaseProject(f.RepoOverride, f.BaseRepo)
+}
+
 // NewFactory returns the production Factory for the given version and streams.
 func NewFactory(appVersion string, ios *iostreams.IOStreams) *Factory {
 	f := &Factory{

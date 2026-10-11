@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -340,38 +339,6 @@ func TestPickReadme(t *testing.T) {
 	}
 }
 
-func TestMarkdownStyle(t *testing.T) {
-	ios, _, _, _ := iostreams.Test()
-	called := false
-	orig := isRealTerminal
-	t.Cleanup(func() { isRealTerminal = orig })
-	terminal := false
-	isRealTerminal = func(io.Writer) bool { called = true; return terminal }
-
-	for _, tc := range []struct {
-		name   string
-		color  bool
-		env    string
-		real   bool
-		want   string
-		detect bool
-	}{
-		{"colour off", false, "dark", true, "notty", false},
-		{"GLAMOUR_STYLE", true, "light", true, "light", false},
-		{"forced TTY skips detection", true, "", false, "dark", true},
-		{"auto on forced TTY", true, "auto", false, "dark", true},
-		{"real TTY detects", true, "", true, "auto", true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("GLAMOUR_STYLE", tc.env)
-			ios.SetColorEnabled(tc.color)
-			terminal, called = tc.real, false
-			assert.Equal(t, tc.want, markdownStyle(ios))
-			assert.Equal(t, tc.detect, called)
-		})
-	}
-}
-
 func TestRepoViewWrapWidth(t *testing.T) {
 	long := strings.Repeat("word ", 60) + "\n"
 	for _, tc := range []struct{ width, max int }{{200, 120}, {60, 60}} {
@@ -391,8 +358,4 @@ func TestRepoViewWrapWidth(t *testing.T) {
 		assert.LessOrEqual(t, longest, tc.max, tc.width)
 		assert.Greater(t, longest, tc.max-10, tc.width)
 	}
-}
-
-func TestIsRealTerminalDefault(t *testing.T) {
-	assert.False(t, isRealTerminal(&bytes.Buffer{}))
 }

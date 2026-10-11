@@ -43,14 +43,14 @@ func applyLinks(ctx context.Context, ios *iostreams.IOStreams, c *api.PRClient, 
 	warn := ios.ColorScheme().Yellow("!")
 
 	for _, wi := range o.addWorkItems {
-		if err := c.LinkWorkItem(ctx, wi, url); err != nil {
+		if err := c.Wit.AddRelation(ctx, wi, "ArtifactLink", url, map[string]any{"name": "Pull Request"}); err != nil {
 			failed = append(failed, fmt.Sprintf("failed to link work item #%d: %v", wi, err))
 		} else {
 			applied = append(applied, fmt.Sprintf("linked work item #%d", wi))
 		}
 	}
 	for _, wi := range o.removeWorkItems {
-		found, err := c.UnlinkWorkItem(ctx, wi, url)
+		found, err := c.Wit.RemoveRelation(ctx, wi, "ArtifactLink", url)
 		switch {
 		case err != nil:
 			failed = append(failed, fmt.Sprintf("failed to unlink work item #%d: %v", wi, err))

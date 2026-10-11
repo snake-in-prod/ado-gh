@@ -1,4 +1,4 @@
-package shared
+package cmdutil
 
 import (
 	"fmt"
@@ -6,14 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
 )
 
-// ReadBody reads a pull request description from the file at path, or from in when path is "-".
+// ReadBody reads a body text from the file at path, or from in when path is "-".
 func ReadBody(in io.Reader, path string) (string, error) {
 	if path == "" {
-		return "", cmdutil.FlagErrorf(`--body-file needs a file path, or "-" for stdin`)
+		return "", FlagErrorf(`--body-file needs a file path, or "-" for stdin`)
 	}
 	var b []byte
 	var err error
@@ -52,7 +51,7 @@ func (b *BodyFlags) Given() bool {
 
 // Read returns the body from -b or -F, else from the editor prefilled with initial when -e is set
 // or the terminal can prompt. A blank body is rejected.
-func (b *BodyFlags) Read(f *cmdutil.Factory, initial string) (string, error) {
+func (b *BodyFlags) Read(f *Factory, initial string) (string, error) {
 	var body string
 	var err error
 	switch {
@@ -61,21 +60,21 @@ func (b *BodyFlags) Read(f *cmdutil.Factory, initial string) (string, error) {
 	case b.Given():
 		body = b.Body
 	case !f.IOStreams.CanPrompt() && b.Editor:
-		return "", cmdutil.FlagErrorf("--editor requires an interactive terminal; pass --body or --body-file")
+		return "", FlagErrorf("--editor requires an interactive terminal; pass --body or --body-file")
 	case !f.IOStreams.CanPrompt():
-		return "", cmdutil.FlagErrorf("--body or --body-file required when not running interactively")
+		return "", FlagErrorf("--body or --body-file required when not running interactively")
 	default:
 		cfg, cerr := f.Config()
 		if cerr != nil {
 			return "", cerr
 		}
-		body, err = cmdutil.Edit(f.IOStreams, cmdutil.ResolveEditor(cfg), initial)
+		body, err = Edit(f.IOStreams, ResolveEditor(cfg), initial)
 	}
 	if err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(body) == "" {
-		return "", cmdutil.FlagErrorf("body cannot be blank")
+		return "", FlagErrorf("body cannot be blank")
 	}
 	return body, nil
 }

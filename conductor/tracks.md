@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Add work item and boards support (gh issue equivalent): `ado workitem` (aliases `wi`, `issue`) create/list/view/edit/close/reopen/comment/assign/link/unlink/delete, `ado workitem query` (WIQL + saved queries), `ado sprint` and `ado board` views, process-aware types/states, `--json/--jq/--template` on read commands**
+- [~] **Track: Add work item and boards support (gh issue equivalent): `ado workitem` (aliases `wi`, `issue`) create/list/view/edit/close/reopen/comment/assign/link/unlink/delete, `ado workitem query` (WIQL + saved queries), `ado sprint` and `ado board` views, process-aware types/states, `--json/--jq/--template` on read commands**
 *Link: [./tracks/workitems_20261010/](./tracks/workitems_20261010/)*
 
 ---

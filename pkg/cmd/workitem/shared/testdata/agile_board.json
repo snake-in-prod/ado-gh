@@ -1,0 +1,89 @@
+{
+  "id": "00000000-0000-0000-0000-000000000900",
+  "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/_apis/work/boards/00000000-0000-0000-0000-000000000900",
+  "name": "Stories",
+  "revision": 0,
+  "columns": [
+    {
+      "id": "00000000-0000-0000-0000-000000001001",
+      "name": "New",
+      "itemLimit": 0,
+      "stateMappings": {
+        "User Story": "New"
+      },
+      "columnType": "incoming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001002",
+      "name": "Active",
+      "itemLimit": 5,
+      "stateMappings": {
+        "User Story": "Active"
+      },
+      "columnType": "inProgress",
+      "isSplit": false,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001003",
+      "name": "Resolved",
+      "itemLimit": 5,
+      "stateMappings": {
+        "User Story": "Resolved"
+      },
+      "columnType": "inProgress",
+      "isSplit": false,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000001004",
+      "name": "Closed",
+      "itemLimit": 0,
+      "stateMappings": {
+        "User Story": "Closed"
+      },
+      "columnType": "outgoing"
+    }
+  ],
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": null,
+      "color": null
+    }
+  ],
+  "isValid": true,
+  "allowedMappings": {
+    "Incoming": {
+      "User Story": [
+        "New"
+      ]
+    },
+    "InProgress": {
+      "User Story": [
+        "Active",
+        "Resolved"
+      ]
+    },
+    "Outgoing": {
+      "User Story": [
+        "Closed"
+      ]
+    }
+  },
+  "canEdit": true,
+  "fields": {
+    "columnField": {
+      "referenceName": "WEF_00000000000000000000000000000A01_Kanban.Column",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A01_Kanban.Column"
+    },
+    "rowField": {
+      "referenceName": "WEF_00000000000000000000000000000A01_Kanban.Lane",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A01_Kanban.Lane"
+    },
+    "doneField": {
+      "referenceName": "WEF_00000000000000000000000000000A01_Kanban.Column.Done",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000A01_Kanban.Column.Done"
+    }
+  }
+}

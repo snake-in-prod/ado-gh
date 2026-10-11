@@ -26,7 +26,7 @@ var errNoUserComments = errors.New("no comments found for current user")
 
 type options struct {
 	ref    string
-	body   shared.BodyFlags
+	body   cmdutil.BodyFlags
 	thread int
 	status git.CommentThreadStatus
 	web    bool
@@ -103,7 +103,7 @@ The URL of the comment thread is printed.`,
 			return run(cmd.Context(), f, o)
 		},
 	}
-	shared.AddBodyFlags(cmd, &o.body)
+	cmdutil.AddBodyFlags(cmd, &o.body)
 	fl := cmd.Flags()
 	fl.IntVar(&o.thread, "thread", 0, "Reply to the comment thread with this ID")
 	fl.StringVar(&status, "status", "", "Set the status of the --thread: {active|fixed|wontFix|closed|byDesign|pending}")

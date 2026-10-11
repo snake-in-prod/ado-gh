@@ -93,7 +93,7 @@ Add work item and boards support as the Azure DevOps counterpart of `gh issue`: 
 - **Output contract:** every read command (`list`, `view`, `query`, `query list`, `sprint list/current/view/board`, `board`) supports `--json/--jq/--template`. Field names are public API.
 - **Safety:** `delete` (and `--permanent`), `comment --delete-last` and parent replacement confirm on TTY and require `--yes` when non-interactive.
 - **Security:** user values are escaped before going into generated WIQL (no WIQL injection through flags). Tokens are never logged.
-- **Dependencies:** `charmbracelet/glamour` (shared with `repo_browse_20261010`) and a small HTML→text library (e.g. `k3a/html2text`), recorded in `tech-stack.md` before use.
+- **Dependencies:** `charmbracelet/glamour` (shared with `repo_browse_20261010`) an in-house HTML→text converter on `golang.org/x/net/html`, and `yuin/goldmark` for Markdown→HTML (both already in the module graph), recorded in `tech-stack.md` before use (o9).
 - **Testing:** >90% coverage. httpmock fixtures for all four process templates (type categories, states, fields) plus one inherited custom process. TTY and non-TTY covered.
 - **Docs:** `docs/gh-differences.md` covers `issue` → work items, `--type`, state categories vs open/closed, `--resolve`/`--removed`, `--field`, tags vs labels, WIQL/saved queries, sprint/board (no gh equivalent), recycle-bin delete.
 

@@ -75,7 +75,7 @@ from its current value.`,
 			o.bodySet = fl.Changed("body") || fl.Changed("body-file")
 			if fl.Changed("body-file") {
 				var err error
-				if o.body, err = shared.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
+				if o.body, err = cmdutil.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
 					return err
 				}
 			}

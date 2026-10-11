@@ -2,10 +2,13 @@
 package shared
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 )
 
@@ -15,6 +18,8 @@ type Option struct {
 	Description   string
 	Default       string
 	AllowedValues []string
+	// PerProject options can be set for one project with --project ORG/PROJECT.
+	PerProject bool
 }
 
 // Options are the keys known to `ado config`, sorted by key.
@@ -25,6 +30,7 @@ var Options = []Option{
 	{Key: "git_protocol", Description: "the protocol to use for git clone and push operations", Default: "https", AllowedValues: []string{"https", "ssh"}},
 	{Key: "org", Description: "the default Azure DevOps organization for repository names without one"},
 	{Key: "prompt", Description: "toggle interactive prompting in the terminal", Default: "enabled", AllowedValues: []string{"enabled", "disabled"}},
+	{Key: "team", Description: "the team for work item, sprint and board commands; set per project with --project", PerProject: true},
 }
 
 // Find returns the option for key, or an error listing the valid keys.
@@ -45,6 +51,31 @@ func (o Option) Validate(value string) error {
 		return nil
 	}
 	return fmt.Errorf("invalid value %q for %s; valid values: %s", value, o.Key, strings.Join(o.AllowedValues, ", "))
+}
+
+// Scope returns the config scope of the --host and --project flags: the host, the project's
+// scope key (config.ProjectScope) for a PerProject option, or "" for the global value.
+func (o Option) Scope(host, project string) (string, error) {
+	if project == "" {
+		return host, nil
+	}
+	if host != "" {
+		return "", errors.New("specify only one of --host or --project")
+	}
+	if !o.PerProject {
+		var keys []string
+		for _, opt := range Options {
+			if opt.PerProject {
+				keys = append(keys, opt.Key)
+			}
+		}
+		return "", fmt.Errorf("--project is only supported for: %s", strings.Join(keys, ", "))
+	}
+	p, err := adocontext.ParseProject("--project", project)
+	if err != nil {
+		return "", err
+	}
+	return config.ProjectScope(p.Org, p.Project), nil
 }
 
 // Value returns the configured value for host, or the option's default.

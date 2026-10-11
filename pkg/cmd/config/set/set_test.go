@@ -47,6 +47,8 @@ func TestSet(t *testing.T) {
 		{"host", []string{"prompt", "disabled", "--host", "dev.azure.com"}, "dev.azure.com|prompt", "disabled"},
 		{"git_protocol host", []string{"git_protocol", "ssh", "--host", "ssh.dev.azure.com"}, "ssh.dev.azure.com|git_protocol", "ssh"},
 		{"other host", []string{"browser", "firefox", "--host", "contoso.visualstudio.com"}, "contoso.visualstudio.com|browser", "firefox"},
+		{"team global", []string{"team", "Web Team"}, "|team", "Web Team"},
+		{"team per project", []string{"team", "Web Team", "--project", "Contoso/Fabrikam"}, "dev.azure.com/contoso/fabrikam|team", "Web Team"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -77,6 +79,8 @@ func TestSetErrors(t *testing.T) {
 		{"config error", nil, boom, []string{"editor", "vim"}, "boom"},
 		{"write error", &fakeConfig{values: map[string]string{}, writeErr: boom}, nil, []string{"editor", "vim"}, "failed to write config: boom"},
 		{"missing value", &fakeConfig{}, nil, []string{"editor"}, "accepts 2 arg(s)"},
+		{"bad project", &fakeConfig{}, nil, []string{"team", "T", "--project", "proj"}, `invalid --project "proj": expected ORG/PROJECT`},
+		{"project for a host key", &fakeConfig{}, nil, []string{"editor", "vim", "--project", "o/p"}, "--project is only supported for: team"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -75,6 +76,13 @@ func (c *Config) Get(host, key string) string {
 		return v
 	}
 	return defaults[key]
+}
+
+// ProjectScope is the hosts-map key of per-project settings such as team:
+// dev.azure.com/ORG/PROJECT, lowercased since Azure DevOps names are case-insensitive. Pass it
+// as the host to Get and Set.
+func ProjectScope(org, project string) string {
+	return strings.ToLower("dev.azure.com/" + org + "/" + project)
 }
 
 // Set stores key under host, or globally when host is "".

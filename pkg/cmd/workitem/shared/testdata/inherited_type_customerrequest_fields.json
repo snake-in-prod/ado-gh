@@ -1,0 +1,79 @@
+{
+  "count": 7,
+  "value": [
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": true,
+      "referenceName": "System.Title",
+      "name": "Title",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Title"
+    },
+    {
+      "defaultValue": "New",
+      "allowedValues": [
+        "Closed",
+        "In Review",
+        "New"
+      ],
+      "alwaysRequired": true,
+      "referenceName": "System.State",
+      "name": "State",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.State"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [
+        "Completed",
+        "Moved to state Closed",
+        "Moved to state In Review",
+        "New"
+      ],
+      "alwaysRequired": false,
+      "referenceName": "System.Reason",
+      "name": "Reason",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Reason"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.AssignedTo",
+      "name": "Assigned To",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.AssignedTo"
+    },
+    {
+      "defaultValue": null,
+      "allowedValues": [],
+      "alwaysRequired": false,
+      "referenceName": "System.Description",
+      "name": "Description",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/System.Description"
+    },
+    {
+      "defaultValue": "Medium",
+      "allowedValues": [
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "alwaysRequired": false,
+      "referenceName": "Custom.CustomerImpact",
+      "name": "Customer Impact",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Custom.CustomerImpact"
+    },
+    {
+      "defaultValue": "2",
+      "allowedValues": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "alwaysRequired": false,
+      "referenceName": "Microsoft.VSTS.Common.Priority",
+      "name": "Priority",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/fields/Microsoft.VSTS.Common.Priority"
+    }
+  ]
+}

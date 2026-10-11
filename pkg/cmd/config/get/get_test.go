@@ -34,7 +34,7 @@ func run(cfg cmdutil.Config, cfgErr error, args ...string) (string, error) {
 }
 
 func TestGet(t *testing.T) {
-	cfg := memConfig{"|editor": "vim", "dev.azure.com|editor": "code", "|org": "myorg"}
+	cfg := memConfig{"|editor": "vim", "dev.azure.com|editor": "code", "|org": "myorg", "|team": "All", "dev.azure.com/o/p|team": "Web Team"}
 	tests := []struct {
 		name string
 		args []string
@@ -46,6 +46,8 @@ func TestGet(t *testing.T) {
 		{"default", []string{"prompt"}, "enabled\n"},
 		{"unset", []string{"browser"}, "\n"},
 		{"org", []string{"org"}, "myorg\n"},
+		{"team per project", []string{"team", "--project", "O/P"}, "Web Team\n"},
+		{"team falls back to global", []string{"team", "--project", "o/other"}, "All\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,6 +69,12 @@ func TestGetUnknownKey(t *testing.T) {
 func TestGetConfigError(t *testing.T) {
 	boom := errors.New("boom")
 	if _, err := run(nil, boom, "editor"); !errors.Is(err, boom) {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestGetBadProject(t *testing.T) {
+	if _, err := run(memConfig{}, nil, "team", "--project", "p"); err == nil || !strings.Contains(err.Error(), "expected ORG/PROJECT") {
 		t.Errorf("err = %v", err)
 	}
 }

@@ -55,37 +55,76 @@ func (r *IdentityResolver) resolve(ctx context.Context, v string) (uuid.UUID, er
 	if id, err := uuid.Parse(v); err == nil {
 		return id, nil
 	}
+	i, err := r.lookup(ctx, v)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return *i.Id, nil
+}
+
+// User is a resolved user identity.
+type User struct {
+	ID          string
+	DisplayName string
+	// Account is the sign-in name (email or UPN); empty when IMS has none.
+	Account string
+}
+
+// FieldValue is the value identity fields such as System.AssignedTo take: the account, else
+// the display name.
+func (u User) FieldValue() string {
+	if u.Account != "" {
+		return u.Account
+	}
+	return u.DisplayName
+}
+
+// ResolveUser resolves @me, an email/UPN, a display name or an alias to one user, like Resolve
+// (ambiguous matches prompt on a TTY, else error listing the candidates). Teams and groups are
+// refused.
+func (r *IdentityResolver) ResolveUser(ctx context.Context, v string) (User, error) {
+	if v = strings.TrimSpace(v); v == "" {
+		return User{}, errors.New("empty user")
+	}
+	i, err := r.lookup(ctx, v)
+	if err != nil {
+		return User{}, err
+	}
+	if i.IsContainer != nil && *i.IsContainer {
+		return User{}, fmt.Errorf("%q is a team or group; work items are assigned to users", v)
+	}
+	return User{ID: i.Id.String(), DisplayName: deref(i.ProviderDisplayName), Account: property(*i, "Account")}, nil
+}
+
+// lookup finds the one identity v (@me, email, name, alias or [Project]\Team) names.
+func (r *IdentityResolver) lookup(ctx context.Context, v string) (*identity.Identity, error) {
 	if strings.EqualFold(v, "@me") {
-		me, err := r.current(ctx)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		return *me.Id, nil
+		return r.current(ctx)
 	}
 
 	matches, err := r.search(ctx, v)
 	if err != nil {
-		return uuid.Nil, err
+		return nil, err
 	}
 	if len(matches) == 0 {
 		msg := "could not resolve " + v + ": user must be added to the organization"
 		if !strings.Contains(v, "@") {
 			msg += `; for a team use [Project]\Team or its GUID`
 		}
-		return uuid.Nil, errors.New(msg)
+		return nil, errors.New(msg)
 	}
 	if !strings.HasPrefix(v, "[") && slices.ContainsFunc(matches, func(i identity.Identity) bool {
 		return i.IsContainer != nil && *i.IsContainer
 	}) {
-		return uuid.Nil, fmt.Errorf(`%q matches a team or group: use [Project]\Team or a GUID`, v)
+		return nil, fmt.Errorf(`%q matches a team or group: use [Project]\Team or a GUID`, v)
 	}
 	if len(matches) > 1 {
 		if matches, err = r.sameDomain(ctx, matches); err != nil {
-			return uuid.Nil, err
+			return nil, err
 		}
 	}
 	if len(matches) == 1 {
-		return *matches[0].Id, nil
+		return &matches[0], nil
 	}
 	return r.pick(v, matches)
 }
@@ -218,7 +257,7 @@ func (r *IdentityResolver) sameDomain(ctx context.Context, matches []identity.Id
 	return same, nil
 }
 
-func (r *IdentityResolver) pick(v string, matches []identity.Identity) (uuid.UUID, error) {
+func (r *IdentityResolver) pick(v string, matches []identity.Identity) (*identity.Identity, error) {
 	labels := make([]string, len(matches))
 	for i, m := range matches {
 		labels[i] = label(m)
@@ -226,13 +265,13 @@ func (r *IdentityResolver) pick(v string, matches []identity.Identity) (uuid.UUI
 	if r.Prompter != nil {
 		i, err := r.Prompter.Select(fmt.Sprintf("Multiple identities match %q, pick one", v), labels)
 		if err == nil {
-			return *matches[i].Id, nil
+			return &matches[i], nil
 		}
 		if !errors.Is(err, cmdutil.ErrNoPrompt) {
-			return uuid.Nil, err
+			return nil, err
 		}
 	}
-	return uuid.Nil, fmt.Errorf("multiple identities match %q; use a more specific value or a GUID:\n  %s", v, strings.Join(labels, "\n  "))
+	return nil, fmt.Errorf("multiple identities match %q; use a more specific value or a GUID:\n  %s", v, strings.Join(labels, "\n  "))
 }
 
 func label(i identity.Identity) string {

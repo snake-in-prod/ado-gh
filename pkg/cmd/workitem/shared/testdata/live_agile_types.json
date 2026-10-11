@@ -1,0 +1,296 @@
+{
+  "count": 9,
+  "value": [
+    {
+      "name": "Bug",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Bug",
+      "description": "Describes a divergence between required and actual behavior, and tracks the work done to correct the defect and verify the correction.",
+      "color": "CC293D",
+      "icon": {
+        "id": "icon_insect",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "New",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Resolved",
+          "color": "ff9d00",
+          "category": "Resolved"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Bug"
+    },
+    {
+      "name": "Epic",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic",
+      "description": "Epics help teams effectively manage and groom their product backlog",
+      "color": "E06C00",
+      "icon": {
+        "id": "icon_crown",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_crown?color=E06C00&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "New",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Resolved",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        },
+        {
+          "name": "Removed",
+          "color": "ffffff",
+          "category": "Removed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Epic"
+    },
+    {
+      "name": "Feature",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Feature",
+      "description": "Tracks a feature that will be released with the product",
+      "color": "773B93",
+      "icon": {
+        "id": "icon_trophy",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "New",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Resolved",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        },
+        {
+          "name": "Removed",
+          "color": "ffffff",
+          "category": "Removed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Feature"
+    },
+    {
+      "name": "Task",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Task",
+      "description": "Tracks work that needs to be done.",
+      "color": "A4880A",
+      "icon": {
+        "id": "icon_clipboard",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_clipboard?color=A4880A&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "New",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        },
+        {
+          "name": "Removed",
+          "color": "ffffff",
+          "category": "Removed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Task"
+    },
+    {
+      "name": "Test Case",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestCase",
+      "description": "Server-side data for a set of steps to be tested.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_case",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_case?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "Design",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Ready",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Case"
+    },
+    {
+      "name": "Test Plan",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestPlan",
+      "description": "Tracks test activities for a specific milestone or release.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_plan",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_plan?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Inactive",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Plan"
+    },
+    {
+      "name": "Test Suite",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestSuite",
+      "description": "Tracks test activites for a specific feature, requirement, or user story.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_suite",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_suite?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "In Planning",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "In Progress",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Completed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Suite"
+    },
+    {
+      "name": "User Story",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.UserStory",
+      "description": "Tracks an activity the user will be able to perform with the product",
+      "color": "0098C7",
+      "icon": {
+        "id": "icon_book",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_book?color=0098C7&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "New",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Resolved",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        },
+        {
+          "name": "Removed",
+          "color": "ffffff",
+          "category": "Removed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/User%20Story"
+    },
+    {
+      "name": "Issue",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Issue",
+      "description": "Tracks an obstacle to progress.",
+      "color": "B4009E",
+      "icon": {
+        "id": "icon_traffic_cone",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_traffic_cone?color=B4009E&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Issue"
+    }
+  ]
+}

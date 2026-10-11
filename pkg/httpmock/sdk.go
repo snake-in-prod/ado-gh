@@ -48,12 +48,17 @@ type collection[T any] struct {
 // https://{org}.visualstudio.com/. The SDK caches the result per base URL for the whole process,
 // so tests that register this stub must use a base URL of their own.
 func (r *Registry) StubLocations(basePath string, locs ...Location) {
+	r.Register(REST(http.MethodOptions, strings.TrimPrefix(basePath+"/_apis", "/")), locationsResponse(locs))
+}
+
+// locationsResponse answers an OPTIONS {base}/_apis discovery call with locs.
+func locationsResponse(locs []Location) Responder {
 	out := make([]sdkLocation, len(locs))
 	for i, l := range locs {
 		// The SDK dereferences these during API version negotiation.
 		out[i] = sdkLocation{Location: l, ResourceVersion: 3, MinVersion: "1.0", MaxVersion: "7.2", ReleasedVersion: "7.1"}
 	}
-	r.Register(REST(http.MethodOptions, strings.TrimPrefix(basePath+"/_apis", "/")), JSONResponse(collection[sdkLocation]{len(out), out}))
+	return JSONResponse(collection[sdkLocation]{len(out), out})
 }
 
 // StubResourceAreas registers GET {basePath}/_apis/ResourceAreas, which the SDK's NewClient

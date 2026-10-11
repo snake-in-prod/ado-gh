@@ -1,0 +1,174 @@
+{
+  "count": 6,
+  "value": [
+    {
+      "name": "Issue",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Issue",
+      "description": "Issues track suggested improvements, changes or questions related to the project. Issues can also be used to break down an Epic into smaller chunks of work.",
+      "color": "339947",
+      "icon": {
+        "id": "icon_clipboard_issue",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_clipboard_issue?color=339947&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "To Do",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Doing",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Done",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Issue"
+    },
+    {
+      "name": "Epic",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic",
+      "description": "Epics can be defined as a large piece of work that has one common objective. Use an Epic to track the progress of complex features.",
+      "color": "E06C00",
+      "icon": {
+        "id": "icon_crown",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_crown?color=E06C00&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "To Do",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Doing",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Done",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Epic"
+    },
+    {
+      "name": "Task",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.Task",
+      "description": "Tasks track the actual work that needs to be done.",
+      "color": "A4880A",
+      "icon": {
+        "id": "icon_check_box",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_check_box?color=A4880A&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "To Do",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Doing",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Done",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Task"
+    },
+    {
+      "name": "Test Case",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestCase",
+      "description": "Server-side data for a set of steps to be tested.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_case",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_case?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "Design",
+          "color": "b2b2b2",
+          "category": "Proposed"
+        },
+        {
+          "name": "Ready",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Closed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Case"
+    },
+    {
+      "name": "Test Plan",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestPlan",
+      "description": "Tracks test activities for a specific milestone or release.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_plan",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_plan?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "Active",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Inactive",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Plan"
+    },
+    {
+      "name": "Test Suite",
+      "referenceName": "Microsoft.VSTS.WorkItemTypes.TestSuite",
+      "description": "Tracks test activites for a specific feature, requirement, or user story.",
+      "color": "004B50",
+      "icon": {
+        "id": "icon_test_suite",
+        "url": "https://dev.azure.com/org/_apis/wit/workItemIcons/icon_test_suite?color=004B50&v=2"
+      },
+      "isDisabled": false,
+      "states": [
+        {
+          "name": "In Planning",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "In Progress",
+          "color": "007acc",
+          "category": "InProgress"
+        },
+        {
+          "name": "Completed",
+          "color": "339933",
+          "category": "Completed"
+        }
+      ],
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Test%20Suite"
+    }
+  ]
+}

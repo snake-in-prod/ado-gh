@@ -1,0 +1,78 @@
+{
+  "id": "00000000-0000-0000-0000-000000000102",
+  "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/_apis/work/boards/00000000-0000-0000-0000-000000000102",
+  "name": "Issues",
+  "revision": 0,
+  "columns": [
+    {
+      "id": "00000000-0000-0000-0000-000000000104",
+      "name": "To Do",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Issue": "To Do"
+      },
+      "columnType": "incoming"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000105",
+      "name": "Doing",
+      "itemLimit": 5,
+      "stateMappings": {
+        "Issue": "Doing"
+      },
+      "isSplit": false,
+      "description": "",
+      "columnType": "inProgress"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000106",
+      "name": "Done",
+      "itemLimit": 0,
+      "stateMappings": {
+        "Issue": "Done"
+      },
+      "columnType": "outgoing"
+    }
+  ],
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": null,
+      "color": null
+    }
+  ],
+  "isValid": true,
+  "allowedMappings": {
+    "Incoming": {
+      "Issue": [
+        "To Do"
+      ]
+    },
+    "InProgress": {
+      "Issue": [
+        "Doing",
+        "To Do"
+      ]
+    },
+    "Outgoing": {
+      "Issue": [
+        "Done"
+      ]
+    }
+  },
+  "canEdit": true,
+  "fields": {
+    "columnField": {
+      "referenceName": "WEF_00000000000000000000000000000B01_Kanban.Column",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000B01_Kanban.Column"
+    },
+    "rowField": {
+      "referenceName": "WEF_00000000000000000000000000000B01_Kanban.Lane",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000B01_Kanban.Lane"
+    },
+    "doneField": {
+      "referenceName": "WEF_00000000000000000000000000000B01_Kanban.Column.Done",
+      "url": "https://dev.azure.com/org/_apis/wit/fields/WEF_00000000000000000000000000000B01_Kanban.Column.Done"
+    }
+  }
+}

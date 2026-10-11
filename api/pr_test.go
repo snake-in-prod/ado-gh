@@ -166,7 +166,7 @@ func TestMapErr(t *testing.T) {
 		want error
 	}{
 		{"nil", nil, nil},
-		{"value WrappedError", azuredevops.WrappedError{StatusCode: &status, Message: &msg}, &HTTPError{403, "denied"}},
+		{"value WrappedError", azuredevops.WrappedError{StatusCode: &status, Message: &msg}, &HTTPError{StatusCode: 403, Message: "denied"}},
 		{"pointer WrappedError", &azuredevops.WrappedError{StatusCode: &status}, &HTTPError{StatusCode: 403}},
 		{"nil pointer WrappedError", (*azuredevops.WrappedError)(nil), (*azuredevops.WrappedError)(nil)},
 		{"other error", plain, plain},

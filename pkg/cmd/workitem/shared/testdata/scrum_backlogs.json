@@ -1,0 +1,277 @@
+{
+  "count": 4,
+  "value": [
+    {
+      "id": "Microsoft.EpicCategory",
+      "name": "Epics",
+      "rank": 4,
+      "workItemCountLimit": 1000,
+      "addPanelFields": [
+        {
+          "referenceName": "System.Title",
+          "name": "Title",
+          "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+        }
+      ],
+      "columnFields": [
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Id",
+            "name": "ID",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Id"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Title",
+            "name": "Title",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+          },
+          "width": 400
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.AssignedTo",
+            "name": "Assigned To",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.AssignedTo"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.State",
+            "name": "State",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.State"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Tags",
+            "name": "Tags",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Tags"
+          },
+          "width": 200
+        }
+      ],
+      "workItemTypes": [
+        {
+          "name": "Epic",
+          "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Epic"
+        }
+      ],
+      "defaultWorkItemType": {
+        "name": "Epic",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Epic"
+      },
+      "color": "FFE06C00",
+      "isHidden": false,
+      "type": "portfolio"
+    },
+    {
+      "id": "Microsoft.FeatureCategory",
+      "name": "Features",
+      "rank": 3,
+      "workItemCountLimit": 1000,
+      "addPanelFields": [
+        {
+          "referenceName": "System.Title",
+          "name": "Title",
+          "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+        }
+      ],
+      "columnFields": [
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Id",
+            "name": "ID",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Id"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Title",
+            "name": "Title",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+          },
+          "width": 400
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.AssignedTo",
+            "name": "Assigned To",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.AssignedTo"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.State",
+            "name": "State",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.State"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Tags",
+            "name": "Tags",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Tags"
+          },
+          "width": 200
+        }
+      ],
+      "workItemTypes": [
+        {
+          "name": "Feature",
+          "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Feature"
+        }
+      ],
+      "defaultWorkItemType": {
+        "name": "Feature",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Feature"
+      },
+      "color": "FF773B93",
+      "isHidden": false,
+      "type": "portfolio"
+    },
+    {
+      "id": "Microsoft.RequirementCategory",
+      "name": "Backlog items",
+      "rank": 2,
+      "workItemCountLimit": 1000,
+      "addPanelFields": [
+        {
+          "referenceName": "System.Title",
+          "name": "Title",
+          "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+        }
+      ],
+      "columnFields": [
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Id",
+            "name": "ID",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Id"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Title",
+            "name": "Title",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+          },
+          "width": 400
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.AssignedTo",
+            "name": "Assigned To",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.AssignedTo"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.State",
+            "name": "State",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.State"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Tags",
+            "name": "Tags",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Tags"
+          },
+          "width": 200
+        }
+      ],
+      "workItemTypes": [
+        {
+          "name": "Product Backlog Item",
+          "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Product%20Backlog%20Item"
+        }
+      ],
+      "defaultWorkItemType": {
+        "name": "Product Backlog Item",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Product%20Backlog%20Item"
+      },
+      "color": "FF009CCC",
+      "isHidden": false,
+      "type": "requirement"
+    },
+    {
+      "id": "Microsoft.TaskCategory",
+      "name": "Tasks",
+      "rank": 1,
+      "workItemCountLimit": 1000,
+      "addPanelFields": [
+        {
+          "referenceName": "System.Title",
+          "name": "Title",
+          "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+        }
+      ],
+      "columnFields": [
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Id",
+            "name": "ID",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Id"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Title",
+            "name": "Title",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Title"
+          },
+          "width": 400
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.AssignedTo",
+            "name": "Assigned To",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.AssignedTo"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.State",
+            "name": "State",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.State"
+          },
+          "width": 100
+        },
+        {
+          "columnFieldReference": {
+            "referenceName": "System.Tags",
+            "name": "Tags",
+            "url": "https://dev.azure.com/org/_apis/wit/fields/System.Tags"
+          },
+          "width": 200
+        }
+      ],
+      "workItemTypes": [
+        {
+          "name": "Task",
+          "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Task"
+        }
+      ],
+      "defaultWorkItemType": {
+        "name": "Task",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/wit/workItemTypes/Task"
+      },
+      "color": "FFA4880A",
+      "isHidden": false,
+      "type": "task"
+    }
+  ]
+}

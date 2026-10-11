@@ -125,6 +125,11 @@ var noWebCmds = map[string]string{
 	"ado repo delete":      "destructive, no page to open",
 	"ado repo restore":     "restore prints the repository URL",
 	"ado repo set-default": "local git config",
+	"ado workitem assign":  "changes fields; `ado wi view -w` opens the item",
+	"ado workitem close":   "changes state; `ado wi view -w` opens the item",
+	"ado workitem comment": "prints the comment URL",
+	"ado workitem edit":    "changes fields; `ado wi view -w` opens the item",
+	"ado workitem reopen":  "changes state; `ado wi view -w` opens the item",
 	"ado browse":           "opens the browser by default (-n prints the URL)",
 }
 

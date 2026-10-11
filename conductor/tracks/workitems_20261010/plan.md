@@ -44,21 +44,21 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
     - [x] Detect the live process: `ado api '_apis/projects/{project}?includeCapabilities=true' --jq .capabilities.processTemplate`, then `ado api "_apis/work/processes/<templateTypeId>"`
     - [x] Create `ado-live-test` items with `ado api`; check `@current` resolution and `-R ORG/PROJECT` outside a git repo; destroy items, empty recycle bin
 
-## Phase 2: `create`, `list`, `view`, Aliases
+## Phase 2: `create`, `list`, `view`, Aliases [checkpoint: cb0f253]
 
-- [x] Task: Command group and aliases `13c2b07`
+- [x] Task: Command group and aliases `cb0f253`
     - [x] Write tests: `ado workitem`, `ado wi`, `ado issue` resolve to the same group; help lists subcommands
     - [x] Implement group
-- [x] Task: `ado workitem create` `c3410ec`
+- [x] Task: `ado workitem create` `cb0f253`
     - [x] Write tests: all flags map to JSON Patch ops, `--parent` adds hierarchy link, `--field` passthrough, TTY prompts + Submit/Add metadata/Cancel, non-TTY missing `--type`/`--title` errors, prints URL
     - [x] Write `-w` tests: literal `[Ref.Name]=` keys, path-escaped type, `%20`/`%2B`/`%5C`; every given flag prefilled (title, body, assignee, tags, area, iteration, priority, `--field`) with a warning that `--parent` is ignored; body sent to `System.Description` as Markdown as-is; 8192-byte guard "cannot open in browser: maximum URL length exceeded"
     - [x] Implement `create`; add `ProjectURL`/`WorkItemURL` and move `queryEscape` into internal/adocontext/weburl.go, with `browse` using them; classify in `webCmds`
-- [x] Task: `ado workitem list` `fb22443`
+- [x] Task: `ado workitem list` `cb0f253`
     - [x] Write tests: each filter in generated WIQL, defaults (open, limit 30, changed-date order), TTY table vs TSV, `--json` fields incl. `fields`, empty message
     - [x] Write `-S` tests: search ordered by changed date; pages of ≤ 1000 IDs intersected by `[System.Id] IN (...)` until `--limit` filtered items are found, `$skip` by `len(results)`, stop on short page or `count`; ID parsing from lowercase `fields["system.id"]`; infoCode ≠ 0 → stderr warning; 404/missing search area or Azure DevOps Server → "work item search not available" error
     - [x] Write `-w` tests: opens the ad-hoc query URL `_queries/query/?wiql=...` with the generated WIQL; falls back to the Work Items hub `{project}/_workitems` over the URL length limit
     - [x] Implement `list` (search client via a shared `areaClient(ctx, areaID)` helper generalised from `imsClient`); classify in `webCmds`
-- [x] Task: `ado workitem view` `73cb99f`
+- [x] Task: `ado workitem view` `cb0f253`
     - [x] Write tests: header and fields, grouped relations with linked titles, `-c` comments, `--history` updates, JSON incl. lazy `comments`/`history`, `-w`
     - [x] Implement `view`; classify in `webCmds`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: create, list, view, Aliases' (Protocol in workflow.md)
@@ -66,20 +66,20 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 
 ## Phase 3: `edit`, `close`, `reopen`, `comment`, `assign`
 
-- [ ] Task: `ado workitem edit`
-    - [ ] Write tests: every flag → patch op, multiple IDs, `test /rev` conflict detected with `IsRevConflict` and its message; tags computed client-side (`replace` with the joined set, `add` when none, `replace ""` when all removed); `--add-link`/`--remove-link` with relation removes in descending index order inside one `test /rev` patch; `--body` keeps the field's current format, `--markdown` forces the switch to Markdown; TTY field picker, non-TTY no flags error, partial failure summary exit 1
-    - [ ] Implement `edit` (incl. `--markdown`); optionally drop the 412 assumption in api/pr_workitems_test.go:119; classify in `noWebCmds`
-- [ ] Task: `ado workitem close` / `reopen`
-    - [ ] Write tests per process fixture: default Completed state, `--resolve` (category, then state named "Resolved", else error), `--removed`, `-r` pre-checked against the type-level `System.Reason` allowedValues while still relying on the server; TF401320 Required fixture (Resolved Reason) shown verbatim with a `-f` hint; `--state` override; `-c` comment sent as `/multilineFieldsFormat/System.History` = Markdown in the same patch, falling back to a separate `AddWorkItemComment(format=markdown)` if rejected; already-in-state warning exit 0; multiple IDs; `reopen` → Proposed state, falling back to the first In Progress state
-    - [ ] Implement; classify in `noWebCmds`
-- [ ] Task: `ado workitem comment`
-    - [ ] Write tests: body sources, editor on TTY, non-TTY missing `--body`, `AddWorkItemComment`/`UpdateWorkItemComment` with `format=markdown` (never `AddComment`/`UpdateComment`), `--edit-last`/`--delete-last` via `GetComments(order=desc)` filtered by the authenticated user's id with paging, "no own comment found", `--delete-last` confirm/`--yes` (soft delete; SDK returns only `error`), prints URL
-    - [ ] Implement (reuse shared body input helper); classify in `noWebCmds`
-- [ ] Task: `ado workitem assign`
-    - [ ] Write tests: default `@me`, `--to`, `--unassign`, multiple IDs
-    - [ ] Implement; classify in `noWebCmds`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: edit, close, reopen, comment, assign' (Protocol in workflow.md)
-    - [ ] Live checks with `ado-live-test` items: edit/close/reopen/comment/assign round-trips, `close -c` History Markdown; destroy items, empty recycle bin
+- [x] Task: `ado workitem edit` `14897d4`
+    - [x] Write tests: every flag → patch op, multiple IDs, `test /rev` conflict detected with `IsRevConflict` and its message; tags computed client-side (`replace` with the joined set, `add` when none, `replace ""` when all removed); `--add-link`/`--remove-link` with relation removes in descending index order inside one `test /rev` patch; `--body` keeps the field's current format, `--markdown` forces the switch to Markdown; TTY field picker, non-TTY no flags error, partial failure summary exit 1
+    - [x] Implement `edit` (incl. `--markdown`); optionally drop the 412 assumption in api/pr_workitems_test.go:119; classify in `noWebCmds`
+- [x] Task: `ado workitem close` / `reopen` `57ad58f`
+    - [x] Write tests per process fixture: default Completed state, `--resolve` (category, then state named "Resolved", else error), `--removed`, `-r` pre-checked against the type-level `System.Reason` allowedValues while still relying on the server; TF401320 Required fixture (Resolved Reason) shown verbatim with a `-f` hint; `--state` override; `-c` comment sent as `/multilineFieldsFormat/System.History` = Markdown in the same patch, falling back to a separate `AddWorkItemComment(format=markdown)` if rejected; already-in-state warning exit 0; multiple IDs; `reopen` → Proposed state, falling back to the first In Progress state
+    - [x] Implement; classify in `noWebCmds`
+- [x] Task: `ado workitem comment` `6837230`
+    - [x] Write tests: body sources, editor on TTY, non-TTY missing `--body`, `AddWorkItemComment`/`UpdateWorkItemComment` with `format=markdown` (never `AddComment`/`UpdateComment`), `--edit-last`/`--delete-last` via `GetComments(order=desc)` filtered by the authenticated user's id with paging, "no own comment found", `--delete-last` confirm/`--yes` (soft delete; SDK returns only `error`), prints URL
+    - [x] Implement (reuse shared body input helper); classify in `noWebCmds`
+- [x] Task: `ado workitem assign` `b4326a0`
+    - [x] Write tests: default `@me`, `--to`, `--unassign`, multiple IDs
+    - [x] Implement; classify in `noWebCmds`
+- [x] Task: Conductor - User Manual Verification 'Phase 3: edit, close, reopen, comment, assign' (Protocol in workflow.md)
+    - [x] Live checks with `ado-live-test` items: edit/close/reopen/comment/assign round-trips, `close -c` History Markdown; destroy items, empty recycle bin
 
 ## Phase 4: `link`, `unlink`, `delete`, `restore`
 

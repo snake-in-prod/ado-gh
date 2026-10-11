@@ -1,0 +1,80 @@
+{
+  "_links": {
+    "self": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/1?revision=3"
+    },
+    "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_build/definition?definitionId=1"
+    }
+  },
+  "options": [],
+  "triggers": [
+    {
+      "branchFilters": [],
+      "pathFilters": [],
+      "settingsSourceType": 2,
+      "batchChanges": false,
+      "maxConcurrentBuildsPerBranch": 1,
+      "triggerType": "continuousIntegration"
+    }
+  ],
+  "jobAuthorizationScope": "projectCollection",
+  "jobTimeoutInMinutes": 60,
+  "badgeEnabled": false,
+  "process": {
+    "yamlFilename": "azure-pipelines.yml",
+    "type": 2
+  },
+  "repository": {
+    "properties": {
+      "cleanOptions": "0",
+      "labelSources": "0",
+      "reportBuildStatus": "true"
+    },
+    "id": "00000000-0000-0000-0000-000000000011",
+    "type": "TfsGit",
+    "name": "ado-gh",
+    "url": "https://dev.azure.com/org/proj/_git/ado-gh",
+    "defaultBranch": "refs/heads/main",
+    "clean": null,
+    "checkoutSubmodules": false
+  },
+  "quality": "definition",
+  "drafts": [],
+  "queue": {
+    "id": 9,
+    "name": "Azure Pipelines",
+    "pool": {
+      "id": 9,
+      "name": "Azure Pipelines",
+      "isHosted": true
+    }
+  },
+  "id": 1,
+  "name": "ado-gh",
+  "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/1?revision=3",
+  "uri": "vstfs:///Build/Definition/1",
+  "path": "\\",
+  "type": "build",
+  "queueStatus": "enabled",
+  "revision": 3,
+  "createdDate": "2026-09-20T08:00:00.000Z",
+  "project": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "proj",
+    "state": "wellFormed",
+    "revision": 11,
+    "visibility": "private",
+    "lastUpdateTime": "2026-09-01T08:00:00.000Z"
+  },
+  "variables": {
+    "foo": {
+      "value": "bar",
+      "allowOverride": true
+    },
+    "token": {
+      "value": null,
+      "isSecret": true
+    }
+  }
+}

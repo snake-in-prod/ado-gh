@@ -13,6 +13,9 @@ type Location struct {
 	Area          string `json:"area"`
 	ResourceName  string `json:"resourceName"`
 	RouteTemplate string `json:"routeTemplate"`
+	// ResourceVersion caps the "-preview.N" the SDK negotiates; 0 means 3. Set it to the real
+	// server value where the SDK asks for a higher one, so api-version assertions match production.
+	ResourceVersion int `json:"-"`
 }
 
 // ResourceAreasLocation is the location the SDK resolves before GET {base}/_apis/ResourceAreas.
@@ -56,7 +59,11 @@ func locationsResponse(locs []Location) Responder {
 	out := make([]sdkLocation, len(locs))
 	for i, l := range locs {
 		// The SDK dereferences these during API version negotiation.
-		out[i] = sdkLocation{Location: l, ResourceVersion: 3, MinVersion: "1.0", MaxVersion: "7.2", ReleasedVersion: "7.1"}
+		v := l.ResourceVersion
+		if v == 0 {
+			v = 3
+		}
+		out[i] = sdkLocation{Location: l, ResourceVersion: v, MinVersion: "1.0", MaxVersion: "7.2", ReleasedVersion: "7.1"}
 	}
 	return JSONResponse(collection[sdkLocation]{len(out), out})
 }

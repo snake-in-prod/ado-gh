@@ -2,6 +2,7 @@ package adocontext
 
 import (
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,38 @@ func OrgURL(host, org string) string {
 		return "https://" + host + "/"
 	}
 	return "https://" + hostDevAzure + "/" + url.PathEscape(org) + "/"
+}
+
+// SplitOrgURL splits an https URL of an organization, https://dev.azure.com/ORG/... or
+// https://ORG.visualstudio.com/[DefaultCollection/]..., into the Host, Org and Project it names
+// and the path segments from the first one starting with "_" (e.g. _build, _apis), which no
+// project name does. Project is the one segment before them, empty when there is none (an
+// org-level URL). ok is false for any other URL, or one with no "_" segment.
+func SplitOrgURL(u *url.URL) (repo Repo, rest []string, ok bool) {
+	if u.Scheme != "https" {
+		return Repo{}, nil, false
+	}
+	segs := strings.Split(strings.Trim(u.Path, "/"), "/")
+	host := strings.ToLower(u.Hostname())
+	repo.Host = host
+	if host == hostDevAzure {
+		repo.Org, segs = segs[0], segs[1:]
+	} else if label, isVS := strings.CutSuffix(host, vsSuffix); isVS && label != "" && !strings.Contains(label, ".") {
+		repo.Org = label
+		if strings.EqualFold(segs[0], "DefaultCollection") {
+			segs = segs[1:]
+		}
+	} else {
+		return Repo{}, nil, false
+	}
+	i := slices.IndexFunc(segs, func(s string) bool { return strings.HasPrefix(s, "_") })
+	if repo.Org == "" || strings.HasPrefix(repo.Org, "_") || i < 0 || i > 1 {
+		return Repo{}, nil, false
+	}
+	if i == 1 {
+		repo.Project = segs[0]
+	}
+	return repo, segs[i:], true
 }
 
 // ProjectURL returns the web URL of repo's project, e.g. https://dev.azure.com/org/proj.
@@ -38,6 +71,16 @@ func QueryEscape(v string) string {
 // PRURL returns the web URL of pull request id of repo.
 func PRURL(repo Repo, id int) string {
 	return RepoURL(repo) + "/pullrequest/" + strconv.Itoa(id)
+}
+
+// PipelineURL returns the web URL of pipeline (build definition) id in project.
+func PipelineURL(project Repo, id int) string {
+	return ProjectURL(project) + "/_build?definitionId=" + strconv.Itoa(id)
+}
+
+// RunURL returns the web URL of run (build) id in project.
+func RunURL(project Repo, id int) string {
+	return ProjectURL(project) + "/_build/results?buildId=" + strconv.Itoa(id)
 }
 
 // TaskboardURL returns the web URL of team's taskboard for the iteration at path, e.g.

@@ -41,7 +41,9 @@ func IsNotFound(err error) bool {
 }
 
 // mapErr turns the SDK's error, which UnwrapError returns as WrappedError or *WrappedError,
-// into *HTTPError; other errors pass through.
+// into *HTTPError with its message trimmed and the messages of
+// customProperties.ValidationResults (e.g. a rejected build queue) appended; other errors pass
+// through.
 func mapErr(err error) error {
 	var w *azuredevops.WrappedError
 	if v := (azuredevops.WrappedError{}); errors.As(err, &v) {
@@ -54,10 +56,23 @@ func mapErr(err error) error {
 		he.StatusCode = *w.StatusCode
 	}
 	if w.Message != nil {
-		he.Message = *w.Message
+		he.Message = strings.TrimSpace(*w.Message)
 	}
 	if w.TypeKey != nil {
 		he.TypeKey = *w.TypeKey
+	}
+	if w.CustomProperties != nil {
+		results, _ := (*w.CustomProperties)["ValidationResults"].([]any)
+		var msgs []string
+		for _, r := range results {
+			m, _ := r.(map[string]any)
+			if s, _ := m["message"].(string); strings.TrimSpace(s) != "" {
+				msgs = append(msgs, strings.TrimSpace(s))
+			}
+		}
+		if len(msgs) > 0 {
+			he.Message = strings.TrimSuffix(he.Message, ".") + ": " + strings.Join(msgs, "; ")
+		}
 	}
 	return he
 }

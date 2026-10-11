@@ -214,7 +214,10 @@ func (t *transport) logRequest(req *http.Request) {
 	if t.log == nil {
 		return
 	}
-	t.logf("> %s %s\n", req.Method, req.URL.Redacted())
+	// No query: it can hold a signed URL's sig or other secrets.
+	u := *req.URL
+	u.RawQuery, u.ForceQuery = "", false
+	t.logf("> %s %s\n", req.Method, u.Redacted())
 	for _, k := range slices.Sorted(maps.Keys(req.Header)) {
 		for _, v := range req.Header[k] {
 			if k == "Authorization" {

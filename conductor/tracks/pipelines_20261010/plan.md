@@ -8,36 +8,36 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 1: Pipeline Foundation
 
-- [ ] Task: Fixtures
-    - [ ] httpmock `BuildLocations`, `PipelinesLocations`, `ApprovalLocations` (in the same `StubLocations` call as build/pipelines), `ReleaseLocations` and `StubVSRM` (modelled on `StubSearch`), with a test driving the real SDK clients like `TestWorkItemLocations`; one org name per test (SDK caches discovery per base URL)
-    - [ ] Timeline fixtures with real shapes: YAML Stage → Phase → Job → Task, stage-less `__default`, classic Phase roots (no stages), retried stage attempt, Stage → `Checkpoint` → `Checkpoint.Approval` + `Checkpoint.TaskCheck` (pending approval + check), completed task with `log: null`, skipped task
-    - [ ] Definition fixtures: `process` 1 / 2 + `yamlFilename`, `repository` TfsGit + `defaultBranch`, `queueStatus` paused and disabled, `latestCompletedBuild`, two same-named definitions in different folders
-    - [ ] Artifact fixtures: Container (`#/<id>/<name>`, `%24format=zip`), PipelineArtifact (artprod URL, `artifactsize`), FilePath (`file://` UNC)
-    - [ ] Error fixtures: build-queue 400 with `customProperties.ValidationResults`, `PipelineValidationException`, definition 409 revision conflict
-- [ ] Task: API layer (`api/pipeline.go`, `pkg/cmd/pipeline/shared`)
-    - [ ] Write tests: `build`/`pipelines`/`pipelinesapproval` `ClientImpl`s from `NewSDKClient`; Build API wrappers (definitions, builds, timeline, logs, artifacts, `UpdateBuild` for cancel and `retry=true`), Pipelines API runs, stage retry via `UpdateStage{state:retry, forceRetryAllJobs:false}` keyed by the stage `identifier` (no `retryDependencies`), approvals; raw `SDK.Send` full-definitions read (`includeAllProperties` + `includeLatestBuilds`, `[]build.BuildDefinition`, continuation paging); raw-map definition GET/PUT that changes only `queueStatus`; logs streamed via `GetBuildLog` (never `GetBuildLogLines`); errors trimmed, `mapErr` includes `customProperties.ValidationResults[].message`; build-specific revision-conflict check (409, or 400 mentioning revision)
-    - [ ] Write tests (shared transport): `--debug` logs every request URL without its query string, for all hosts; download errors unwrap `*url.Error` so no URL is printed; a redirect from artprod to `*.blob.core.windows.net` carries no Authorization header and no `sig` appears in the debug log
-    - [ ] Implement wrappers and transport fix
-- [ ] Task: Pipeline and run references
-    - [ ] Write tests: ID, name, folder path (both separators; normalizer turns `/` into `\` and adds a leading `\`), server `name=` pre-filter then exact case-insensitive name/folder match; ambiguous name lists matches; URL forms `_build?definitionId`, `_build/index?definitionId`, `_build/results?buildId`, `_build/index?buildid` (case-insensitive key, extra params ignored) and REST `_apis/build/definitions/N`, `_apis/build/builds/N`, `_apis/pipelines/P/runs/N`; errors never echo the ref; run ID/URL; no-arg run → TTY prompt over recent runs / non-TTY error
-    - [ ] Implement resolvers; factor org/project splitting out of `pkg/cmd/workitem/shared/ref.go`; add `PipelineURL`/`RunURL` to `internal/adocontext/weburl.go`
-- [ ] Task: Default pipeline resolution
-    - [ ] Write tests: current repo GUID via `RepoClient.Repository`, then `GetDefinitions(repositoryId=<guid>, repositoryType=TfsGit)`; disabled definitions excluded, paused ones kept (they can still be queued manually); one definition → used; several → TTY select / non-TTY error listing names; none → error with hint
-    - [ ] Implement
-- [ ] Task: Status model and exit codes
-    - [ ] Write tests: status/result → mark and color (failure mark "X", matching `pr checks` and the work item commands), result → exit code (0/1/2), partiallySucceeded → 1
-    - [ ] Implement
-- [ ] Task: Timeline tree model and renderer
-    - [ ] Write tests: tree rebuilt from flat records by `parentId`, siblings sorted by `order`; Stage → Job → Task with the Phase level collapsed; missing/null parent → root (classic without stages); implicit `__default` stage hidden, its jobs shown at the top level as with classic builds; retried nodes deduped by `identifier` (fallback `name`) keeping the highest `attempt`, latest attempt only with "attempt N" next to the node (no older-attempt fetches); durations; issues collected as annotations; pending from non-completed `Checkpoint.*` records keyed by `identifier` with `id` fallback; Checkpoint records hidden from the tree; unknown `Checkpoint.*` shown as "waiting: <name>"; verbose vs default expansion; failed jobs auto-expanded; JSON tree shape
-    - [ ] Implement (renderer shared with `release`); promote `timeOf` from `pkg/cmd/pr/shared/checks.go:237`; copy the `buildTree`/`walk` pattern from `pkg/cmd/workitem/query/render.go`
-- [ ] Task: Live test environment: setup and teardown
-    - [ ] Note: steps that change the org (classic toggles, agent registration, throwaway repo) are run by the main session during manual verification, with the user's prior approval (granted in o23–o25), not by swarm workers. Credential: Entra login.
-    - [ ] Setup prerequisites: self-hosted agent registered in WSL in the `Default` pool (temporary); org-level "Disable creation of classic build/release pipelines" toggles turned off for the test
-    - [ ] Setup repo: throwaway repo `ado-live` in project `ado-gh` holding `azure-pipelines.yml`
-    - [ ] Setup via `ado api`: YAML pipeline (raw JSON with `configuration.path` and `repository`), definition variable `foo` with allowOverride, environment + Approval check (`resource.type: environment`, approver = the user) + pipeline permission, classic build definition, agentless (`runOnServer`) release definition with two environments and a pre-deployment approval on the second
-    - [ ] Teardown, in order: release definition `forceDelete` → build retention leases → build definitions (YAML and classic, with their builds) → environment and check → throwaway repo `ado-live` → classic toggles turned back on → agent unregistered, pool registration removed, its registration PAT revoked
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Pipeline Foundation' (Protocol in workflow.md)
-    - [ ] Set up the live test environment; confirm live and correct fixtures if needed: timeline type strings, Checkpoint states while waiting, approval `id` vs `identifier`, `__default` stage, retry layout, the "No hosted parallelism" message
+- [x] Task: Fixtures `10e36f1`
+    - [x] httpmock `BuildLocations`, `PipelinesLocations`, `ApprovalLocations` (in the same `StubLocations` call as build/pipelines), `ReleaseLocations` and `StubVSRM` (modelled on `StubSearch`), with a test driving the real SDK clients like `TestWorkItemLocations`; one org name per test (SDK caches discovery per base URL)
+    - [x] Timeline fixtures with real shapes: YAML Stage → Phase → Job → Task, stage-less `__default`, classic Phase roots (no stages), retried stage attempt, Stage → `Checkpoint` → `Checkpoint.Approval` + `Checkpoint.TaskCheck` (pending approval + check), completed task with `log: null`, skipped task
+    - [x] Definition fixtures: `process` 1 / 2 + `yamlFilename`, `repository` TfsGit + `defaultBranch`, `queueStatus` paused and disabled, `latestCompletedBuild`, two same-named definitions in different folders
+    - [x] Artifact fixtures: Container (`#/<id>/<name>`, `%24format=zip`), PipelineArtifact (artprod URL, `artifactsize`), FilePath (`file://` UNC)
+    - [x] Error fixtures: build-queue 400 with `customProperties.ValidationResults`, `PipelineValidationException`, definition 409 revision conflict
+- [x] Task: API layer (`api/pipeline.go`, `pkg/cmd/pipeline/shared`) `d025517`
+    - [x] Write tests: `build`/`pipelines`/`pipelinesapproval` `ClientImpl`s from `NewSDKClient`; Build API wrappers (definitions, builds, timeline, logs, artifacts, `UpdateBuild` for cancel and `retry=true`), Pipelines API runs, stage retry via `UpdateStage{state:retry, forceRetryAllJobs:false}` keyed by the stage `identifier` (no `retryDependencies`), approvals; raw `SDK.Send` full-definitions read (`includeAllProperties` + `includeLatestBuilds`, `[]build.BuildDefinition`, continuation paging); raw-map definition GET/PUT that changes only `queueStatus`; logs streamed via `GetBuildLog` (never `GetBuildLogLines`); errors trimmed, `mapErr` includes `customProperties.ValidationResults[].message`; build-specific revision-conflict check (409, or 400 mentioning revision)
+    - [x] Write tests (shared transport): `--debug` logs every request URL without its query string, for all hosts; download errors unwrap `*url.Error` so no URL is printed; a redirect from artprod to `*.blob.core.windows.net` carries no Authorization header and no `sig` appears in the debug log
+    - [x] Implement wrappers and transport fix
+- [x] Task: Pipeline and run references `10e057e`
+    - [x] Write tests: ID, name, folder path (both separators; normalizer turns `/` into `\` and adds a leading `\`), server `name=` pre-filter then exact case-insensitive name/folder match; ambiguous name lists matches; URL forms `_build?definitionId`, `_build/index?definitionId`, `_build/results?buildId`, `_build/index?buildid` (case-insensitive key, extra params ignored) and REST `_apis/build/definitions/N`, `_apis/build/builds/N`, `_apis/pipelines/P/runs/N`; errors never echo the ref; run ID/URL; no-arg run → TTY prompt over recent runs / non-TTY error
+    - [x] Implement resolvers; factor org/project splitting out of `pkg/cmd/workitem/shared/ref.go`; add `PipelineURL`/`RunURL` to `internal/adocontext/weburl.go`
+- [x] Task: Default pipeline resolution `688dff7`
+    - [x] Write tests: current repo GUID via `RepoClient.Repository`, then `GetDefinitions(repositoryId=<guid>, repositoryType=TfsGit)`; disabled definitions excluded, paused ones kept (they can still be queued manually); one definition → used; several → TTY select / non-TTY error listing names; none → error with hint
+    - [x] Implement
+- [x] Task: Status model and exit codes `713afc4`
+    - [x] Write tests: status/result → mark and color (failure mark "X", matching `pr checks` and the work item commands), result → exit code (0/1/2), partiallySucceeded → 1
+    - [x] Implement
+- [x] Task: Timeline tree model and renderer `7f08306`
+    - [x] Write tests: tree rebuilt from flat records by `parentId`, siblings sorted by `order`; Stage → Job → Task with the Phase level collapsed; missing/null parent → root (classic without stages); implicit `__default` stage hidden, its jobs shown at the top level as with classic builds; retried nodes deduped by `identifier` (fallback `name`) keeping the highest `attempt`, latest attempt only with "attempt N" next to the node (no older-attempt fetches); durations; issues collected as annotations; pending from non-completed `Checkpoint.*` records keyed by `identifier` with `id` fallback; Checkpoint records hidden from the tree; unknown `Checkpoint.*` shown as "waiting: <name>"; verbose vs default expansion; failed jobs auto-expanded; JSON tree shape
+    - [x] Implement (renderer shared with `release`); promote `timeOf` from `pkg/cmd/pr/shared/checks.go:237`; copy the `buildTree`/`walk` pattern from `pkg/cmd/workitem/query/render.go`
+- [x] Task: Live test environment: setup and teardown `0000000`
+    - [x] Note: steps that change the org (classic toggles, agent registration, throwaway repo) are run by the main session during manual verification, with the user's prior approval (granted in o23–o25), not by swarm workers. Credential: Entra login.
+    - [x] Setup prerequisites: self-hosted agent registered in WSL in the `Default` pool (temporary; done 2026-10-12, user starts `run.sh`); org-level "Disable creation of classic build/release pipelines" toggles turned off for the test
+    - [x] Setup repo: throwaway repo `ado-live` in project `ado-gh` holding `azure-pipelines.yml`
+    - [x] Setup via `ado api`: YAML pipeline (raw JSON with `configuration.path` and `repository`), definition variable `foo` with allowOverride, environment + Approval check (`resource.type: environment`, approver = the user) + pipeline permission, classic build definition, agentless (`runOnServer`) release definition with two environments and a pre-deployment approval on the second
+    - Teardown (runs in Phase 6 verification), in order: release definition `forceDelete` → build retention leases → build definitions (YAML and classic, with their builds) → environment and check → throwaway repo `ado-live` → classic toggles turned back on → agent unregistered, pool registration removed, its registration PAT revoked
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Pipeline Foundation' (Protocol in workflow.md)
+    - [x] Set up the live test environment; confirm live and correct fixtures if needed: timeline type strings, Checkpoint states while waiting, approval `id` vs `identifier`, `__default` stage, retry layout, the "No hosted parallelism" message
 
 ## Phase 2: `list`, `view`, `logs`
 

@@ -1,0 +1,9 @@
+{
+  "$id": "1",
+  "innerException": null,
+  "message": "The definition revision 3 is out of date; the current revision is 4. Get the latest definition and try again.",
+  "typeName": "Microsoft.TeamFoundation.Build.WebApi.DefinitionRevisionConflictException, Microsoft.TeamFoundation.Build2.WebApi",
+  "typeKey": "DefinitionRevisionConflictException",
+  "errorCode": 0,
+  "eventId": 3000
+}

@@ -1,0 +1,51 @@
+{
+  "count": 3,
+  "value": [
+    {
+      "id": 1,
+      "name": "drop",
+      "source": "00000000-0000-0000-0000-000000010101",
+      "resource": {
+        "type": "Container",
+        "data": "#/1234567/drop",
+        "properties": {
+          "localpath": "/home/vsts/work/1/a",
+          "artifactsize": "10240"
+        },
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/101/artifacts?artifactName=drop&api-version=7.1",
+        "downloadUrl": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/101/artifacts?artifactName=drop&api-version=7.1&%24format=zip"
+      }
+    },
+    {
+      "id": 2,
+      "name": "webapp",
+      "source": "00000000-0000-0000-0000-000000010101",
+      "resource": {
+        "type": "PipelineArtifact",
+        "data": "00000000000000000000000000000000000000000000000000000000000000AA01",
+        "properties": {
+          "RootId": "00000000000000000000000000000000000000000000000000000000000000AA01",
+          "artifactsize": "2048",
+          "HashType": "DEDUP1024K",
+          "DomainId": "0"
+        },
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/101/artifacts?artifactName=webapp&api-version=7.1",
+        "downloadUrl": "https://artprodcus3.artifacts.visualstudio.com/A00000000-0000-0000-0000-000000000003/00000000-0000-0000-0000-000000000001/_apis/artifact/cGlwZWxpbmVhcnRpZmFjdDovL29yZy9wcm9qZWN0SWQvMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAxL2J1aWxkSWQvMTAxL2FydGlmYWN0TmFtZS93ZWJhcHA/content?format=zip"
+      }
+    },
+    {
+      "id": 3,
+      "name": "share",
+      "source": "00000000-0000-0000-0000-000000010101",
+      "resource": {
+        "type": "FilePath",
+        "data": "\\\\fileserver\\drops\\ado-gh\\101",
+        "properties": {
+          "artifactlocation": "\\\\fileserver\\drops\\ado-gh\\101"
+        },
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/101/artifacts?artifactName=share&api-version=7.1",
+        "downloadUrl": "file://fileserver/drops/ado-gh/101/share"
+      }
+    }
+  ]
+}

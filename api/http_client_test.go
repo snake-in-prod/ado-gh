@@ -156,6 +156,38 @@ func TestTransportDebugLogTransportError(t *testing.T) {
 	}
 }
 
+func TestTransportDebugLogOmitsQuery(t *testing.T) {
+	reg := &httpmock.Registry{}
+	reg.Register(httpmock.MatchAny, httpmock.StringResponse("{}"))
+	reg.Register(httpmock.MatchAny, httpmock.StringResponse("{}"))
+	var log bytes.Buffer
+	hc := NewHTTPClient(ClientOptions{Log: &log, Transport: reg})
+	for _, u := range []string{
+		"https://dev.azure.com/org/_apis/build/builds?api-version=7.1&continuationToken=abc",
+		"https://user:pw@x.blob.core.windows.net/c/drop.zip?sv=2020&sig=SECRETSIG",
+	} {
+		resp, err := hc.Get(u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	out := log.String()
+	for _, want := range []string{
+		"> GET https://dev.azure.com/org/_apis/build/builds\n",
+		"> GET https://user:xxxxx@x.blob.core.windows.net/c/drop.zip\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("log missing %q:\n%s", want, out)
+		}
+	}
+	for _, leak := range []string{"?", "sig", "continuationToken", ":pw@"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("log contains %q:\n%s", leak, out)
+		}
+	}
+}
+
 func TestNewHTTPClientClonesDefaultTransport(t *testing.T) {
 	c := NewHTTPClient(ClientOptions{})
 	tr, ok := c.Transport.(*transport)

@@ -1,0 +1,21 @@
+{
+  "customProperties": {
+    "ValidationResults": [
+      {
+        "result": "error",
+        "message": "A value for the 'environment' parameter must be provided."
+      },
+      {
+        "result": "error",
+        "message": "The pipeline is not valid. Job Deploy: Step input azureSubscription references service connection prod which could not be found."
+      }
+    ]
+  },
+  "$id": "1",
+  "innerException": null,
+  "message": "Could not queue the build because there were validation errors or warnings.",
+  "typeName": "Microsoft.TeamFoundation.Build.WebApi.BuildRequestValidationFailedException, Microsoft.TeamFoundation.Build2.WebApi",
+  "typeKey": "BuildRequestValidationFailedException",
+  "errorCode": 0,
+  "eventId": 3000
+}

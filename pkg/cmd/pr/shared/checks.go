@@ -139,7 +139,7 @@ func aggregateChecks(evals []policy.PolicyEvaluationRecord, statuses []git.GitPu
 	folded := map[string]bool{}
 	out := []Check{}
 	for _, e := range evals {
-		ch := Check{State: string(Deref(e.Status)), Link: prURL, StartedAt: timeOf(e.StartedDate), CompletedAt: timeOf(e.CompletedDate)}
+		ch := Check{State: string(Deref(e.Status)), Link: prURL, StartedAt: api.TimeOf(e.StartedDate), CompletedAt: api.TimeOf(e.CompletedDate)}
 		var settings map[string]any
 		typeName := ""
 		if cfg := e.Configuration; cfg != nil {
@@ -185,11 +185,11 @@ func aggregateChecks(evals []policy.PolicyEvaluationRecord, statuses []git.GitPu
 		}
 		ch := Check{
 			Name: contextName(genre, name), State: string(Deref(s.State)), Type: "status",
-			Description: Deref(s.Description), Link: cmp.Or(Deref(s.TargetUrl), prURL), StartedAt: timeOf(s.CreationDate),
+			Description: Deref(s.Description), Link: cmp.Or(Deref(s.TargetUrl), prURL), StartedAt: api.TimeOf(s.CreationDate),
 		}
 		ch.Bucket = checkBucket(ch.State)
 		if ch.Bucket != "pending" {
-			ch.CompletedAt = timeOf(s.UpdatedDate)
+			ch.CompletedAt = api.TimeOf(s.UpdatedDate)
 		}
 		out = append(out, ch)
 	}
@@ -232,13 +232,6 @@ func contextName(genre, name string) string {
 func str(m map[string]any, key string) string {
 	s, _ := m[key].(string)
 	return s
-}
-
-func timeOf(t *azuredevops.Time) *time.Time {
-	if t == nil {
-		return nil
-	}
-	return &t.Time
 }
 
 func timeAfter(a, b *azuredevops.Time) bool {

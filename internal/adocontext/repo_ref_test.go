@@ -2,6 +2,7 @@ package adocontext
 
 import (
 	"errors"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -121,4 +122,41 @@ func TestWebURLs(t *testing.T) {
 		"the project prefix is trimmed whatever its casing")
 	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_boards/board/t/Web%20Team/Microsoft.RequirementCategory",
 		BoardURL(dev, "Web Team", "Microsoft.RequirementCategory"))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_build?definitionId=5", PipelineURL(dev, 5))
+	assert.Equal(t, "https://fab.visualstudio.com/p/_build/results?buildId=812", RunURL(vs, 812))
+}
+
+func TestSplitOrgURL(t *testing.T) {
+	tests := []struct {
+		raw  string
+		repo Repo
+		rest []string
+	}{
+		{"https://dev.azure.com/org/My%20Proj/_build/results?buildId=1", Repo{Host: "dev.azure.com", Org: "org", Project: "My Proj"}, []string{"_build", "results"}},
+		{"https://DEV.azure.com/org/_apis/wit/workItems/1/", Repo{Host: "dev.azure.com", Org: "org"}, []string{"_apis", "wit", "workItems", "1"}},
+		{"https://Fab.VisualStudio.com/DefaultCollection/p/_build", Repo{Host: "fab.visualstudio.com", Org: "fab", Project: "p"}, []string{"_build"}},
+		{"https://fab.visualstudio.com/_apis/build/builds/1", Repo{Host: "fab.visualstudio.com", Org: "fab"}, []string{"_apis", "build", "builds", "1"}},
+	}
+	for _, tt := range tests {
+		u, err := url.Parse(tt.raw)
+		require.NoError(t, err)
+		repo, rest, ok := SplitOrgURL(u)
+		require.True(t, ok, tt.raw)
+		assert.Equal(t, tt.repo, repo, tt.raw)
+		assert.Equal(t, tt.rest, rest, tt.raw)
+	}
+	for _, raw := range []string{
+		"http://dev.azure.com/org/p/_build",
+		"https://example.com/org/p/_build",
+		"https://a.b.visualstudio.com/p/_build",
+		"https://dev.azure.com/",
+		"https://dev.azure.com/_build",
+		"https://dev.azure.com/org/p",
+		"https://dev.azure.com/org/p/q/_build",
+	} {
+		u, err := url.Parse(raw)
+		require.NoError(t, err)
+		_, _, ok := SplitOrgURL(u)
+		assert.False(t, ok, raw)
+	}
 }

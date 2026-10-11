@@ -1,0 +1,478 @@
+{
+  "count": 4,
+  "value": [
+    {
+      "_links": {
+        "self": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/1?revision=3"
+        },
+        "web": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_build/definition?definitionId=1"
+        }
+      },
+      "options": [],
+      "triggers": [
+        {
+          "branchFilters": [],
+          "pathFilters": [],
+          "settingsSourceType": 2,
+          "batchChanges": false,
+          "maxConcurrentBuildsPerBranch": 1,
+          "triggerType": "continuousIntegration"
+        }
+      ],
+      "jobAuthorizationScope": "projectCollection",
+      "jobTimeoutInMinutes": 60,
+      "badgeEnabled": false,
+      "process": {
+        "yamlFilename": "azure-pipelines.yml",
+        "type": 2
+      },
+      "repository": {
+        "properties": {
+          "cleanOptions": "0",
+          "labelSources": "0",
+          "reportBuildStatus": "true"
+        },
+        "id": "00000000-0000-0000-0000-000000000011",
+        "type": "TfsGit",
+        "name": "ado-gh",
+        "url": "https://dev.azure.com/org/proj/_git/ado-gh",
+        "defaultBranch": "refs/heads/main",
+        "clean": null,
+        "checkoutSubmodules": false
+      },
+      "quality": "definition",
+      "drafts": [],
+      "queue": {
+        "id": 9,
+        "name": "Azure Pipelines",
+        "pool": {
+          "id": 9,
+          "name": "Azure Pipelines",
+          "isHosted": true
+        }
+      },
+      "id": 1,
+      "name": "ado-gh",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/1?revision=3",
+      "uri": "vstfs:///Build/Definition/1",
+      "path": "\\",
+      "type": "build",
+      "queueStatus": "enabled",
+      "revision": 3,
+      "createdDate": "2026-09-20T08:00:00.000Z",
+      "project": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "name": "proj",
+        "state": "wellFormed",
+        "revision": 11,
+        "visibility": "private",
+        "lastUpdateTime": "2026-09-01T08:00:00.000Z"
+      },
+      "latestBuild": {
+        "id": 106,
+        "buildNumber": "20261001.6",
+        "status": "inProgress",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": null,
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/106",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/main",
+        "sourceVersion": "0000000000000000000000000000000000000a06",
+        "definition": {
+          "id": 1,
+          "name": "ado-gh",
+          "path": "\\",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      },
+      "latestCompletedBuild": {
+        "id": 101,
+        "buildNumber": "20261001.1",
+        "status": "completed",
+        "result": "failed",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": "2026-10-01T10:00:50.1233333Z",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/101",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/main",
+        "sourceVersion": "0000000000000000000000000000000000000a01",
+        "definition": {
+          "id": 1,
+          "name": "ado-gh",
+          "path": "\\",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      },
+      "variables": {
+        "foo": {
+          "value": "bar",
+          "allowOverride": true
+        },
+        "token": {
+          "value": null,
+          "isSecret": true
+        }
+      }
+    },
+    {
+      "_links": {
+        "self": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/2?revision=7"
+        },
+        "web": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_build/definition?definitionId=2"
+        }
+      },
+      "options": [],
+      "triggers": [],
+      "jobAuthorizationScope": "projectCollection",
+      "jobTimeoutInMinutes": 60,
+      "badgeEnabled": false,
+      "process": {
+        "phases": [
+          {
+            "steps": [
+              {
+                "environment": {},
+                "enabled": true,
+                "continueOnError": false,
+                "alwaysRun": false,
+                "displayName": "npm install",
+                "timeoutInMinutes": 0,
+                "condition": "succeeded()",
+                "task": {
+                  "id": "00000000-0000-0000-0000-000000000904",
+                  "versionSpec": "1.*",
+                  "definitionType": "task"
+                },
+                "inputs": {
+                  "command": "install"
+                }
+              }
+            ],
+            "name": "Agent job 1",
+            "refName": "Job_1",
+            "condition": "succeeded()",
+            "target": {
+              "executionOptions": {
+                "type": 0
+              },
+              "allowScriptsAuthAccessOption": false,
+              "type": 1
+            },
+            "jobAuthorizationScope": "projectCollection"
+          }
+        ],
+        "target": {
+          "agentSpecification": {
+            "identifier": "ubuntu-latest"
+          }
+        },
+        "type": 1
+      },
+      "repository": {
+        "properties": {
+          "cleanOptions": "0",
+          "labelSources": "0",
+          "reportBuildStatus": "true"
+        },
+        "id": "00000000-0000-0000-0000-000000000011",
+        "type": "TfsGit",
+        "name": "ado-gh",
+        "url": "https://dev.azure.com/org/proj/_git/ado-gh",
+        "defaultBranch": "refs/heads/main",
+        "clean": null,
+        "checkoutSubmodules": false
+      },
+      "quality": "definition",
+      "drafts": [],
+      "queue": {
+        "id": 9,
+        "name": "Azure Pipelines",
+        "pool": {
+          "id": 9,
+          "name": "Azure Pipelines",
+          "isHosted": true
+        }
+      },
+      "id": 2,
+      "name": "nightly",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/2?revision=7",
+      "uri": "vstfs:///Build/Definition/2",
+      "path": "\\Infra",
+      "type": "build",
+      "queueStatus": "paused",
+      "revision": 7,
+      "createdDate": "2026-09-20T08:00:00.000Z",
+      "project": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "name": "proj",
+        "state": "wellFormed",
+        "revision": 11,
+        "visibility": "private",
+        "lastUpdateTime": "2026-09-01T08:00:00.000Z"
+      },
+      "latestBuild": {
+        "id": 103,
+        "buildNumber": "20261001.3",
+        "status": "completed",
+        "result": "succeeded",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": "2026-10-01T10:00:50.1233333Z",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/103",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/main",
+        "sourceVersion": "0000000000000000000000000000000000000a03",
+        "definition": {
+          "id": 2,
+          "name": "nightly",
+          "path": "\\Infra",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      },
+      "latestCompletedBuild": {
+        "id": 103,
+        "buildNumber": "20261001.3",
+        "status": "completed",
+        "result": "succeeded",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": "2026-10-01T10:00:50.1233333Z",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/103",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/main",
+        "sourceVersion": "0000000000000000000000000000000000000a03",
+        "definition": {
+          "id": 2,
+          "name": "nightly",
+          "path": "\\Infra",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      }
+    },
+    {
+      "_links": {
+        "self": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/3?revision=2"
+        },
+        "web": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_build/definition?definitionId=3"
+        }
+      },
+      "options": [],
+      "triggers": [],
+      "jobAuthorizationScope": "projectCollection",
+      "jobTimeoutInMinutes": 60,
+      "badgeEnabled": false,
+      "process": {
+        "yamlFilename": "deploy/azure-pipelines.yml",
+        "type": 2
+      },
+      "repository": {
+        "properties": {
+          "cleanOptions": "0",
+          "labelSources": "0",
+          "reportBuildStatus": "true"
+        },
+        "id": "00000000-0000-0000-0000-000000000011",
+        "type": "TfsGit",
+        "name": "ado-gh",
+        "url": "https://dev.azure.com/org/proj/_git/ado-gh",
+        "defaultBranch": "refs/heads/main",
+        "clean": null,
+        "checkoutSubmodules": false
+      },
+      "quality": "definition",
+      "drafts": [],
+      "queue": {
+        "id": 9,
+        "name": "Azure Pipelines",
+        "pool": {
+          "id": 9,
+          "name": "Azure Pipelines",
+          "isHosted": true
+        }
+      },
+      "id": 3,
+      "name": "deploy",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/3?revision=2",
+      "uri": "vstfs:///Build/Definition/3",
+      "path": "\\Infra",
+      "type": "build",
+      "queueStatus": "disabled",
+      "revision": 2,
+      "createdDate": "2026-09-20T08:00:00.000Z",
+      "project": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "name": "proj",
+        "state": "wellFormed",
+        "revision": 11,
+        "visibility": "private",
+        "lastUpdateTime": "2026-09-01T08:00:00.000Z"
+      }
+    },
+    {
+      "_links": {
+        "self": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/4?revision=1"
+        },
+        "web": {
+          "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_build/definition?definitionId=4"
+        }
+      },
+      "options": [],
+      "triggers": [],
+      "jobAuthorizationScope": "projectCollection",
+      "jobTimeoutInMinutes": 60,
+      "badgeEnabled": false,
+      "process": {
+        "yamlFilename": ".pipelines/deploy.yml",
+        "type": 2
+      },
+      "repository": {
+        "properties": {
+          "cleanOptions": "0",
+          "labelSources": "0",
+          "reportBuildStatus": "true"
+        },
+        "id": "00000000-0000-0000-0000-000000000012",
+        "type": "TfsGit",
+        "name": "web",
+        "url": "https://dev.azure.com/org/proj/_git/web",
+        "defaultBranch": "refs/heads/develop",
+        "clean": null,
+        "checkoutSubmodules": false
+      },
+      "quality": "definition",
+      "drafts": [],
+      "queue": {
+        "id": 9,
+        "name": "Azure Pipelines",
+        "pool": {
+          "id": 9,
+          "name": "Azure Pipelines",
+          "isHosted": true
+        }
+      },
+      "id": 4,
+      "name": "deploy",
+      "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Definitions/4?revision=1",
+      "uri": "vstfs:///Build/Definition/4",
+      "path": "\\Apps\\Web",
+      "type": "build",
+      "queueStatus": "enabled",
+      "revision": 1,
+      "createdDate": "2026-09-20T08:00:00.000Z",
+      "project": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "name": "proj",
+        "state": "wellFormed",
+        "revision": 11,
+        "visibility": "private",
+        "lastUpdateTime": "2026-09-01T08:00:00.000Z"
+      },
+      "latestBuild": {
+        "id": 105,
+        "buildNumber": "20261001.5",
+        "status": "inProgress",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": null,
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/105",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/develop",
+        "sourceVersion": "0000000000000000000000000000000000000a05",
+        "definition": {
+          "id": 4,
+          "name": "deploy",
+          "path": "\\Apps\\Web",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      },
+      "latestCompletedBuild": {
+        "id": 102,
+        "buildNumber": "20261001.2",
+        "status": "completed",
+        "result": "succeeded",
+        "queueTime": "2026-10-01T10:00:00.1233333Z",
+        "startTime": "2026-10-01T10:00:01.1233333Z",
+        "finishTime": "2026-10-01T10:00:50.1233333Z",
+        "url": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/Builds/102",
+        "reason": "individualCI",
+        "sourceBranch": "refs/heads/develop",
+        "sourceVersion": "0000000000000000000000000000000000000a02",
+        "definition": {
+          "id": 4,
+          "name": "deploy",
+          "path": "\\Apps\\Web",
+          "type": "build",
+          "queueStatus": "enabled",
+          "revision": 3,
+          "project": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "proj"
+          }
+        },
+        "project": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "proj"
+        }
+      }
+    }
+  ]
+}

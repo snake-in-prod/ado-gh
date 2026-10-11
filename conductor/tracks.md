@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Add pipeline commands mirroring gh run/workflow: `ado pipeline` (alias `run`) list/run/view/watch/logs/cancel/rerun/download/approve/reject/enable/disable for YAML and classic builds, default pipeline per repo, `ado release` group for Classic Release pipelines, `--json/--jq/--template` on read commands**
+- [~] **Track: Add pipeline commands mirroring gh run/workflow: `ado pipeline` (alias `run`) list/run/view/watch/logs/cancel/rerun/download/approve/reject/enable/disable for YAML and classic builds, default pipeline per repo, `ado release` group for Classic Release pipelines, `--json/--jq/--template` on read commands**
 *Link: [./tracks/pipelines_20261010/](./tracks/pipelines_20261010/)*
 
 ---

@@ -20,6 +20,8 @@ func TestHandleError(t *testing.T) {
 		{"silent", SilentError, ExitError, ""},
 		{"wrapped silent", fmt.Errorf("x: %w", SilentError), ExitError, ""},
 		{"cancel", CancelError, ExitCancel, ""},
+		{"pending", PendingError, ExitPending, ""},
+		{"wrapped pending", fmt.Errorf("checks: %w", PendingError), ExitPending, ""},
 		{"auth", &AuthError{Err: errors.New("not logged in to dev.azure.com")}, ExitAuth,
 			"not logged in to dev.azure.com\nrun: ado auth login\n"},
 		{"wrapped auth", fmt.Errorf("pr list: %w", &AuthError{Err: errors.New("401")}), ExitAuth,

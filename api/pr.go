@@ -85,6 +85,7 @@ func (c *PRClient) PullRequest(ctx context.Context, id int) (*git.GitPullRequest
 
 // ListPullRequests returns up to limit pull requests matching criteria, paging with $top and
 // $skip until limit or an empty page. draftOnly keeps only drafts (no server-side filter).
+// With an empty Repo it lists the pull requests of every repository in the project.
 func (c *PRClient) ListPullRequests(ctx context.Context, criteria git.GitPullRequestSearchCriteria, limit int, draftOnly bool) ([]git.GitPullRequest, error) {
 	var out []git.GitPullRequest
 	for skip := 0; len(out) < limit; {
@@ -92,9 +93,17 @@ func (c *PRClient) ListPullRequests(ctx context.Context, criteria git.GitPullReq
 		if !draftOnly {
 			top = min(top, limit-len(out))
 		}
-		page, err := c.Git.GetPullRequests(ctx, git.GetPullRequestsArgs{
-			RepositoryId: &c.Repo, Project: &c.Project, SearchCriteria: &criteria, Top: &top, Skip: &skip,
-		})
+		var page *[]git.GitPullRequest
+		var err error
+		if c.Repo == "" {
+			page, err = c.Git.GetPullRequestsByProject(ctx, git.GetPullRequestsByProjectArgs{
+				Project: &c.Project, SearchCriteria: &criteria, Top: &top, Skip: &skip,
+			})
+		} else {
+			page, err = c.Git.GetPullRequests(ctx, git.GetPullRequestsArgs{
+				RepositoryId: &c.Repo, Project: &c.Project, SearchCriteria: &criteria, Top: &top, Skip: &skip,
+			})
+		}
 		if err != nil {
 			return nil, mapErr(err)
 		}
@@ -376,6 +385,18 @@ func (c *PRClient) DeleteRef(ctx context.Context, branch, oldObjectID string) er
 		msg += ": " + *res.CustomMessage
 	}
 	return fmt.Errorf("cannot delete branch %s: %s", branch, msg)
+}
+
+// ListLabels returns the labels of pull request id. The pull request GET doesn't include them.
+func (c *PRClient) ListLabels(ctx context.Context, id int) ([]core.WebApiTagDefinition, error) {
+	ls, err := c.Git.GetPullRequestLabels(ctx, git.GetPullRequestLabelsArgs{RepositoryId: &c.Repo, PullRequestId: &id, Project: &c.Project})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	if ls == nil {
+		return nil, nil
+	}
+	return *ls, nil
 }
 
 // AddLabel adds the label name to pull request id, creating the tag when it doesn't exist.

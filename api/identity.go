@@ -90,6 +90,53 @@ func (r *IdentityResolver) resolve(ctx context.Context, v string) (uuid.UUID, er
 	return r.pick(v, matches)
 }
 
+// MemberGroups returns the subset of groupIDs (group or team identity ids, e.g. container
+// reviewers of pull requests) that the signed-in user belongs to, directly or through nested
+// groups. Keys are lower-case ids.
+func (r *IdentityResolver) MemberGroups(ctx context.Context, groupIDs []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if len(groupIDs) == 0 {
+		return out, nil
+	}
+	me, err := r.current(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if r.ims == nil {
+		if r.ims, err = r.imsClient(ctx); err != nil {
+			return nil, err
+		}
+	}
+	up, none, myID := identity.QueryMembershipValues.ExpandedUp, identity.QueryMembershipValues.None, me.Id.String()
+	mine, err := r.ims.ReadIdentities(ctx, identity.ReadIdentitiesArgs{IdentityIds: &myID, QueryMembership: &up})
+	if err != nil {
+		return nil, scopeHint("your groups", err)
+	}
+	memberOf := map[string]bool{}
+	for _, i := range *mine {
+		if i.MemberOf != nil {
+			for _, d := range *i.MemberOf {
+				memberOf[strings.ToLower(d)] = true
+			}
+		}
+	}
+	if len(memberOf) == 0 {
+		return out, nil
+	}
+	// ponytail: one request for every id; batch it if URLs grow too long for many groups.
+	ids := strings.Join(groupIDs, ",")
+	groups, err := r.ims.ReadIdentities(ctx, identity.ReadIdentitiesArgs{IdentityIds: &ids, QueryMembership: &none})
+	if err != nil {
+		return nil, scopeHint("reviewer groups", err)
+	}
+	for _, g := range *groups {
+		if g.Id != nil && g.Descriptor != nil && memberOf[strings.ToLower(*g.Descriptor)] {
+			out[strings.ToLower(g.Id.String())] = true
+		}
+	}
+	return out, nil
+}
+
 // search runs the IMS lookup with each filter until one returns matches.
 func (r *IdentityResolver) search(ctx context.Context, v string) ([]identity.Identity, error) {
 	if r.ims == nil {

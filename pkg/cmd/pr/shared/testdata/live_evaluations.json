@@ -1,0 +1,110 @@
+{
+  "value": [
+    {
+      "configuration": {
+        "createdBy": {
+          "displayName": "Test User",
+          "uniqueName": "test@example.invalid",
+          "id": "00000000-0000-0000-0000-000000000001"
+        },
+        "createdDate": "2026-10-11T01:31:10.763732Z",
+        "isEnabled": true,
+        "isBlocking": true,
+        "isDeleted": false,
+        "settings": {
+          "statusName": "ci",
+          "statusGenre": "ado-smoke",
+          "authorId": null,
+          "invalidateOnSourceUpdate": false,
+          "defaultDisplayName": null,
+          "policyApplicability": null,
+          "scope": [
+            {
+              "refName": "refs/heads/main",
+              "matchKind": "Exact",
+              "repositoryId": "6c871aa6-8326-48b8-977d-6f081d0e2bb2"
+            }
+          ]
+        },
+        "isEnterpriseManaged": false,
+        "_links": {
+          "self": {
+            "href": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/configurations/1"
+          },
+          "policyType": {
+            "href": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/types/cbdc66da-9728-4af8-aada-9a5a32e4a226"
+          }
+        },
+        "revision": 1,
+        "id": 1,
+        "url": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/configurations/1",
+        "type": {
+          "id": "cbdc66da-9728-4af8-aada-9a5a32e4a226",
+          "url": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/types/cbdc66da-9728-4af8-aada-9a5a32e4a226",
+          "displayName": "Status"
+        }
+      },
+      "artifactId": "vstfs:///CodeReview/CodeReviewId/5787ce71-d3e5-4525-9886-933f3bf3ab87%2f1",
+      "evaluationId": "be921dcc-41ae-44c9-8335-f4f5c682c3f8",
+      "startedDate": "2026-10-11T01:32:39.7430241Z",
+      "completedDate": "2026-10-11T01:33:53.912707Z",
+      "status": "approved",
+      "context": {
+        "latestStatusId": 4
+      }
+    },
+    {
+      "configuration": {
+        "createdBy": {
+          "displayName": "Test User",
+          "uniqueName": "test@example.invalid",
+          "id": "00000000-0000-0000-0000-000000000001"
+        },
+        "createdDate": "2026-10-11T01:31:11.6598243Z",
+        "isEnabled": true,
+        "isBlocking": true,
+        "isDeleted": false,
+        "settings": {
+          "minimumApproverCount": 1,
+          "creatorVoteCounts": false,
+          "allowDownvotes": false,
+          "resetOnSourcePush": false,
+          "requireVoteOnLastIteration": false,
+          "resetRejectionsOnSourcePush": false,
+          "blockLastPusherVote": false,
+          "requireVoteOnEachIteration": false,
+          "scope": [
+            {
+              "refName": "refs/heads/main",
+              "matchKind": "Exact",
+              "repositoryId": "6c871aa6-8326-48b8-977d-6f081d0e2bb2"
+            }
+          ]
+        },
+        "isEnterpriseManaged": false,
+        "_links": {
+          "self": {
+            "href": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/configurations/2"
+          },
+          "policyType": {
+            "href": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/types/fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"
+          }
+        },
+        "revision": 1,
+        "id": 2,
+        "url": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/configurations/2",
+        "type": {
+          "id": "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd",
+          "url": "https://dev.azure.com/snake-in-prod/5787ce71-d3e5-4525-9886-933f3bf3ab87/_apis/policy/types/fa4e907d-c16b-4a4c-9dfa-4906e5d171dd",
+          "displayName": "Minimum number of reviewers"
+        }
+      },
+      "artifactId": "vstfs:///CodeReview/CodeReviewId/5787ce71-d3e5-4525-9886-933f3bf3ab87%2f1",
+      "evaluationId": "f3870cb0-4bfd-4a8f-a980-71195d7b3da4",
+      "startedDate": "2026-10-11T01:32:39.7430241Z",
+      "status": "queued",
+      "context": {}
+    }
+  ],
+  "count": 2
+}

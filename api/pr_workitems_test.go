@@ -121,3 +121,14 @@ func TestUnlinkWorkItemPatchError(t *testing.T) {
 	_, err := c.UnlinkWorkItem(context.Background(), 5, wiArtifact)
 	assert.EqualError(t, err, "rev mismatch (HTTP 412)")
 }
+
+func TestListLabels(t *testing.T) {
+	org := "listlabelsorg"
+	c, reg := newTestPRClient(t, org)
+	reg.Register(httpmock.REST(http.MethodGet, org+prBase+"/9/labels"),
+		httpmock.JSONResponse(map[string]any{"count": 1, "value": []map[string]any{{"name": "smoke", "active": true}}}))
+	got, err := c.ListLabels(context.Background(), 9)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "smoke", *got[0].Name)
+}

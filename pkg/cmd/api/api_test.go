@@ -127,6 +127,12 @@ func TestURL(t *testing.T) {
 			want: "https://contoso.visualstudio.com/_apis/projects?api-version=7.1",
 		},
 		{
+			// Live bug: "://" in the query made the relative path look absolute.
+			name: "relative path with a URL in the query",
+			args: []string{"Fabrikam/_apis/policy/evaluations?artifactId=vstfs:///CodeReview/CodeReviewId/p/1"},
+			want: "https://dev.azure.com/contoso/Fabrikam/_apis/policy/evaluations?api-version=7.1&artifactId=vstfs%3A%2F%2F%2FCodeReview%2FCodeReviewId%2Fp%2F1",
+		},
+		{
 			name: "absolute URL with {org}",
 			args: []string{"https://vssps.dev.azure.com/{org}/_apis/graph/users"},
 			want: "https://vssps.dev.azure.com/contoso/_apis/graph/users?api-version=7.1",

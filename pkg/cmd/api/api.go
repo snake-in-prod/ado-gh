@@ -335,7 +335,8 @@ func (o *options) write(body []byte, isJSON bool) error {
 // authenticate to.
 func (o *options) resolveURL() (u *url.URL, host, org string, err error) {
 	p := o.path
-	abs := strings.Contains(p, "://")
+	// Absolute only when the path starts with a scheme: queries may hold URLs (artifactId=vstfs:///...).
+	abs := strings.HasPrefix(p, "https://") || strings.HasPrefix(p, "http://")
 	var repo adocontext.Repo
 	switch {
 	case strings.Contains(p, "{project}") || strings.Contains(p, "{repo}"):

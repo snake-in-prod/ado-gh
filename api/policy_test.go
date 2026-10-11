@@ -34,3 +34,27 @@ func TestPolicyEvaluationsError(t *testing.T) {
 	_, err := c.PolicyEvaluations(context.Background(), policyProjectID, 1)
 	assert.EqualError(t, err, "denied (HTTP 403)")
 }
+
+func TestStatuses(t *testing.T) {
+	org := "prstatusesorg"
+	c, reg := newTestPRClient(t, org)
+	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/git/repositories/repo/pullRequests/42/statuses"),
+		httpmock.JSONResponse(map[string]any{"count": 1, "value": []map[string]any{
+			{"id": 3, "state": "succeeded", "context": map[string]any{"genre": "ci", "name": "lint"}},
+		}}))
+
+	got, err := c.Statuses(context.Background(), 42)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "lint", *got[0].Context.Name)
+	assert.Equal(t, "succeeded", string(*got[0].State))
+}
+
+func TestStatusesError(t *testing.T) {
+	org := "prstatuseserrorg"
+	c, reg := newTestPRClient(t, org)
+	reg.Register(httpmock.MatchAny, httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "gone"}))
+
+	_, err := c.Statuses(context.Background(), 1)
+	assert.EqualError(t, err, "gone (HTTP 404)")
+}

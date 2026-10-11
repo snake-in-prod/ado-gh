@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -290,14 +291,14 @@ func TestAPIDiff(t *testing.T) {
 				"file too large to diff (over 5 MB)\n",
 		},
 		{
-			name: "multi-page changes keep the change list order; folders are skipped",
+			name: "multi-page changes are sorted by path like git; folders are skipped",
 			pages: [][]map[string]any{
 				{apiChange("add", "/z.txt", apiAddSHA, "", ""), {"changeType": "add", "item": map[string]any{"path": "/dir", "isFolder": true}}},
 				{apiChange("delete", "/a.txt", "", apiDelSHA, "")},
 			},
 			blobs: []apiBlobStub{{sha: apiAddSHA, content: "z\n"}, {sha: apiDelSHA, content: "a\n"}},
-			want: "diff --git a/z.txt b/z.txt\nnew file mode 100644\nindex 0000000..ccccccc\n--- /dev/null\n+++ b/z.txt\n@@ -0,0 +1 @@\n+z\n" +
-				"diff --git a/a.txt b/a.txt\ndeleted file mode 100644\nindex ddddddd..0000000\n--- a/a.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-a\n",
+			want: "diff --git a/a.txt b/a.txt\ndeleted file mode 100644\nindex ddddddd..0000000\n--- a/a.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-a\n" +
+				"diff --git a/z.txt b/z.txt\nnew file mode 100644\nindex 0000000..ccccccc\n--- /dev/null\n+++ b/z.txt\n@@ -0,0 +1 @@\n+z\n",
 		},
 		{
 			name: "--name-only lists paths from the change list without downloads and wins over --patch",
@@ -309,7 +310,7 @@ func TestAPIDiff(t *testing.T) {
 			nameOnly:  true,
 			patch:     true,
 			colorMode: "always",
-			want:      "src/x.go\nnew.go\ngone.txt\n",
+			want:      "gone.txt\nnew.go\nsrc/x.go\n",
 		},
 		{
 			name:      "--color always colours",
@@ -463,4 +464,26 @@ func TestIsBinary(t *testing.T) {
 	nulAt := func(i int) []byte { b := []byte(strings.Repeat("x", i+1)); b[i] = 0; return b }
 	assert.True(t, isBinary(nulAt(7999)), "NUL within the first 8000 bytes")
 	assert.False(t, isBinary(nulAt(8000)), "NUL after the first 8000 bytes is text, like git")
+}
+
+// Live PR !1 showed both: ADO lists changes in its own order and returns uppercase object IDs.
+func TestParseChangesSortsLikeGit(t *testing.T) {
+	item := func(p string) git.GitPullRequestChange {
+		return git.GitPullRequestChange{Item: map[string]any{"path": p, "gitObjectType": "blob"}}
+	}
+	got := parseChanges([]git.GitPullRequestChange{item("/.golangci.yml"), item("/.gitignore"), item("/.github/workflows/ci.yml"), item("/.gitattributes")})
+	var paths []string
+	for _, c := range got {
+		paths = append(paths, c.path)
+	}
+	want := []string{".gitattributes", ".github/workflows/ci.yml", ".gitignore", ".golangci.yml"}
+	if !slices.Equal(paths, want) {
+		t.Errorf("order = %v, want %v (git's byte order)", paths, want)
+	}
+}
+
+func TestShortIsLowercase(t *testing.T) {
+	if got := short("AB834C0DEADBEEF"); got != "ab834c0" {
+		t.Errorf("short = %q, want ab834c0", got)
+	}
 }

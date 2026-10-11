@@ -142,3 +142,16 @@ func TestColorScheme(t *testing.T) {
 		}
 	}
 }
+
+func TestRefreshScreen(t *testing.T) {
+	ios, _, out, _ := Test()
+	ios.RefreshScreen()
+	if out.Len() != 0 {
+		t.Errorf("non-TTY RefreshScreen wrote %q, want nothing", out.String())
+	}
+	ios.SetStdoutTTY(true)
+	ios.RefreshScreen()
+	if got, want := out.String(), "\x1b[0;0H\x1b[J"; got != want {
+		t.Errorf("TTY RefreshScreen wrote %q, want %q", got, want)
+	}
+}

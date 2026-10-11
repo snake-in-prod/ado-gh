@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"net/http"
 	"strings"
 	"testing"
@@ -82,7 +83,17 @@ func (e *viewEnv) stubPR(pr map[string]any) {
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/pullRequests/12"), httpmock.JSONResponse(pr))
 }
 
+func (e *viewEnv) stubLabels() {
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/web/pullRequests/12/labels"),
+		httpmock.JSONResponse(map[string]any{"count": 2, "value": []map[string]any{
+			{"id": "6f1c2a5e-0000-4000-8000-000000000001", "name": "bug", "active": true},
+			{"id": "6f1c2a5e-0000-4000-8000-000000000002", "name": "smoke", "active": true},
+		}}))
+}
+
+// stubPolicies also stubs labels: the plain view fetches both.
 func (e *viewEnv) stubPolicies() {
+	e.stubLabels()
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/"+viewProjectID+"/_apis/policy/evaluations"),
 		httpmock.JSONResponse(map[string]any{"count": 4, "value": []map[string]any{
 			evaluation("Minimum number of reviewers", "approved", true),
@@ -188,6 +199,7 @@ func TestViewTTY(t *testing.T) {
 		"Add feature !12\n"+
 		"Active • Ann Lee wants to merge into main from feature/x • about 3 hours ago\n"+
 		"Reviewers: "+wantReviewers+"\n"+
+		"Labels: bug, smoke\n"+
 		"Policies: 1 rejected, 1 running, 1 approved\n"+
 		"\n"+
 		"Adds the feature.\n"+
@@ -202,6 +214,8 @@ func TestViewTTYDraftWithoutDescriptionOrPolicies(t *testing.T) {
 	pr["isDraft"], pr["description"], pr["reviewers"] = true, "", nil
 	e.stubPR(pr)
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/"+viewProjectID+"/_apis/policy/evaluations"),
+		httpmock.JSONResponse(map[string]any{"count": 0, "value": []any{}}))
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/web/pullRequests/12/labels"),
 		httpmock.JSONResponse(map[string]any{"count": 0, "value": []any{}}))
 
 	require.NoError(t, e.run(t, "!12"))
@@ -231,6 +245,7 @@ func TestViewCurrentBranchDefault(t *testing.T) {
 		"draft:\tfalse\n"+
 		"author:\tAnn Lee\n"+
 		"reviewers:\t"+wantReviewers+"\n"+
+		"labels:\tbug, smoke\n"+
 		"policies:\t1 rejected, 1 running, 1 approved\n"+
 		"id:\t12\n"+
 		"url:\t"+e.prURL()+"\n"+
@@ -415,4 +430,18 @@ func TestViewErrors(t *testing.T) {
 		e := newViewEnv(t, false)
 		assert.Error(t, e.run(t, "1", "2"))
 	})
+}
+
+func TestLabelNames(t *testing.T) {
+	assert.Equal(t, "", labelNames(nil))
+	assert.Equal(t, "bug, smoke", labelNames([]shared.LabelJSON{{Name: "bug"}, {Name: "smoke"}}))
+}
+
+func TestViewJSONLabels(t *testing.T) {
+	e := newViewEnv(t, false)
+	e.stubPR(viewPR())
+	e.stubLabels()
+	require.NoError(t, e.run(t, "12", "--json", "labels", "--jq", ".labels[].name"))
+	e.reg.Verify(t)
+	assert.Equal(t, "bug\nsmoke\n", e.out.String())
 }

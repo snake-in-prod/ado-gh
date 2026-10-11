@@ -13,7 +13,6 @@ import (
 	"github.com/cli/go-gh/v2/pkg/text"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/policy"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
@@ -22,14 +21,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jsonFields = append(slices.Clone(shared.JSONFields), "description", "policies", "comments", "threads")
+var jsonFields = append(slices.Clone(shared.JSONFields), "description", "policies", "comments", "threads", "labels")
 
 var voteLabels = map[int]string{
 	10: "Approved", 5: "Approved with suggestions", 0: "No vote", -5: "Waiting for author", -10: "Rejected",
 }
 
 // policyOrder is the summary order of policy statuses; notApplicable is left out.
-var policyOrder = []policy.PolicyEvaluationStatus{"rejected", "broken", "running", "queued", "approved"}
+var policyOrder = []string{"rejected", "broken", "running", "queued", "expired", "approved"}
 
 type options struct {
 	ref           string
@@ -91,9 +90,9 @@ type commentJSON struct {
 }
 
 type policyJSON struct {
-	Name       string                         `json:"name"`
-	Status     *policy.PolicyEvaluationStatus `json:"status"`
-	IsBlocking bool                           `json:"isBlocking"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	IsBlocking bool   `json:"isBlocking"`
 }
 
 func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
@@ -114,9 +113,16 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	wants := func(field string) bool { return o.exporter != nil && slices.Contains(o.exporter.Fields, field) }
 	rawComments := o.exporter == nil && o.comments && !ios.IsStdoutTTY()
 	if wants("policies") || o.exporter == nil && !rawComments {
-		if data.Policies, err = policies(ctx, c, pr); err != nil {
+		if data.Policies, err = policies(ctx, c, pr, shared.RepoURL(repo)); err != nil {
 			return err
 		}
+	}
+	if wants("labels") || o.exporter == nil && !rawComments {
+		ls, err := c.ListLabels(ctx, *pr.PullRequestId)
+		if err != nil {
+			return err
+		}
+		data.Labels = shared.Labels(&ls)
 	}
 	var threads []git.GitPullRequestCommentThread
 	if wants("comments") || wants("threads") || o.exporter == nil && o.comments {
@@ -161,25 +167,15 @@ func threadsJSON(threads []git.GitPullRequestCommentThread) []threadJSON {
 	return out
 }
 
-// policies returns the policy evaluations of pr; none when its project ID is unknown.
-func policies(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) ([]policyJSON, error) {
-	out := []policyJSON{}
-	if pr.Repository == nil || pr.Repository.Project == nil || pr.Repository.Project.Id == nil {
-		return out, nil
-	}
-	evals, err := c.PolicyEvaluations(ctx, pr.Repository.Project.Id.String(), *pr.PullRequestId)
+// policies returns the policy evaluations of pr, a pull request of the repository at repoURL.
+func policies(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest, repoURL string) ([]policyJSON, error) {
+	checks, err := shared.PolicyChecks(ctx, c, pr, repoURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, e := range evals {
-		p := policyJSON{Status: e.Status}
-		if cfg := e.Configuration; cfg != nil {
-			p.IsBlocking = cfg.IsBlocking != nil && *cfg.IsBlocking
-			if cfg.Type != nil {
-				p.Name = shared.Deref(cfg.Type.DisplayName)
-			}
-		}
-		out = append(out, p)
+	out := make([]policyJSON, len(checks))
+	for i, ch := range checks {
+		out[i] = policyJSON{Name: ch.Name, Status: ch.State, IsBlocking: ch.IsRequired}
 	}
 	return out, nil
 }
@@ -201,6 +197,9 @@ func printTTY(ios *iostreams.IOStreams, d viewJSON, threads []git.GitPullRequest
 		cs.Cyan(branch(d.TargetRefName)), cs.Cyan(branch(d.SourceRefName)), ago(d.CreatedDate))
 	if r := reviewers(d.Reviewers); r != "" {
 		fmt.Fprintf(w, "%s %s\n", cs.Bold("Reviewers:"), r)
+	}
+	if l := labelNames(d.Labels); l != "" {
+		fmt.Fprintf(w, "%s %s\n", cs.Bold("Labels:"), l)
 	}
 	if p := policySummary(d.Policies); p != "" {
 		fmt.Fprintf(w, "%s %s\n", cs.Bold("Policies:"), p)
@@ -248,6 +247,7 @@ func printRaw(w io.Writer, d viewJSON) {
 	fmt.Fprintf(w, "draft:\t%t\n", shared.Deref(d.IsDraft))
 	fmt.Fprintf(w, "author:\t%s\n", author(d))
 	fmt.Fprintf(w, "reviewers:\t%s\n", reviewers(d.Reviewers))
+	fmt.Fprintf(w, "labels:\t%s\n", labelNames(d.Labels))
 	fmt.Fprintf(w, "policies:\t%s\n", policySummary(d.Policies))
 	fmt.Fprintf(w, "id:\t%d\n", shared.Deref(d.ID))
 	fmt.Fprintf(w, "url:\t%s\n", d.URL)
@@ -305,9 +305,9 @@ func reviewers(rs []git.IdentityRefWithVote) string {
 }
 
 func policySummary(ps []policyJSON) string {
-	counts := map[policy.PolicyEvaluationStatus]int{}
+	counts := map[string]int{}
 	for _, p := range ps {
-		counts[shared.Deref(p.Status)]++
+		counts[p.Status]++
 	}
 	var parts []string
 	for _, s := range policyOrder {
@@ -341,4 +341,13 @@ func ago(t *azuredevops.Time) string {
 		return ""
 	}
 	return text.RelativeTimeAgo(time.Now(), t.Time)
+}
+
+// labelNames lists label names, comma-separated, as gh does.
+func labelNames(ls []shared.LabelJSON) string {
+	names := make([]string, len(ls))
+	for i, l := range ls {
+		names[i] = l.Name
+	}
+	return strings.Join(names, ", ")
 }

@@ -289,6 +289,19 @@ func TestCloseDeleteBranch(t *testing.T) {
 			wantCalls: []string{"patch", "delete tip999"},
 		},
 		{
+			// Live bug: a same-name local branch without an upstream survived close -d.
+			name:  "same-name local branch without upstream is deleted like gh",
+			fails: map[string]error{closeGetRegexp: &git.Error{ExitCode: 1}},
+			replies: map[string]string{"rev-parse --verify --quiet refs/heads/feat": "abc\n",
+				"symbolic-ref --quiet HEAD": "refs/heads/main\n"},
+			stub: func(t *testing.T, e *closeEnv) {
+				e.stubRefs("tip999")
+				e.stubDeleteRef(t, "succeeded")
+			},
+			wantCalls: []string{"patch", "delete tip999"},
+			wantGit:   []string{"branch -D feat"},
+		},
+		{
 			name:  "no upstream configured at all",
 			fails: map[string]error{closeGetRegexp: &git.Error{ExitCode: 1}},
 			stub: func(t *testing.T, e *closeEnv) {

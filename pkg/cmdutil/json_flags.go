@@ -100,8 +100,18 @@ func exporterFromFlags(cmd *cobra.Command) (*Exporter, error) {
 // keys) keeping only e.Fields, then prints it raw, through --jq or
 // --template, or coloured and indented when color is enabled.
 func (e *Exporter) Write(ios *iostreams.IOStreams, data any) error {
+	return e.write(ios, data, false)
+}
+
+// WriteSections is Write for data that encodes to an object of sections (an object, an array
+// of objects or null each), such as `pr status`: e.Fields filter inside every section.
+func (e *Exporter) WriteSections(ios *iostreams.IOStreams, data any) error {
+	return e.write(ios, data, true)
+}
+
+func (e *Exporter) write(ios *iostreams.IOStreams, data any, sections bool) error {
 	var buf bytes.Buffer
-	if err := e.encode(&buf, data); err != nil {
+	if err := e.encode(&buf, data, sections); err != nil {
 		return err
 	}
 	w := ios.Out
@@ -129,9 +139,10 @@ func (e *Exporter) Write(ios *iostreams.IOStreams, data any) error {
 }
 
 // encode round-trips data through JSON and filters object keys to e.Fields,
-// at the top level or in each element of a top-level array. Requested fields
-// that are absent become null so the output shape is stable.
-func (e *Exporter) encode(w io.Writer, data any) error {
+// at the top level or in each element of a top-level array (one level deeper
+// with sections). Requested fields that are absent become null so the output
+// shape is stable.
+func (e *Exporter) encode(w io.Writer, data any, sections bool) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -142,16 +153,27 @@ func (e *Exporter) encode(w io.Writer, data any) error {
 	if err := dec.Decode(&v); err != nil {
 		return err
 	}
-	if a, ok := v.([]any); ok {
-		for i := range a {
-			a[i] = e.filter(a[i])
+	if m, ok := v.(map[string]any); ok && sections {
+		for k := range m {
+			m[k] = e.filterAll(m[k])
 		}
 	} else {
-		v = e.filter(v)
+		v = e.filterAll(v)
 	}
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	return enc.Encode(v)
+}
+
+// filterAll filters v, or each element of v when it is an array.
+func (e *Exporter) filterAll(v any) any {
+	if a, ok := v.([]any); ok {
+		for i := range a {
+			a[i] = e.filter(a[i])
+		}
+		return a
+	}
+	return e.filter(v)
 }
 
 func (e *Exporter) filter(v any) any {

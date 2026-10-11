@@ -3,6 +3,7 @@ package pr
 
 import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/checkout"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/checks"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/close"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/comment"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/create"
@@ -13,6 +14,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/ready"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/reopen"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/review"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/status"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/view"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -27,6 +29,7 @@ func NewCmdPR(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(
 		checkout.NewCmdCheckout(f),
+		checks.NewCmdChecks(f),
 		close.NewCmdClose(f),
 		comment.NewCmdComment(f),
 		create.NewCmdCreate(f),
@@ -37,6 +40,7 @@ func NewCmdPR(f *cmdutil.Factory) *cobra.Command {
 		ready.NewCmdReady(f),
 		reopen.NewCmdReopen(f),
 		review.NewCmdReview(f),
+		status.NewCmdStatus(f),
 		view.NewCmdView(f),
 	)
 	return cmd

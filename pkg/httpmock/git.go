@@ -7,6 +7,8 @@ const prRoute = "{project}/_apis/git/repositories/{repositoryId}/pullRequests/{p
 var GitPRLocations = []Location{
 	{ID: "9946fd70-0d40-406e-b686-b4744cbbcc37", Area: "git", ResourceName: "pullRequests",
 		RouteTemplate: prRoute},
+	{ID: "a5d28130-9cd2-40fa-9f08-902e7daa9efb", Area: "git", ResourceName: "pullRequests",
+		RouteTemplate: "{project}/_apis/git/pullrequests"},
 	{ID: "01a46dea-7d46-4d40-bc84-319e7c260d99", Area: "git", ResourceName: "pullRequestsById",
 		RouteTemplate: "{project}/_apis/git/pullRequests/{pullRequestId}"},
 	{ID: "4b6702c7-aa35-4b89-9c96-b9abf6d3e540", Area: "git", ResourceName: "pullRequestReviewers",

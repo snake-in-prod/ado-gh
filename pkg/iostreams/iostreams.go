@@ -4,6 +4,7 @@ package iostreams
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -100,6 +101,14 @@ func (s *IOStreams) SetNeverPrompt(v bool) { s.neverPrompt = v }
 // are terminals and prompting is not disabled.
 func (s *IOStreams) CanPrompt() bool {
 	return !s.neverPrompt && s.stdinTTY && s.stdoutTTY
+}
+
+// RefreshScreen moves the cursor home and clears the screen when stdout is a terminal, so
+// the next output redraws in place (from gh's IOStreams.RefreshScreen).
+func (s *IOStreams) RefreshScreen() {
+	if s.stdoutTTY {
+		fmt.Fprint(s.Out, "\x1b[0;0H\x1b[J")
+	}
 }
 
 // SetTerminalWidth overrides the detected terminal width.

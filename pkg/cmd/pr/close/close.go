@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
@@ -97,13 +98,14 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	return nil
 }
 
-// deleteLocal deletes every local branch whose upstream is the remote branch, checking out the
-// repository's default branch first when one of them is checked out.
+// deleteLocal deletes every local branch whose upstream is the remote branch, plus a local branch
+// of the same name (gh deletes that one), checking out the repository's default branch first
+// when one of them is checked out.
 func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, branch string) error {
 	out, err := f.GitClient.Exec(ctx, "config", "--get-regexp", `^branch\..*\.merge$`)
 	var gitErr *gitcmd.Error
 	if errors.As(err, &gitErr) && gitErr.ExitCode == 1 {
-		return nil // no branch has an upstream
+		out, err = nil, nil // no branch has an upstream
 	}
 	if err != nil {
 		return err
@@ -113,6 +115,11 @@ func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, branc
 		key, merge, _ := strings.Cut(line, " ")
 		if merge == "refs/heads/"+branch {
 			locals = append(locals, strings.TrimSuffix(strings.TrimPrefix(key, "branch."), ".merge"))
+		}
+	}
+	if !slices.Contains(locals, branch) {
+		if _, err := f.GitClient.Exec(ctx, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch); err == nil {
+			locals = append([]string{branch}, locals...)
 		}
 	}
 	if len(locals) == 0 {

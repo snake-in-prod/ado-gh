@@ -10,6 +10,7 @@ func TestNewCmdPRRegistersSubcommands(t *testing.T) {
 	cmd := NewCmdPR(&cmdutil.Factory{})
 	for name, want := range map[string]string{
 		"checkout": "checkout",
+		"checks":   "checks",
 		"close":    "close",
 		"comment":  "comment",
 		"ready":    "ready",
@@ -21,6 +22,7 @@ func TestNewCmdPRRegistersSubcommands(t *testing.T) {
 		"merge":    "merge",
 		"complete": "merge",
 		"review":   "review",
+		"status":   "status",
 		"view":     "view",
 	} {
 		if c, _, err := cmd.Find([]string{name}); err != nil || c.Name() != want {

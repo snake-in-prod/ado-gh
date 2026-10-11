@@ -22,7 +22,7 @@
 
 ## 4. Errors & Exit Codes
 - Errors say what failed and what to do next, e.g. `authentication required; run: ado auth login`.
-- Exit codes: `0` success, `1` failure, `2` cancelled (user abort), `4` authentication required. Same as `gh`.
+- Exit codes: `0` success, `1` failure, `2` cancelled (user abort), `4` authentication required, `8` checks still pending (`ado pr checks`). Same as `gh`.
 - Surface ADO API error messages but trim stack noise. Full details go behind `ADO_DEBUG=1` / `--debug`.
 
 ## 5. Safety

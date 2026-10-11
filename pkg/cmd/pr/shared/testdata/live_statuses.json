@@ -1,0 +1,73 @@
+{
+  "value": [
+    {
+      "id": 1,
+      "state": "failed",
+      "description": "ado smoke failed",
+      "context": {
+        "name": "ci",
+        "genre": "ado-smoke"
+      },
+      "creationDate": "2026-10-11T01:33:05.7594992Z",
+      "updatedDate": "2026-10-11T01:33:05.7594992Z",
+      "createdBy": {
+        "displayName": "Test User",
+        "uniqueName": "test@example.invalid",
+        "id": "00000000-0000-0000-0000-000000000001"
+      },
+      "targetUrl": "https://example.com/ci"
+    },
+    {
+      "id": 2,
+      "state": "succeeded",
+      "description": "ado smoke succeeded",
+      "context": {
+        "name": "ci",
+        "genre": "ado-smoke"
+      },
+      "creationDate": "2026-10-11T01:33:12.0237147Z",
+      "updatedDate": "2026-10-11T01:33:12.0237147Z",
+      "createdBy": {
+        "displayName": "Test User",
+        "uniqueName": "test@example.invalid",
+        "id": "00000000-0000-0000-0000-000000000001"
+      },
+      "targetUrl": "https://example.com/ci"
+    },
+    {
+      "id": 3,
+      "state": "pending",
+      "description": "ado smoke pending",
+      "context": {
+        "name": "ci",
+        "genre": "ado-smoke"
+      },
+      "creationDate": "2026-10-11T01:33:38.9028075Z",
+      "updatedDate": "2026-10-11T01:33:38.9028075Z",
+      "createdBy": {
+        "displayName": "Test User",
+        "uniqueName": "test@example.invalid",
+        "id": "00000000-0000-0000-0000-000000000001"
+      },
+      "targetUrl": "https://example.com/ci"
+    },
+    {
+      "id": 4,
+      "state": "succeeded",
+      "description": "ado smoke succeeded",
+      "context": {
+        "name": "ci",
+        "genre": "ado-smoke"
+      },
+      "creationDate": "2026-10-11T01:33:53.8830415Z",
+      "updatedDate": "2026-10-11T01:33:53.8830415Z",
+      "createdBy": {
+        "displayName": "Test User",
+        "uniqueName": "test@example.invalid",
+        "id": "00000000-0000-0000-0000-000000000001"
+      },
+      "targetUrl": "https://example.com/ci"
+    }
+  ],
+  "count": 4
+}

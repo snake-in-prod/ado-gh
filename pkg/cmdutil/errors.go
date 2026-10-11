@@ -13,10 +13,11 @@ type ExitCode int
 
 // Exit codes (spec FR1).
 const (
-	ExitOK     ExitCode = 0
-	ExitError  ExitCode = 1
-	ExitCancel ExitCode = 2
-	ExitAuth   ExitCode = 4
+	ExitOK      ExitCode = 0
+	ExitError   ExitCode = 1
+	ExitCancel  ExitCode = 2
+	ExitAuth    ExitCode = 4
+	ExitPending ExitCode = 8
 )
 
 // SilentError exits 1 without printing; the command already reported the failure.
@@ -24,6 +25,9 @@ var SilentError = errors.New("SilentError") //nolint:revive,staticcheck // gh na
 
 // CancelError exits 2 without printing; the user cancelled.
 var CancelError = errors.New("CancelError") //nolint:revive,staticcheck // gh naming, kept on purpose
+
+// PendingError exits 8 without printing; nothing failed but something is pending.
+var PendingError = errors.New("PendingError") //nolint:revive,staticcheck // gh naming, kept on purpose
 
 // AuthError means credentials are missing or rejected; exits 4.
 type AuthError struct{ Err error }
@@ -53,6 +57,9 @@ func HandleError(stderr io.Writer, err error, usage string) ExitCode {
 	}
 	if errors.Is(err, CancelError) {
 		return ExitCancel
+	}
+	if errors.Is(err, PendingError) {
+		return ExitPending
 	}
 	if errors.Is(err, SilentError) {
 		return ExitError

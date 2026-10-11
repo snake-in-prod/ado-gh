@@ -15,8 +15,8 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 
 ### FR1: `ado pr diff [<ref>]`
 - Default: unified diff from the merge base of target and source to source. Matches the ADO "Files" tab.
-- **In a local clone:** fetch the PR's source and target refs from the ADO remote, then `git diff <merge-base>..<source>`.
-- **Outside a clone (`-R`):** rebuild the diff from the API. Take the latest iteration's changes, fetch base and source blob contents, and run a Go unified-diff library. Binary files print `Binary files a/x and b/x differ`. Renames, adds and deletes produce the matching git headers.
+- **In a local clone:** fetch the PR's source and target refs from the ADO remote, then `git diff <commonRefCommit>..<source>`, where `commonRefCommit` is the latest iteration's common commit from the API (falls back to fetch-by-SHA, then `git merge-base`). git runs with `--no-color --no-ext-diff`; ado colors every path itself.
+- **Outside a clone (`-R`):** rebuild the diff from the API. Take the latest iteration's changes, fetch base and source blob contents (4 parallel downloads, backing off on `Retry-After` / `X-RateLimit-Remaining=0`), and run a Go unified-diff library. Binary files print `Binary files a/x and b/x differ`; blobs over 5 MB print `file too large to diff`. Renames, adds and deletes produce the matching git headers.
 - `--name-only`: changed file paths only.
 - `--patch`: `git format-patch --stdout` style, one patch per commit. Needs a local clone; outside one it fails with `--patch requires a local clone`.
 - `--color {auto|always|never}` (default auto: color only on TTY; respects `NO_COLOR`/`CLICOLOR_FORCE`).
@@ -28,16 +28,16 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 - Reply: `--thread <id>` + body adds a reply to an existing thread.
 - Thread status: `--thread <id> --status {active|fixed|wontFix|closed|byDesign|pending}` (may be combined with a body).
 - Inline: `--file <path> --line <n>[:<m>] [--side {right|left}]` (default right) anchors a new thread to diff lines in the latest iteration. `--line` without `--file` is a usage error.
-- `--edit-last`: replace the body of your most recent comment (needs a body flag or opens the editor).
+- `--edit-last`: replace the body of your most recent non-system comment, including replies and inline comments (needs a body flag or opens the editor). `--create-if-none` creates a new thread when you have none (gh parity); on TTY without it, ado asks `No comments found. Create one?`.
 - `--delete-last`: delete your most recent comment. Confirms on TTY, needs `--yes` in non-interactive mode.
 - `-w/--web`: open the PR in the browser instead.
-- Prints the comment URL.
-- **`ado pr view --comments`** is extended to show thread ID, status, file:line anchor and replies. It adds a `threads` JSON field (`id,status,filePath,line,comments[{id,author,content,publishedDate}]`) to `pr view --json`.
+- Prints the comment URL `<PR URL>?discussionId=<threadId>`.
+- **`ado pr view --comments`** is extended to show thread ID, status, file:line anchor and replies. It adds a `threads` JSON field (`id,status,filePath,line,comments[{id,author,content,publishedDate}]`, `author` an IdentityRef object) to `pr view --json`; the existing `comments` field becomes an alias of the `threads` shape (breaking, before the first release).
 
 ### FR3: `ado pr close [<ref>]` (abandon)
 - Sets status to `abandoned`. `-c/--comment <text>` posts a comment first.
-- `-d/--delete-branch`: deletes the remote source branch. If a local branch tracks it, deletes that too, switching to the default branch first when it's checked out (gh behavior). Skips remote deletion for cross-fork PRs, with a warning.
-- Confirms on TTY (`Abandon pull request !123 "title"?`). `-y/--yes` skips the prompt. Non-interactive without `--yes` refuses: `--yes required when not running interactively`.
+- `-d/--delete-branch`: deletes the remote source branch (abandon happens first). Deletes the same-name local branch and every local branch whose `branch.<name>.merge` is the source branch, switching to the default branch first when one is checked out. Skips remote deletion for cross-fork PRs, with a warning. If the remote delete fails (e.g. no Force push permission), exits 1 naming the branch; the PR stays abandoned.
+- Confirms on TTY (`Abandon pull request !123 "title"?`). `-y/--yes` skips the prompt. Non-interactive without `--yes` refuses: `--yes required when not running interactively`, with usage printed and exit 1 (like `pr merge`).
 - Already abandoned: warning to stderr, exit 0. Completed: error, exit 1.
 
 ### FR4: `ado pr reopen [<ref>]`
@@ -54,22 +54,22 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 - Prints PR URL. Any partial failure (e.g. one bad reviewer) exits 1 and names which edits applied and which didn't.
 
 ### FR6: `ado pr ready [<ref>]`
-- Publishes a draft PR. `--undo` converts it back to draft.
+- Publishes a draft PR. `--undo` converts it back to draft; because that removes all votes, it confirms on TTY when the PR has votes and requires `-y/--yes` when non-interactive.
 - Already in the target state: message, exit 0. Not active (abandoned/completed): error, exit 1.
 
 ### FR7: `ado pr status`
-- Three sections: **Current branch** (PR whose source is the checked-out branch), **Created by you** (active, authored by the signed-in user), **Requesting a review from you** (active, where you or a group you belong to is a reviewer and you have not voted yet).
-- Each row shows id, title, branch, a checks summary (✓ n / ✗ n / pending n), review state (approved / waiting / rejected / required-reviewer pending), and draft marker.
+- Three sections: **Current branch** (PR whose source is the checked-out branch), **Created by you** (active, authored by the signed-in user), **Requesting a review from you** (active, including drafts marked as draft, where you or a group you belong to is a reviewer and you have not voted yet; an optional group reviewer drops out once the group's rolled-up vote is non-zero, a required group reviewer stays until its policy passes).
+- Rows use gh's format (`#N  <title> [<branch>]`, then checks / review / merge-state summary) plus a draft marker. Sections show at most 10 rows, then "And more".
 - `-c/--conflict-status`: show merge status (conflicts / succeeded).
 - `--project`: widen the last two sections from the current repo to every repo in the project. Rows then show the repo name.
-- `--json/--jq/--template`: object `{currentBranch, createdBy, needsReview}` using the `pr list` field set plus `checks`, `reviewDecision`.
+- `--json/--jq/--template`: object `{currentBranch, createdBy, needsReview}`; `--json` takes PR fields (`pr list` field set plus `checks`, `reviewDecision`) filtered inside each section (gh parity).
 
 ### FR8: `ado pr checks [<ref>]`
-- Lists every **policy evaluation** (build validation, minimum reviewers, required reviewers, linked work items, comment resolution, merge strategy, status policies) and every **PR status** (latest per context `genre/name`).
+- Lists every **policy evaluation** (build validation, minimum reviewers, required reviewers, linked work items, comment resolution, merge strategy, status policies; notApplicable evaluations are not requested, matching the ADO UI) and every **PR status** (latest per context `genre/name`).
 - Columns: bucket mark, name, required/optional, state, elapsed, link. Buckets: `pass` (approved/succeeded), `fail` (rejected/broken/failed/error), `pending` (queued/running/notSet/pending, expired build), `skipping` (notApplicable).
-- `--required`: only blocking checks. `--watch` (`-i/--interval` seconds, default 10; `--fail-fast`): refresh until nothing is pending. Redraws in place on TTY, prints only the final state when not a TTY.
+- `--required`: only blocking checks. `--watch` (`-i/--interval` seconds, default 10; `--fail-fast`): refresh until nothing is pending, or stop with a requeue warning when only expired build policies remain. `--fail-fast` requires `--watch`; `--watch` can't be combined with `--json`. Redraws in place on TTY, prints only the final state when not a TTY.
 - `-w/--web`: open the PR overview.
-- Exit codes: `0` all listed checks pass/skip, `1` any listed check failed, `8` none failed but some pending (gh parity). No checks: message `no checks reported`, exit 0.
+- Exit codes (computed from build/status policies and PR statuses only; reviewer, work-item and comment policies are listed but don't count): `0` all pass/skip, `1` any failed, `8` none failed but some pending (gh parity). No checks: message `no checks reported`, exit 0. With `--json` the exit code still follows the buckets.
 - `--json/--jq/--template` fields: `name,state,bucket,type,isRequired,description,link,startedAt,completedAt`.
 
 ## Non-Functional Requirements
@@ -86,7 +86,7 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 - [ ] `ado pr close 123 -d -c "dup"` abandons the PR, comments and deletes branches after a TTY confirmation. Non-TTY without `-y` refuses with exit 1.
 - [ ] `ado pr reopen 123` reactivates it. `ado pr ready 123` and `--undo` toggle draft.
 - [ ] `ado pr edit 123 -t T --add-required-reviewer alice --add-label bug --add-work-item 42 -B main` applies all edits.
-- [ ] `ado pr status` shows all three sections. `--project` widens them. `--json currentBranch` works.
+- [ ] `ado pr status` shows all three sections. `--project` widens them. `--json id,title` filters PR fields inside each section.
 - [ ] `ado pr checks 123` exits 0/1/8 for pass/fail/pending fixtures. `--watch` stops when nothing is pending. `--required` filters.
 - [ ] `docs/gh-differences.md` updated. Coverage >90%. CI green on linux/macos/windows.
 

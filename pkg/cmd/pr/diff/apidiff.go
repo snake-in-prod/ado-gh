@@ -134,6 +134,8 @@ func parseChanges(raw []git.GitPullRequestChange) []fileChange {
 		}
 		out = append(out, fc)
 	}
+	// git prints files in byte order of their paths; ADO returns its own order.
+	slices.SortStableFunc(out, func(a, b fileChange) int { return strings.Compare(a.path, b.path) })
 	return out
 }
 
@@ -235,6 +237,7 @@ func isBinary(data []byte) bool {
 	return bytes.IndexByte(data[:min(len(data), binarySniff)], 0) >= 0
 }
 
+// short abbreviates an object ID like git: 7 characters, lowercase (ADO returns uppercase).
 func short(id string) string {
-	return id[:min(len(id), 7)]
+	return strings.ToLower(id[:min(len(id), 7)])
 }

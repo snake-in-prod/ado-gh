@@ -63,24 +63,28 @@ func Find(ctx context.Context, f *cmdutil.Factory, ref string) (*git.GitPullRequ
 			return nil, nil, repo, err
 		}
 	}
-	pr, err := findForBranch(ctx, c, branch)
+	pr, err := FindForBranch(ctx, c, branch)
+	if err == nil && pr == nil {
+		err = fmt.Errorf("no pull request found for branch %q in %s/%s", branch, c.Project, c.Repo)
+	}
 	return pr, c, repo, err
 }
 
-// findForBranch returns the newest active pull request from branch, else its newest one.
-func findForBranch(ctx context.Context, c *api.PRClient, branch string) (*git.GitPullRequest, error) {
+// FindForBranch returns the newest active pull request from branch, else its newest one,
+// or nil when branch has none.
+func FindForBranch(ctx context.Context, c *api.PRClient, branch string) (*git.GitPullRequest, error) {
 	all, src := git.PullRequestStatusValues.All, "refs/heads/"+branch
 	prs, err := c.ListPullRequests(ctx, git.GitPullRequestSearchCriteria{Status: &all, SourceRefName: &src}, branchLookupLimit, false)
 	if err != nil {
 		return nil, err
 	}
-	if len(prs) == 0 {
-		return nil, fmt.Errorf("no pull request found for branch %q in %s/%s", branch, c.Project, c.Repo)
-	}
 	for i := range prs {
 		if prs[i].Status != nil && *prs[i].Status == git.PullRequestStatusValues.Active {
 			return &prs[i], nil
 		}
+	}
+	if len(prs) == 0 {
+		return nil, nil
 	}
 	return &prs[0], nil
 }

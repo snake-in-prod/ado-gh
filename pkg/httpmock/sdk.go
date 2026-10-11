@@ -74,3 +74,26 @@ func (r *Registry) StubIMS(org string) {
 		RouteTemplate: "_apis/{resource}/{identityId}",
 	})
 }
+
+// StubMemberGroups stubs the two IMS reads of IdentityResolver.MemberGroups on the vssps host
+// of org: the expandedUp read of userID answering memberOf descriptors, then (unless groups is
+// nil) the read of the group ids answering groups (id → descriptor). Register StubIMS first.
+func (r *Registry) StubMemberGroups(org, userID string, memberOf []string, groups map[string]string) {
+	identities := func(membership string, match func(ids string) bool) Matcher {
+		return func(req *http.Request) bool {
+			q := req.URL.Query()
+			return req.URL.Host == "vssps.dev.azure.com" && strings.EqualFold(req.URL.Path, "/"+org+"/_apis/identities") &&
+				strings.EqualFold(q.Get("queryMembership"), membership) && q.Get("searchFilter") == "" && match(q.Get("identityIds"))
+		}
+	}
+	r.Register(identities("ExpandedUp", func(ids string) bool { return strings.EqualFold(ids, userID) }),
+		JSONResponse(collection[map[string]any]{1, []map[string]any{{"id": userID, "memberOf": memberOf}}}))
+	if groups == nil {
+		return
+	}
+	out := []map[string]any{}
+	for id, d := range groups {
+		out = append(out, map[string]any{"id": id, "descriptor": d, "isContainer": true})
+	}
+	r.Register(identities("None", func(ids string) bool { return ids != "" }), JSONResponse(collection[map[string]any]{len(out), out}))
+}

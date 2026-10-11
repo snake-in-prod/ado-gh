@@ -15,7 +15,7 @@
 - **`cli/go-gh/v2`** packages: `pkg/term` helpers only (`IsTerminal`/`IsColorDisabled`/`IsColorForced`, not `term.FromEnv`), `pkg/tableprinter`, `pkg/jq`, `pkg/template`, `pkg/browser` (launcher passed explicitly), `pkg/ssh` (SSH alias resolution). No `GH_*` env or gh config is read.
 - **`itchyny/gojq`**: `--jq` (through go-gh).
 - **`aymanbagabas/go-udiff`** v0.4.1 (MIT/BSD-3, a copy of `golang.org/x/tools/internal/diff`, no dependencies): unified diffs for `ado pr diff` outside a local clone.
-  - *2026-10-11:* chosen for git-compatible unified hunks without a git binary; see `tracks/pr_parity_20261010/research.md` q7.
+  - *2026-10-11:* chosen for git-compatible unified hunks without a git binary; see `archive/pr_parity_20261010/research.md` q7.
 - **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
   - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `tracks/mvp_core_20261010/research.md` q10.
 - **`golang.org/x/sync`** (`errgroup`): bounded parallel blob downloads in `ado pr diff` outside a clone.

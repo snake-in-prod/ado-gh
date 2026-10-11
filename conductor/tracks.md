@@ -9,11 +9,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Complete the pull request command group to full gh parity: `ado pr diff/comment/close/reopen/edit/ready/status/checks`, `--json/--jq/--template` on read commands, confirmed destructive actions, updated `docs/gh-differences.md`**
-*Link: [./tracks/pr_parity_20261010/](./tracks/pr_parity_20261010/)*
-
----
-
 - [ ] **Track: Add repository commands and browsing with gh parity: `ado repo list/view/clone/create/delete/set-default`, top-level `ado browse` (repo, file:line, branch, commit, !PR, #work item, --no-browser), and `-w/--web` on every command with a web page**
 *Link: [./tracks/repo_browse_20261010/](./tracks/repo_browse_20261010/)*
 

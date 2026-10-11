@@ -114,4 +114,9 @@ func TestWebURLs(t *testing.T) {
 	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_workitems/edit/7", WorkItemURL(dev, 7))
 	assert.Equal(t, "https://fab.visualstudio.com/p/_workitems/edit/7", WorkItemURL(vs, 7))
 	assert.Equal(t, "a%20b%2Bc%26d%23e%5Cf", QueryEscape(`a b+c&d#e\f`))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_sprints/taskboard/Web%20Team/P%201/R1%5CSprint%203",
+		TaskboardURL(dev, "Web Team", `\P 1\R1\Sprint 3`))
+	assert.Equal(t, "https://fab.visualstudio.com/p/_sprints/taskboard/t/p/S%231", TaskboardURL(vs, "t", `p\S#1`))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_boards/board/t/Web%20Team/Microsoft.RequirementCategory",
+		BoardURL(dev, "Web Team", "Microsoft.RequirementCategory"))
 }

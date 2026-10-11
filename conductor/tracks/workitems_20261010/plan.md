@@ -98,42 +98,42 @@ Live checks (every phase's manual verification) run in snake-in-prod/ado-gh: tes
 - [x] Task: Conductor - User Manual Verification 'Phase 4: link, unlink, delete, restore' (Protocol in workflow.md)
     - [x] Live checks with `ado-live-test` items: `link --pr` with PR !1, `--commit`/`--branch` from this repo, delete + restore, `delete --permanent` with a Read & write PAT; destroy items, empty recycle bin
 
-## Phase 5: `workitem query`
+## Phase 5: `workitem query` [checkpoint: 02d8e99]
 
-- [x] Task: Query input resolution `7649082`
+- [x] Task: Query input resolution `02d8e99`
     - [x] Write tests: GUID → saved ID, `SELECT…` → WIQL, other text → saved path (My Queries / Shared Queries) via `GetQuery(path, $expand=wiql)` then `QueryById(id, Team)`, folder → "not a query" error, `--wiql-file` file and stdin, macros passed through, team-scoped WIQL endpoint with `--team`; mocks stub the SDK OPTIONS lookup
     - [x] Implement
-- [x] Task: Result rendering `f5e1012`
+- [x] Task: Result rendering `02d8e99`
     - [x] Write tests: flat results use query columns (`columns[].referenceName`) via the Phase 1 batch fetcher; trees built from `workItemRelations` (no source = root, grouped by `source.id`, `rel` as link-type column), tree and one-hop rendered nested on TTY; flat `--limit` → `$top`; link queries send no `$top` and trim to `--limit` roots client-side; JSON flat array with known fields mapped to `wi list` names and others under a `fields` map keyed by reference name, nested link shape; note when results reach `--limit` or 20,000; `-w` for saved queries only
     - [x] Implement; classify in `webCmds`
-- [x] Task: `ado workitem query list` `796e9e6`
+- [x] Task: `ado workitem query list` `02d8e99`
     - [x] Write tests: folder tree with paths/IDs, recursion with `GetQuery(folderId, $depth=2)` for folders with `hasChildren` and no `children`, `--folder` filter, JSON fields
     - [x] Implement; classify in `noWebCmds`
 - [x] Task: Conductor - User Manual Verification 'Phase 5: workitem query' (Protocol in workflow.md)
     - [x] Setup: shared flat and tree queries; live checks: `%2F`-encoded query paths, flat/tree results; delete test queries and `ado-live-test` items, empty recycle bin
 
-## Phase 6: `sprint`, `board`, Web, Docs
+## Phase 6: `sprint`, `board`, Web, Docs [checkpoint: f9b5be1]
 
-- [ ] Task: `ado sprint list` / `current`
-    - [ ] Write tests: `--timeframe` filtered client-side on `attributes.timeFrame` (only `current` reaches `$timeframe`; past/future never appear in the query string), JSON fields, working days left from team settings minus `GetTeamDaysOff` for the iteration (fake clock), no current sprint message, `-w`
-    - [ ] Implement (add `work.ClientImpl` wrapper); classify `sprint current` in `webCmds`, `sprint list` in `noWebCmds` with reason
-- [ ] Task: `ado sprint view`
-    - [ ] Write tests: default current iteration, grouping by state category, parent/child nesting, titles/assignees via the batch fetcher, `-a`/`--type` filters, JSON, `-w`
-    - [ ] Implement; classify in `webCmds`
-- [ ] Task: Column renderer (shared by `sprint board` and `board`)
-    - [ ] Write tests: side-by-side columns at given widths, stacked fallback when narrow, card truncation, WIP header `Active 3/5`, split Doing/Done
-    - [ ] Implement
-- [ ] Task: `ado sprint board`
-    - [ ] Write tests: taskboard columns + item mapping with a concrete team always passed, titles via the batch fetcher, TTY render, non-TTY TSV, JSON
-    - [ ] Implement; classify in `noWebCmds` with reason
-- [ ] Task: `ado board`
-    - [ ] Write tests: default level from `GetBacklogConfigurations().RequirementBacklog` (or `GetBacklogs` `type == "requirement"`), `features`/`epics`/level name, `GetBoard(name)` columns and fields; cards from a team-scoped WIQL (category via IN GROUP, `@TeamAreas`, `State <> Removed`, completed items limited by recent ChangedDate) plus a batch call with the WEF column/done fields; cards placed by `fields.columnField`/`doneField`, not `System.BoardColumn`; `itemLimit` 0 = no limit; nil `isSplit` = false; `-a` filter, JSON shape, `-w`
-    - [ ] Implement; classify in `webCmds`
-- [ ] Task: Web audit and docs
-    - [ ] Sprint/board URL builders in internal/adocontext/weburl.go (taskboard `{team}/{project}/{encodeURIComponent(rest)}`, board `_boards/board/t/{team}/{backlogLevelId}`)
-    - [ ] Check every new `workitem`/`sprint`/`board` command is classified in `webCmds`/`noWebCmds`
-    - [ ] README PAT scopes: add "Work Items (Read & write)" and "Project and Team (Read)"; mention Work Items (Full) only if the live destroy check with Read & write fails
-    - [ ] Update `docs/gh-differences.md` with every divergence in the spec, incl. `-S` uses ADO search syntax (`a:`, `c:`, `s:`, `t:`, `tags:`) and `-R ORG/PROJECT` for project-scoped commands
-    - [ ] Verify help text/examples for `workitem *`, `sprint *`, `board`
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: sprint, board, Web, Docs' (Protocol in workflow.md)
-    - [ ] Setup: give one iteration dates covering today, selected by the default team; live checks: work-area routing, sprint taskboard and board URLs, days off; clear test iteration dates, destroy `ado-live-test` items, empty recycle bin
+- [x] Task: `ado sprint list` / `current` `f9b5be1`
+    - [x] Write tests: `--timeframe` filtered client-side on `attributes.timeFrame` (only `current` reaches `$timeframe`; past/future never appear in the query string), JSON fields, working days left from team settings minus `GetTeamDaysOff` for the iteration (fake clock), no current sprint message, `-w`
+    - [x] Implement (add `work.ClientImpl` wrapper); classify `sprint current` in `webCmds`, `sprint list` in `noWebCmds` with reason
+- [x] Task: `ado sprint view` `f9b5be1`
+    - [x] Write tests: default current iteration, grouping by state category, parent/child nesting, titles/assignees via the batch fetcher, `-a`/`--type` filters, JSON, `-w`
+    - [x] Implement; classify in `webCmds`
+- [x] Task: Column renderer (shared by `sprint board` and `board`) `f9b5be1`
+    - [x] Write tests: side-by-side columns at given widths, stacked fallback when narrow, card truncation, WIP header `Active 3/5`, split Doing/Done
+    - [x] Implement
+- [x] Task: `ado sprint board` `f9b5be1`
+    - [x] Write tests: taskboard columns + item mapping with a concrete team always passed, titles via the batch fetcher, TTY render, non-TTY TSV, JSON
+    - [x] Implement; classify in `noWebCmds` with reason
+- [x] Task: `ado board` `f9b5be1`
+    - [x] Write tests: default level from `GetBacklogConfigurations().RequirementBacklog` (or `GetBacklogs` `type == "requirement"`), `features`/`epics`/level name, `GetBoard(name)` columns and fields; cards from a team-scoped WIQL (category via IN GROUP, `@TeamAreas`, `State <> Removed`, completed items limited by recent ChangedDate) plus a batch call with the WEF column/done fields; cards placed by `fields.columnField`/`doneField`, not `System.BoardColumn`; `itemLimit` 0 = no limit; nil `isSplit` = false; `-a` filter, JSON shape, `-w`
+    - [x] Implement; classify in `webCmds`
+- [x] Task: Web audit and docs `f9b5be1`
+    - [x] Sprint/board URL builders in internal/adocontext/weburl.go (taskboard `{team}/{project}/{encodeURIComponent(rest)}`, board `_boards/board/t/{team}/{backlogLevelId}`)
+    - [x] Check every new `workitem`/`sprint`/`board` command is classified in `webCmds`/`noWebCmds`
+    - [x] README PAT scopes: add "Work Items (Read & write)" and "Project and Team (Read)"; mention Work Items (Full) only if the live destroy check with Read & write fails
+    - [x] Update `docs/gh-differences.md` with every divergence in the spec, incl. `-S` uses ADO search syntax (`a:`, `c:`, `s:`, `t:`, `tags:`) and `-R ORG/PROJECT` for project-scoped commands
+    - [x] Verify help text/examples for `workitem *`, `sprint *`, `board`
+- [x] Task: Conductor - User Manual Verification 'Phase 6: sprint, board, Web, Docs' (Protocol in workflow.md)
+    - [x] Setup: give one iteration dates covering today, selected by the default team; live checks: work-area routing, sprint taskboard and board URLs, days off; clear test iteration dates, destroy `ado-live-test` items, empty recycle bin

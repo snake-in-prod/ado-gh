@@ -7,19 +7,222 @@ Azure DevOps works differently enough that copying `gh` would mislead you.
 ## Work items, not issues
 
 Azure DevOps tracks work in **work items** (Bug, Task, User Story, ...), not
-issues. There is no `ado issue` command. Work item commands are planned for a
-later release; until then use `ado api`:
-
-```sh
-ado api '{project}/_apis/wit/workitems/42'
-```
+issues. `ado workitem` is the counterpart of `gh issue`; `ado wi` and
+`ado issue` are aliases. A work item is `123`, `#123` or a work item URL.
 
 Work items link to pull requests by ID instead of through `Fixes #12` keywords
-in the body. Pass them when you create the PR:
+in the body. Pass them when you create the PR, or link them afterwards:
 
 ```sh
 ado pr create --work-item 42 --work-item 43
+ado wi link 42 --pr 45
 ```
+
+### Project, not repository
+
+Work items, queries, sprints and boards belong to a **project**. So `-R` also
+takes `ORG/PROJECT` for `ado workitem`, `ado sprint` and `ado board`, which then
+work outside a git clone. `--pr`, `--commit` and `--branch` links still need a
+repository (the current one or `-R ORG/PROJECT/REPO`).
+
+### Teams
+
+Sprints, boards, `--iteration @current` and the WIQL team macros depend on a
+**team**. It comes from `--team`, else the `team` config key for the project,
+else the project's default team. `gh` has no teams here.
+
+```sh
+ado config set team "Web Team" --project fabrikam/Fiber
+```
+
+### Types come from the process
+
+Every work item has a **type**, and the types depend on the project's process
+(Agile, Scrum, Basic, CMMI or an inherited one). `--type` takes a type name in
+any case, or an alias resolved through the process's type categories, so it
+works on customized processes too:
+
+| Alias | Category | Agile | Scrum | Basic | CMMI |
+|---|---|---|---|---|---|
+| `bug` | Bug | Bug | Bug | Issue | Bug |
+| `story` | Requirement | User Story | Product Backlog Item | Issue | Requirement |
+| `task` | Task | Task | Task | Task | Task |
+| `feature` | Feature | Feature | Feature | none | Feature |
+| `epic` | Epic | Epic | Epic | Epic | Epic |
+
+`bug` uses whatever type the project's Bug category holds (Issue on Basic).
+An unknown type, or an alias the process has no type for, errors and lists the
+valid types. `ado workitem create` needs `--type`; `gh
+issue create` has no such thing.
+
+### States and categories, not open/closed
+
+GitHub issues are open or closed. A work item has a **state** of its type
+(New, Active, Resolved, Closed, Done, ...), and each state belongs to a
+category: Proposed, In Progress, Resolved, Completed or Removed. `ado` maps
+open/closed onto the categories:
+
+- `open` is Proposed, In Progress or Resolved; `closed` is Completed or
+  Removed. `ado wi list -s` takes `open` (default), `closed`, `all` or a state
+  name.
+- `ado wi close` moves each item to the first Completed state of its type:
+  Closed on Agile and CMMI, Done on Scrum and Basic.
+  - `--resolve` uses the Resolved category instead, else a state named
+    `Resolved`; it errors when the type has neither.
+  - `--removed` uses the Removed category, the closest thing to `gh`'s
+    `--reason "not planned"`.
+  - `-r/--reason` sets the work item's **Reason** field (`Fixed`, `Cut`, ...),
+    checked against the reasons the type allows. In `gh`, `-r` picks
+    `completed` or `not planned`.
+  - `--state <name>` overrides all of these.
+  - Some processes require a field to close (for example Resolved Reason);
+    set it with `-f`.
+- `ado wi reopen` moves each item to the first Proposed state, else the first
+  In Progress state, or `--state`.
+- `-c/--comment` on `close` and `reopen` adds the comment in the same update.
+- An item already in a target state is left alone with a warning (exit 0).
+- `close`, `reopen`, `edit`, `assign` and `delete` take several IDs. When some
+  fail, the others are still updated and `ado` exits 1 naming the failed ones.
+
+### Fields, tags and assignees
+
+- `-f/--field Name=Value` sets any field by friendly name (`"Story Points=5"`)
+  or reference name (`Microsoft.VSTS.Scheduling.StoryPoints=5`), on `create`,
+  `edit`, `close` and `reopen`. Values are checked against the field type and
+  its allowed values; `Name=` clears the field. An unknown field errors with
+  close matches. `gh` has no such flag.
+- `--area` and `--iteration` set the area and iteration paths, checked against
+  the project's paths. `--iteration @current` is the team's current sprint.
+  `-p/--priority` takes 1 (highest) to 4. They replace `gh`'s `--milestone`
+  and `--project`.
+- Work items have **tags**, not labels. `--tag` (`-l/--label` is an alias),
+  `--add-tag` and `--remove-tag` (aliases `--add-label`, `--remove-label`) take
+  repeatable or comma-separated names. Azure DevOps creates a tag the first
+  time it's used. `ado wi list --tag` matches items that have every tag.
+- A work item has **one** assignee: `-a/--assignee` replaces `gh`'s
+  `--add-assignee`/`--remove-assignee`, and `--unassign` clears it. `-a none`
+  in `ado wi list` finds unassigned items. `ado wi assign <id>... [--to
+  <user>]` (default `@me`) has no `gh` equivalent.
+
+### Bodies are Markdown, sometimes HTML
+
+- Description, Repro Steps and other long text fields, and comments, are sent
+  as Markdown. If the organization doesn't support Markdown fields, `ado`
+  retries once with the Markdown converted to HTML.
+- A field already stored as HTML stays HTML: `ado wi edit --body` converts
+  your Markdown to HTML for it. `--markdown` switches the field to Markdown,
+  which Azure DevOps can't undo.
+- `ado wi view` renders Markdown on a terminal and converts HTML to plain
+  text. Piped output is the raw field value.
+
+### `workitem list`
+
+- Lists the whole **project**, most recently changed first, 30 items by
+  default. `gh issue list` lists one repository.
+- `-S/--search` runs **Azure DevOps Work Item Search**, not GitHub search.
+  It takes the portal's search syntax: free text plus filters such as `a:`
+  (assigned to), `c:` (created by), `s:` (state), `t:` (type) and `tags:`,
+  e.g. `-S "crash a:@me t:Bug"`. The hits are then narrowed by the other
+  flags. Work Item Search is only on Azure DevOps Services (or Azure DevOps
+  Server with Search installed); otherwise `-S` fails with `work item search
+  not available`. `-S` and `-w` can't be combined.
+- `-A/--author`, `--area`, `--iteration` (sub-paths included) and `--type`
+  filter too. There is no `--mention`, `--milestone` or `--app`.
+- `-w` opens the filter as a query in the browser, or the Work Items hub when
+  the query is too long for a URL.
+- `--json` fields: `id,type,title,state,reason,assignedTo,createdBy,createdDate,changedDate,areaPath,iterationPath,tags,priority,parent,url,fields`.
+  `id` replaces `number`, `assignedTo` is one user, and `fields` holds every
+  raw field by reference name.
+- No match prints `no work items match your search` on stderr and exits 0.
+
+### `workitem create`, `view`, `edit` and `comment`
+
+- `ado wi create -w` opens the new work item form prefilled with every flag
+  given. `--parent` can't be prefilled; `ado` warns and ignores it.
+- `ado wi view` shows the work item's links grouped as parent, children,
+  related, other work items, pull requests, commits, branches, hyperlinks and
+  attachments. `-c/--comments` shows comments oldest first; `--history` (no
+  `gh` equivalent) shows the field change log. `--json` adds
+  `description,relations,comments,history` to the `list` fields.
+- `ado wi edit` takes several IDs and sends one update per item that fails if
+  the item changed since it was read (`work item 123 changed since read;
+  retry`). `--state`, `--add-link`/`--remove-link <type>:<target>` and `-f`
+  have no `gh` equivalent. On a terminal without flags, you pick the fields to
+  edit (one item only).
+- `ado wi comment` works like `gh issue comment`, including `--edit-last` and
+  `--delete-last` (with `-y/--yes` when not interactive). It prints the
+  comment URL.
+
+### Links
+
+`ado wi link <id>` and `ado wi unlink <id>` manage links; `gh` has none.
+Targets are `--parent` (one per item: replacing an existing parent asks first,
+or needs `--yes` without a terminal), `--child`, `--related`, `--link
+<type>=<id>` for any link type (`Predecessor=12`, `"Tested By=7"`), and `--pr`,
+`--commit`, `--branch` and `--url`. `unlink` takes the same flags; if any of
+them matches no link, nothing is removed.
+
+### Delete goes to the recycle bin
+
+- `ado wi delete <id>...` moves work items to the project's **recycle bin**
+  and prints `Restore with: ado wi restore <id>...`. `ado wi restore` has no
+  `gh` equivalent.
+- `--permanent` destroys them instead; this can't be undone.
+- On a terminal, `ado` lists the IDs and titles and asks for a yes/no
+  confirmation; `gh` asks you to type the issue number. `-y/--yes` skips it.
+  Without a terminal and without `--yes` it refuses.
+- Deleting needs the project permission **Delete and restore work items**;
+  `--permanent` needs **Permanently delete work items**.
+
+### Queries
+
+`ado wi query` runs **WIQL** or a **saved query**; `gh` has no equivalent.
+
+- Text starting with `SELECT` is WIQL, a GUID is a saved query ID, anything
+  else is a saved query path (`"Shared Queries/Team/Active Bugs"`).
+  `--wiql-file <file|->` reads WIQL from a file or stdin.
+- Macros (`@Me`, `@Today`, `@Project`, `@CurrentIteration`, `@TeamAreas`) are
+  evaluated by Azure DevOps; the team macros use the team above.
+- Flat queries print the query's own columns. Tree and one-hop queries nest
+  linked items under their parents, and `--json` gives each item a
+  `links: [{rel, item}]` array. `-L/--limit` (default 200) counts top-level
+  items for those.
+- `-w` works for saved queries only.
+- `ado wi query list [--folder <path>]` lists the saved query tree (My Queries
+  and Shared Queries) with paths and IDs.
+
+### Not supported
+
+`gh issue`'s `develop`, `pin`/`unpin`, `transfer`, `lock`/`unlock` and
+`status` have no counterpart. Attachments, templates and capacity are out of
+scope.
+
+## Sprints and boards
+
+`ado sprint` and `ado board` have no `gh` equivalent. They are read-only and
+use the team above.
+
+- `ado sprint list [--timeframe past|current|future|all]` lists the team's
+  sprints with dates and time frame.
+- `ado sprint current` shows the current sprint and its working days left:
+  today through the finish date, on the team's working days, minus the team's
+  days off.
+- `ado sprint view [<iteration>]` lists the sprint's work items grouped by
+  state category, children nested under their parent (`-a`, `--type`).
+- `ado sprint board [<iteration>]` shows the taskboard columns side by side
+  (stacked on a narrow terminal), cards `#id title (assignee)`. Piped, it
+  prints `column, id, title, assignee, parent` separated by tabs. A team that
+  never customized its taskboard gets one column per state of its task type.
+  There is no capacity or burndown.
+- `ado board [<backlog>]` shows the team's Kanban board for the requirement
+  backlog, or `features`, `epics` or another level by name. Columns show WIP
+  limits (`Active 3/5`) and Doing/Done halves of split columns. Completed
+  items changed in the last 30 days are shown. Cards can't be moved; use
+  `ado wi edit --state` or `-f` with the board column field.
+- `-w` on `sprint current` and `sprint view` opens the sprint's taskboard,
+  and on `board` the board. `sprint list` and `sprint board` have no `-w`.
+- `sprint list`, `sprint current`, `sprint view`, `sprint board` and `board`
+  all take `--json/--jq/--template`.
 
 ## Votes, not reviews
 
@@ -218,7 +421,11 @@ organization, project and repository.
 ado pr list -R fabrikam/Fiber/web    # organization/project/repository
 ado pr list -R Fiber/web             # organization from ADO_ORG
 ado pr list -R web                   # organization from ADO_ORG, project from ADO_PROJECT
+ado wi list -R fabrikam/Fiber        # project-scoped commands: organization/project
 ```
+
+- `ado workitem`, `ado sprint` and `ado board` act on a project, so their `-R`
+  also takes `ORG/PROJECT`.
 
 - The target repo comes from `-R`, then `ADO_REPO` (same format), then the git
   remotes: the one marked by `ado repo set-default`, then `origin`, then

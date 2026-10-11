@@ -39,3 +39,18 @@ func QueryEscape(v string) string {
 func PRURL(repo Repo, id int) string {
 	return RepoURL(repo) + "/pullrequest/" + strconv.Itoa(id)
 }
+
+// TaskboardURL returns the web URL of team's taskboard for the iteration at path, e.g.
+// {project}/_sprints/taskboard/{team}/{project}/{rest of the path, escaped as one segment}.
+// ponytail: the URL form is undocumented (from microsoft/vsts-team-calendar); fix here if it moves.
+func TaskboardURL(project Repo, team, path string) string {
+	rest := strings.TrimPrefix(strings.TrimPrefix(path, `\`), project.Project)
+	return ProjectURL(project) + "/_sprints/taskboard/" + url.PathEscape(team) + "/" +
+		url.PathEscape(project.Project) + "/" + url.PathEscape(strings.TrimPrefix(rest, `\`))
+}
+
+// BoardURL returns the web URL of team's Kanban board for the backlog level levelID, e.g.
+// {project}/_boards/board/t/{team}/Microsoft.RequirementCategory.
+func BoardURL(project Repo, team, levelID string) string {
+	return ProjectURL(project) + "/_boards/board/t/" + url.PathEscape(team) + "/" + url.PathEscape(levelID)
+}

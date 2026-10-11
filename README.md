@@ -28,7 +28,13 @@ They act on `--org`, else the current git remote, else `ADO_ORG`.
 Create an **organization-scoped** PAT (global PATs stop working on 2026-12-01) with these scopes:
 
 - **Code (Read & write)**
-- **Identity (Read)** (needed to resolve reviewers and authors)
+- **Identity (Read)** (needed to resolve reviewers, authors and assignees)
+- **Work Items (Read & write)** (work items, queries, sprints and boards)
+- **Project and Team (Read)** (teams, sprints and boards)
+
+Work Items (Read & write) is expected to cover `ado workitem delete --permanent`
+too: the permanent delete was checked with an Entra ID login, not a PAT. If it
+fails with a PAT, add **Work Items (Full)**.
 
 ```sh
 ado auth login --with-token < pat.txt
@@ -79,6 +85,29 @@ system credential store; without a credential store the cache is a plain-text
    permission **user_impersonation**.
 6. Copy the **Application (client) ID** from **Overview** and use it through
    `ADO_ENTRA_CLIENT_ID` / `entra_client_id`.
+
+## Work items, sprints and boards
+
+```sh
+ado issue create --type bug -t "Crash on save" -a @me --iteration @current
+ado wi list -a @me --iteration @current
+ado wi close 123 -c "Fixed in !45"
+ado wi query "Shared Queries/Team/Active Bugs" --json id,title
+ado sprint view
+ado board
+```
+
+`ado workitem` has the aliases `wi` and `issue`. These commands need a project,
+not a repository, so outside a clone use `-R ORG/PROJECT`. Team-scoped commands
+(`--iteration @current`, `sprint`, `board`) use `--team`, else the `team` config
+key, else the project's default team:
+
+```sh
+ado config set team "Web Team" --project fabrikam/Fiber
+```
+
+See [docs/gh-differences.md](docs/gh-differences.md) for how they differ from
+`gh issue`.
 
 ## REST API
 

@@ -5,19 +5,17 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/core"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/work"
 )
 
 // CurrentIterationPath returns the path of team's current iteration, e.g. Proj\Release 1\Sprint 3.
 func (c *WorkItemClient) CurrentIterationPath(ctx context.Context, team string) (string, error) {
-	current := "current"
-	its, err := c.Work.GetTeamIterations(ctx, work.GetTeamIterationsArgs{Project: &c.Project, Team: &team, Timeframe: &current})
+	its, err := c.TeamIterations(ctx, team, true)
 	if err != nil {
-		return "", mapErr(err)
+		return "", err
 	}
-	for _, it := range deref(its) {
-		if p := deref(it.Path); p != "" {
-			return p, nil
+	for _, it := range its {
+		if it.Path != "" {
+			return it.Path, nil
 		}
 	}
 	return "", fmt.Errorf("team %q has no current iteration; check its sprint dates in the team settings", team)

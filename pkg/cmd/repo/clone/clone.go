@@ -47,11 +47,14 @@ The clone uses the repository's HTTPS or SSH URL according to the git_protocol c
 its host. A git URL is cloned as given. HTTPS authentication is left to your git credential
 setup (e.g. Git Credential Manager); ado never puts a token in a clone URL.
 
+<directory> is a new directory name, without path separators, in the current directory; the
+default is the repository name. A URL that contains a password is refused.
+
 Cloning a fork adds its parent repository as the "upstream" remote and fetches it.
 
 Pass additional git clone flags after "--".`,
 		Example: `  ado repo clone api
-  ado repo clone myproject/api ~/src/api-copy
+  ado repo clone myproject/api api-copy
   ado repo clone myorg/myproject/api -- --depth 1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pos := args

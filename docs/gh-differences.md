@@ -221,7 +221,8 @@ ado pr list -R web                   # organization from ADO_ORG, project from A
 ```
 
 - The target repo comes from `-R`, then `ADO_REPO` (same format), then the git
-  remotes (`origin`, then `upstream`, then the first Azure DevOps remote).
+  remotes: the one marked by `ado repo set-default`, then `origin`, then
+  `upstream`, then the first Azure DevOps remote.
 - `-R` and `ADO_REPO` always target `dev.azure.com`. Remotes on
   `{org}.visualstudio.com` keep their host.
 - When a repo has the same name as its project, Azure DevOps remotes may omit
@@ -231,6 +232,131 @@ ado pr list -R web                   # organization from ADO_ORG, project from A
 - The text editor comes from `ADO_EDITOR`, then `ado config set editor`, then
   `VISUAL`, then `EDITOR`, else `nano` (`notepad` on Windows). `GH_EDITOR` and
   `gh`'s `editor` setting are ignored.
+
+## Repositories
+
+Azure DevOps repositories live in a **project**, and have no visibility,
+description, topics, language or license of their own: visibility belongs to
+the project. So `ado repo` has no `--visibility`, `--public`/`--private`/
+`--internal`, `--topic`, `--language`, `--description` or `--license` flags,
+and `--json` has no such fields. There is no `repo fork`, `repo rename`,
+`repo edit`, `repo sync` or `repo archive`.
+
+A `<repo>` argument is `REPO`, `PROJECT/REPO`, `ORG/PROJECT/REPO` or a URL
+(clone URLs and URLs copied from the browser). Missing parts come from the
+current repository, then `ADO_ORG`/`ADO_PROJECT`, then the `org` config key
+(`ado config set org myorg`).
+
+### `repo list`
+
+- No argument lists the **current project**, not your own repositories.
+  `ado repo list <org>` lists every repository of every project in the
+  organization (names show as `project/repo`); `<org>/<project>` lists one
+  project.
+- Azure DevOps **disables** repositories instead of archiving them.
+  `--disabled`/`--no-disabled` filter on that; `--archived`/`--no-archived` are
+  hidden aliases.
+- `--match <glob>` filters names (case-insensitive). The API doesn't page, so
+  filters, sorting (by name) and `--limit` all run on the client.
+- The info column shows `fork`, `disabled` and `empty` (no default branch; JSON
+  `defaultBranch` is `""`).
+- `--json` fields: `id,name,project,defaultBranch,size,isDisabled,isFork,remoteUrl,sshUrl,webUrl`.
+  `parentRepository` is only in `repo view`; the list API doesn't return it.
+
+### `repo view`
+
+- Shows name, project, default branch, size, HTTPS and SSH clone URLs, the
+  fork parent and a disabled marker, then the root `README*` (found
+  case-insensitively; a markdown file wins, then the first by name).
+  `-b/--branch` reads the README from another branch. A disabled repository
+  shows only its metadata.
+- `--json` takes the `repo list` fields plus `parentRepository` and `readme`.
+- The README is rendered on a terminal and printed raw when piped. The style
+  follows `GLAMOUR_STYLE` (else the terminal background), and the text wraps
+  at the terminal width, **at most 120 columns**. There is no `GH_MDWIDTH`
+  equivalent.
+
+### `repo clone`
+
+- The protocol comes from the per-host `git_protocol` key (`https` or `ssh`,
+  default `https`). A git URL you pass is cloned **as given**.
+- `ado` doesn't inject a credential helper the way `gh` does. HTTPS clones use
+  your own git credential setup (for example Git Credential Manager), and SSH
+  uses your keys. A URL with a password in it (`https://user:PAT@...`) is
+  **refused**; store the credential in a credential manager instead.
+- Azure Repos doesn't support Git LFS over SSH. Clone over HTTPS if the
+  repository uses LFS.
+- `<directory>` must be a new directory name without path separators; the
+  default is the repository name (`My Repo`, not `My%20Repo`).
+- Cloning a fork adds the parent as `upstream` (`-u` renames it) and fetches
+  it. Unlike `gh`, it **doesn't make the parent the default repository**, and
+  there is no `--no-upstream`. Commands then target the fork (`origin`); run
+  `ado repo set-default upstream` to target the parent.
+- When git fails, `ado` exits 1 after git's own error output.
+
+### `repo create`
+
+- Creates the repository in the current project or `-p/--project
+  [ORG/]PROJECT`. There is no `--source`/`--push`/`--remote` (publishing an
+  existing local repository) and no `--template`.
+- `--add-readme` (README.md with `# <name>`) and `-g/--gitignore <template>`
+  (one of the project's Azure DevOps gitignore templates; an unknown name lists
+  close matches) go in **one initial commit on `main`**.
+- If the repository is created but that commit fails, `ado` warns, still prints
+  the URL, keeps the empty repository and exits 1.
+
+### `repo delete` and `repo restore`
+
+- `ado repo delete` **soft-deletes**: the repository goes to the project's
+  recycle bin for **30 days**, then Azure DevOps removes it. Bring it back with
+  `ado repo restore <name|id>` (no `gh` equivalent). `--permanent` also purges
+  it from the recycle bin, which can't be undone.
+- On a terminal you confirm by typing the repository name (a mismatch cancels
+  with exit 2). Without a terminal, `--yes` is required.
+- Deleting needs the **Delete repository** permission (by default only
+  Project Administrators have it) and, with a PAT, the **Code (Read, write &
+  manage)** scope (`vso.code_manage`); so does restoring.
+- Azure DevOps refuses to delete the **only** repository of a project; `ado`
+  passes the server's error through.
+
+### `repo set-default`
+
+- The choice is stored as `remote.<name>.ado-resolved = base` in the git
+  config. `gh-resolved` is ignored.
+- A single-word argument is read as a **remote name first**, then as a
+  repository; `gh` tries `OWNER/REPO` first.
+- `-R/--repo` is **rejected**; pass the repository as the argument.
+- `--view` prints `org/project/repo`. With no default set it prints a message
+  on stderr and exits 0, like `gh`.
+
+## `ado browse`
+
+- Targets: `!123` or `123` is a pull request, `#456` a **work item** (quote it
+  in the shell), 7 to 40 hex characters a commit, anything else a path, with
+  `:N` or `:N-M` to highlight lines. Paths are relative to the current
+  directory inside a clone, and to the repository root with `-R`.
+- Section flags: `-s/--settings`, `-w/--wiki`, `--pipelines` (`gh`'s
+  `--actions`), `--boards` (`gh`'s `--projects`), `--prs` and `--branches`.
+  There is no `--releases` or `--blame`.
+- In `ado browse`, `-w` means `--wiki`, as in `gh browse`; elsewhere it is
+  `--web`.
+- `--wiki`, `--pipelines` and `--boards` open **project** pages
+  (`_wiki`, `_build`, `_boards`), not repository pages.
+- `--settings` makes one API call for the repository ID to open its settings
+  page. If that fails, it opens the project's repository list instead.
+- `-n/--no-browser` works **offline**: without `-b`/`-c`, file URLs have no
+  `version=` and Azure DevOps shows the default branch. `gh` looks up the
+  default branch even with `-n`. Only `--settings` needs the network.
+
+## Opening the browser
+
+- `ado browse` and every `-w/--web` flag print `Opening <url> in your
+  browser.` on **stderr**, with the **full URL**, when stdout is a terminal.
+  `gh` prints it on stdout or stderr depending on the command and drops the
+  `https://`.
+- The browser comes from `ADO_BROWSER`, then `ado config set browser`, then
+  `BROWSER`, else the system default. `GH_BROWSER` and `gh`'s `browser`
+  setting are ignored.
 
 ## `pr checkout` fetches the source branch
 

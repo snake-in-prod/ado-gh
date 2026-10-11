@@ -4,6 +4,7 @@ package root
 import (
 	apiCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/api"
 	authCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/auth"
+	browseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/browse"
 	configCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/config"
 	prCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pr"
 	repoCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/repo"
@@ -37,7 +38,9 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f))
+	browse := browseCmd.NewCmdBrowse(f)
+	browse.GroupID = "core"
+	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), browse, configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f))
 	return cmd
 }
 

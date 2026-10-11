@@ -1,8 +1,8 @@
 {
   "track_id": "pr_parity_20261010",
   "type": "feature",
-  "status": "new",
+  "status": "completed",
   "created_at": "2026-10-10T16:16:53Z",
-  "updated_at": "2026-10-10T16:16:53Z",
+  "updated_at": "2026-10-11T01:40:33Z",
   "description": "Complete the pull request command group to full gh parity: add ado pr diff, comment, close, reopen, edit, ready, status and checks; --json/--jq/--template on read commands; TTY confirmation and --yes for destructive actions; update docs/gh-differences.md"
 }

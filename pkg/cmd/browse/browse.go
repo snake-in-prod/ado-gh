@@ -13,8 +13,9 @@ func NewCmdBrowse(f *cmdutil.Factory) *cobra.Command {
 	var o Options
 	var noBrowser bool
 	cmd := &cobra.Command{
-		Use:   "browse [<number> | <path> | <commit-sha>]",
-		Short: "Open the repository in the browser",
+		Use:     "browse [<number> | <path> | <commit-sha>]",
+		Short:   "Open the repository in the browser",
+		GroupID: "core",
 		Long: `Open the current repository, or a page of it, in the web browser.
 
 The argument selects the page:

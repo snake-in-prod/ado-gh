@@ -35,7 +35,7 @@ type repoRestoreEnv struct {
 }
 
 // newRepoRestoreEnv returns an env for its own org: the SDK caches locations per base URL for
-// the whole process.
+// the whole process. Every stub must be matched by the end of the test.
 func newRepoRestoreEnv(t *testing.T, tty bool) *repoRestoreEnv {
 	t.Helper()
 	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
@@ -49,6 +49,7 @@ func newRepoRestoreEnv(t *testing.T, tty bool) *repoRestoreEnv {
 	org := fmt.Sprintf("reporestore-%d", repoRestoreOrgSeq.Add(1))
 	e := &repoRestoreEnv{org: org, reg: &httpmock.Registry{}, ios: ios, out: out, errOut: errOut}
 	e.reg.StubLocations(org, httpmock.GitRepoLocations...)
+	t.Cleanup(func() { e.reg.Verify(t) })
 	return e
 }
 
@@ -116,9 +117,9 @@ func TestRepoRestore(t *testing.T) {
 			e.stubBin(tt.project, repoRestoreOtherID, "web", repoRestoreID, "api")
 			var bodies []string
 			e.stubRestore(tt.project, repoRestoreID, func(r *http.Request) (*http.Response, error) {
-				b := new(bytes.Buffer)
-				_, _ = b.ReadFrom(r.Body)
-				bodies = append(bodies, b.String())
+				b, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				bodies = append(bodies, string(b))
 				return repoRestoreOK("api")(r)
 			})
 			require.NoError(t, e.run(t, tt.arg))
@@ -189,6 +190,7 @@ func TestRepoRestoreErrorsPassedThrough(t *testing.T) {
 
 func TestRepoRestoreArgs(t *testing.T) {
 	e := newRepoRestoreEnv(t, false)
+	e.reg = &httpmock.Registry{} // no requests expected, so no location stub either
 	require.Error(t, e.run(t))
 	require.Error(t, e.run(t, "a", "b"))
 	assert.Empty(t, e.reg.Requests)

@@ -66,8 +66,8 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	fl.BoolVar(&o.noDisabled, "no-disabled", false, "Omit disabled repositories")
 	fl.BoolVar(&o.disabled, "archived", false, "Alias for --disabled")
 	fl.BoolVar(&o.noDisabled, "no-archived", false, "Alias for --no-disabled")
-	_ = fl.MarkHidden("archived")
-	_ = fl.MarkHidden("no-archived")
+	fl.Lookup("archived").Hidden = true
+	fl.Lookup("no-archived").Hidden = true
 	fl.BoolVar(&o.fork, "fork", false, "Show only forks")
 	fl.BoolVar(&o.source, "source", false, "Show only non-forks")
 	cmd.MarkFlagsMutuallyExclusive("fork", "source")
@@ -166,8 +166,8 @@ func filter(repos []api.Repository, o *options) []api.Repository {
 			o.fork && !r.IsFork, o.source && r.IsFork:
 			return true
 		case match != "":
-			ok, _ := path.Match(match, strings.ToLower(r.Name)) // pattern validated in RunE
-			return !ok
+			ok, err := path.Match(match, strings.ToLower(r.Name)) // pattern validated in RunE
+			return err != nil || !ok
 		}
 		return false
 	})

@@ -44,8 +44,6 @@ terminal. The choice is stored as remote.<name>.ado-resolved in the git config.`
 				return cmdutil.FlagErrorf("-R/--repo is not supported; pass the repository as an argument")
 			case o.arg != "" && (o.view || o.unset):
 				return cmdutil.FlagErrorf("cannot combine <repo> with --view or --unset")
-			case o.arg == "" && !o.view && !o.unset && !f.IOStreams.CanPrompt():
-				return cmdutil.FlagErrorf("repository required when not running interactively")
 			}
 			return run(cmd.Context(), f, o)
 		},
@@ -122,33 +120,33 @@ func pick(f *cmdutil.Factory, arg string, remotes []git.Remote, ado []adoRemote)
 	if arg != "" {
 		name := arg
 		if !slices.ContainsFunc(remotes, func(r git.Remote) bool { return r.Name == arg }) {
+			if !strings.Contains(arg, ":") && strings.Count(arg, "/") < 2 {
+				return matchShort(arg, ado)
+			}
 			repo, err := shared.ParseRepo(f, arg)
 			if err != nil {
 				return adoRemote{}, err
 			}
 			if name = adocontext.MatchRemote(remotes, repo); name == "" {
-				return adoRemote{}, fmt.Errorf("%s does not match any Azure DevOps remote of this repository", fullName(repo))
+				return adoRemote{}, fmt.Errorf("%s does not match any Azure DevOps remote of this repository; check: git remote -v", fullName(repo))
 			}
 		}
 		i := slices.IndexFunc(ado, func(r adoRemote) bool { return r.Name == name })
 		if i < 0 {
-			return adoRemote{}, fmt.Errorf("remote %q is not an Azure DevOps remote", name)
+			return adoRemote{}, fmt.Errorf("remote %q is not an Azure DevOps remote; check: git remote -v", name)
 		}
 		return ado[i], nil
 	}
 
-	var repos []adoRemote // one per repository, in remote order
-	for _, r := range ado {
-		if !slices.ContainsFunc(repos, func(d adoRemote) bool { return adocontext.PointsAt(r.FetchURL, d.repo) }) {
-			repos = append(repos, r)
-		}
-	}
-	switch len(repos) {
-	case 0:
-		return adoRemote{}, errors.New("none of the git remotes point to an Azure DevOps repository")
-	case 1:
+	repos := distinct(ado)
+	switch {
+	case len(repos) == 0:
+		return adoRemote{}, errors.New("none of the git remotes point to an Azure DevOps repository; add one with: git remote add <name> <url>")
+	case len(repos) == 1:
 		fmt.Fprintf(f.IOStreams.ErrOut, "Found only one Azure DevOps repository: %s\n", fullName(repos[0].repo))
 		return repos[0], nil
+	case !f.IOStreams.CanPrompt():
+		return adoRemote{}, cmdutil.FlagErrorf("repository required when not running interactively")
 	}
 	labels := make([]string, len(repos))
 	for i, r := range repos {
@@ -159,6 +157,41 @@ func pick(f *cmdutil.Factory, arg string, remotes []git.Remote, ado []adoRemote)
 		return adoRemote{}, err
 	}
 	return repos[i], nil
+}
+
+// matchShort matches a REPO or PROJECT/REPO argument against the ADO remotes themselves, not
+// against the current default, so `web` finds the remote of the web repository.
+func matchShort(arg string, ado []adoRemote) (adoRemote, error) {
+	project, name, hasProject := strings.Cut(arg, "/")
+	if !hasProject {
+		project, name = "", arg
+	}
+	matches := distinct(slices.DeleteFunc(slices.Clone(ado), func(r adoRemote) bool {
+		return !strings.EqualFold(r.repo.Name, name) || project != "" && !strings.EqualFold(r.repo.Project, project)
+	}))
+	switch len(matches) {
+	case 0:
+		return adoRemote{}, fmt.Errorf("%s does not match any Azure DevOps remote of this repository; check: git remote -v", arg)
+	case 1:
+		return matches[0], nil
+	}
+	names := make([]string, len(matches))
+	for i, r := range matches {
+		names[i] = fullName(r.repo)
+	}
+	return adoRemote{}, fmt.Errorf("%s matches several Azure DevOps remotes (%s); pass ORG/PROJECT/REPO or a remote name",
+		arg, strings.Join(names, ", "))
+}
+
+// distinct returns one remote per repository, in remote order.
+func distinct(ado []adoRemote) []adoRemote {
+	var repos []adoRemote
+	for _, r := range ado {
+		if !slices.ContainsFunc(repos, func(d adoRemote) bool { return adocontext.PointsAt(r.FetchURL, d.repo) }) {
+			repos = append(repos, r)
+		}
+	}
+	return repos
 }
 
 // unsetAll removes the ado-resolved key from every remote that has one.

@@ -88,6 +88,21 @@ func TestBrowseFlags(t *testing.T) {
 	}
 }
 
+func TestBrowseCommitWithoutValueIsHEAD(t *testing.T) {
+	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
+	run := &gittest.Runner{Replies: map[string]string{
+		"rev-parse --verify --quiet HEAD^{commit}": browseURLSHA + "\n",
+		"rev-parse --show-prefix":                  "\n",
+	}}
+	f := browseURLFactory(t, run, false)
+	cmd := NewCmdBrowse(f)
+	cmd.SetArgs([]string{"-n", "-c", "a.go"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	require.NoError(t, cmd.Execute())
+	assert.Equal(t, browseURLRepo+"?path=%2Fa.go&version=GC"+browseURLSHA+"&_a=contents\n", f.IOStreams.Out.(*bytes.Buffer).String())
+}
+
 func TestBrowseErrors(t *testing.T) {
 	_, _, _, err := runBrowseCmd(t, false, "-n", "--wiki", "--boards")
 	var flagErr *cmdutil.FlagError

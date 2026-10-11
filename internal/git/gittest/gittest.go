@@ -1,4 +1,4 @@
-// Package gittest provides a stubbed git runner for git.Client.Run in tests.
+// Package gittest provides a stubbed git runner for git.Client.Run and git.Client.Stream in tests.
 package gittest
 
 import (
@@ -27,12 +27,14 @@ func (r *Runner) Stream(ctx context.Context, dir string, s git.Streams, args ...
 	var gitErr *git.Error
 	if errors.As(err, &gitErr) {
 		if s.ErrOut != nil {
-			_, _ = io.WriteString(s.ErrOut, gitErr.Stderr)
+			if _, werr := io.WriteString(s.ErrOut, gitErr.Stderr); werr != nil {
+				return werr
+			}
 		}
 		return &git.Error{Args: gitErr.Args, ExitCode: gitErr.ExitCode}
 	}
-	if s.Out != nil {
-		_, _ = s.Out.Write(out)
+	if err == nil && s.Out != nil {
+		_, err = s.Out.Write(out)
 	}
 	return err
 }

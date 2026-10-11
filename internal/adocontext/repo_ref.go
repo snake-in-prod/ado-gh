@@ -7,7 +7,7 @@ import (
 )
 
 // errBadRepoURL never includes the URL: it may carry a PAT in its userinfo.
-var errBadRepoURL = errors.New("invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO")
+var errBadRepoURL = errors.New("invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO or git@ssh.dev.azure.com:v3/ORG/PROJECT/REPO")
 
 // ParseRepoRef parses a repository argument: REPO, PROJECT/REPO, ORG/PROJECT/REPO, a git remote
 // URL or a repository web URL (query, fragment and sub-pages such as /pullrequest/N are

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -189,7 +190,7 @@ func commitSHA(ctx context.Context, f *cmdutil.Factory, rev string) (string, err
 	if rev == LastCommit {
 		return "", errors.New("--commit without a SHA needs a local clone of the repository")
 	}
-	return "", fmt.Errorf("cannot resolve commit %q", rev)
+	return "", fmt.Errorf("cannot resolve commit %q; pass a commit SHA or run inside a clone that has it", rev)
 }
 
 // repoPath splits target into a repo-root path ("/a/b") and its line query parts. Inside a
@@ -202,12 +203,12 @@ func repoPath(ctx context.Context, f *cmdutil.Factory, target string) (string, [
 		if m == nil {
 			return "", nil, cmdutil.FlagErrorf("invalid line number after colon in %q", target)
 		}
-		start, _ := strconv.Atoi(m[1])
+		start, err := strconv.Atoi(m[1])
 		end := start
-		if m[2] != "" {
-			end, _ = strconv.Atoi(m[2])
+		if err == nil && m[2] != "" {
+			end, err = strconv.Atoi(m[2])
 		}
-		if start < 1 || end < start {
+		if err != nil || start < 1 || end < start || end == math.MaxInt {
 			return "", nil, cmdutil.FlagErrorf("invalid line range in %q", target)
 		}
 		line = []string{

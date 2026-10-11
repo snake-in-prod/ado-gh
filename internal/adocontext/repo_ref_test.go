@@ -76,9 +76,9 @@ func TestParseRepoRef(t *testing.T) {
 		{name: "limited refs kept", arg: "https://dev.azure.com/o/p/_git/_full/r", base: refPanicBase,
 			want: Repo{Host: "dev.azure.com", Org: "o", Project: "p", Name: "r"}},
 		{name: "not ADO, URL not echoed", arg: "https://user:s3cret@github.com/a/b", base: refPanicBase,
-			wantErr: "invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO"},
+			wantErr: "invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO or git@ssh.dev.azure.com:v3/ORG/PROJECT/REPO"},
 		{name: "bad URL not echoed", arg: "https://user:s3cret@dev.azure.com/o/p/_git", base: refPanicBase,
-			wantErr: "invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO"},
+			wantErr: "invalid repository URL: expected https://dev.azure.com/ORG/PROJECT/_git/REPO or git@ssh.dev.azure.com:v3/ORG/PROJECT/REPO"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

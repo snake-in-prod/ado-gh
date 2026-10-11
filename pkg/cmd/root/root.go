@@ -38,9 +38,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	browse := browseCmd.NewCmdBrowse(f)
-	browse.GroupID = "core"
-	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), browse, configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f))
+	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), prCmd.NewCmdPR(f), repoCmd.NewCmdRepo(f))
 	return cmd
 }
 

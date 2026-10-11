@@ -163,7 +163,7 @@ func TestFromFilesEnablesVirtualTerminal(t *testing.T) {
 		want bool
 	}{
 		{name: "colour on TTY", env: map[string]string{"ADO_FORCE_TTY": "1"}, want: true},
-		{name: "colour disabled", env: map[string]string{"ADO_FORCE_TTY": "1", "NO_COLOR": "1"}},
+		{name: "TTY with colour disabled", env: map[string]string{"ADO_FORCE_TTY": "1", "NO_COLOR": "1"}, want: true},
 		{name: "not a TTY", env: map[string]string{"CLICOLOR_FORCE": "1"}},
 	}
 	for _, tt := range tests {

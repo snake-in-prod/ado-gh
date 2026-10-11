@@ -178,6 +178,13 @@ func TestRepoCloneFullURL(t *testing.T) {
 		require.NoError(t, e.run(given))
 		assert.Equal(t, []string{"clone -- " + given + " api"}, e.git.Calls)
 	})
+	t.Run("ssh URL cloned as given", func(t *testing.T) {
+		e := newRepoCloneEnv(t)
+		e.stubRepo("api", "api", "sshUrl", "git@ssh.dev.azure.com:v3/other")
+		given := e.sshURL("api")
+		require.NoError(t, e.run(given))
+		assert.Equal(t, []string{"clone -- " + given + " api"}, e.git.Calls)
+	})
 	t.Run("web URL uses the repository URL", func(t *testing.T) {
 		e := newRepoCloneEnv(t)
 		e.stubRepo("api", "api")
@@ -252,7 +259,10 @@ func TestRepoCloneFork(t *testing.T) {
 			}
 			e.stubRepo("api", "api", "isFork", true, "parentRepository", e.parent(e.remoteURL("core"), e.sshURL("core")))
 			require.NoError(t, e.run(tt.args...))
-			clone := e.git.Calls[0]
+			clone := "clone -- " + e.remoteURL("api") + " " + tt.dir
+			if tt.ssh {
+				clone = "clone -- " + e.sshURL("api") + " " + tt.dir
+			}
 			assert.Equal(t, []string{
 				clone, "remote add -- " + tt.remote + " " + tt.want(e), "fetch " + tt.remote,
 			}, e.git.Calls, "no ado-resolved config is set")
@@ -360,13 +370,19 @@ func TestRepoCloneAPIErrors(t *testing.T) {
 	t.Run("missing organization", func(t *testing.T) {
 		e := newRepoCloneEnv(t)
 		e.f.BaseRepo = func() (adocontext.Repo, error) { return adocontext.Repo{}, fmt.Errorf("no git remotes") }
-		require.Error(t, e.run("api"))
+		err := e.run("api")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `repository "api" has no organization`)
+		assert.Empty(t, e.reg.Requests)
 		assert.Empty(t, e.git.Calls)
 	})
 	t.Run("unauthenticated", func(t *testing.T) {
 		e := newRepoCloneEnv(t)
 		t.Setenv("ADO_TOKEN", "")
-		require.Error(t, e.run("api"))
+		err := e.run("api")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not logged in to dev.azure.com/"+e.org)
+		assert.Empty(t, e.reg.Requests, "fails before any API call")
 		assert.Empty(t, e.git.Calls)
 	})
 }

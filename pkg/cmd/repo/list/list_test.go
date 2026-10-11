@@ -78,9 +78,13 @@ func (e *repoListEnv) stubRepos(basePath string, repos ...map[string]any) {
 		httpmock.JSONResponse(map[string]any{"count": len(repos), "value": repos}))
 }
 
+const repoListID = "00000000-0000-0000-0000-000000000001"
+
+// repoListRepo returns a repo payload; extra is key/value overrides, and a nil value removes the
+// key (simulating fields ADO omits for empty or minimal repos).
 func repoListRepo(name, project string, extra ...any) map[string]any {
 	r := map[string]any{
-		"id": "00000000-0000-0000-0000-00000000000" + string(rune('0'+len(name)%10)), "name": name,
+		"id": repoListID, "name": name,
 		"project": map[string]any{"name": project}, "defaultBranch": "refs/heads/main",
 		"size": 2048, "isFork": false, "isDisabled": false,
 		"remoteUrl": "https://dev.azure.com/o/" + project + "/_git/" + name,
@@ -228,6 +232,19 @@ func TestRepoListFilterSortLimit(t *testing.T) {
 	}
 }
 
+func TestRepoListDefaultLimit(t *testing.T) {
+	e := newRepoListEnv(t, false)
+	var repos []map[string]any
+	for i := range 31 {
+		repos = append(repos, repoListRepo(fmt.Sprintf("r%02d", i), "My Proj"))
+	}
+	e.stubRepos(e.org+"/My%20Proj", repos...)
+	require.NoError(t, e.run(t, "--json", "name"))
+	names := repoListNames(t, e.out.String())
+	assert.Len(t, names, 30)
+	assert.Equal(t, "r29", names[29])
+}
+
 func TestRepoListJSON(t *testing.T) {
 	e := newRepoListEnv(t, false)
 	e.stubRepos(e.org+"/My%20Proj",
@@ -241,7 +258,7 @@ func TestRepoListJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal(e.out.Bytes(), &got))
 	require.Len(t, got, 2)
 	assert.Equal(t, map[string]any{
-		"id": got[0]["id"], "name": "a", "project": "My Proj", "defaultBranch": "main", "size": 2048.0,
+		"id": repoListID, "name": "a", "project": "My Proj", "defaultBranch": "main", "size": 2048.0,
 		"isDisabled": false, "isFork": true, "remoteUrl": "https://dev.azure.com/o/My Proj/_git/a",
 		"sshUrl": "git@ssh.dev.azure.com:v3/o/My Proj/a", "webUrl": "https://dev.azure.com/o/My Proj/_git/a",
 	}, got[0])

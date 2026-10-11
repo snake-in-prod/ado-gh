@@ -42,7 +42,7 @@ Without <name> on a terminal, ado prompts for the name, project, README, .gitign
 			if len(args) == 1 {
 				o.name = args[0]
 			} else if !f.IOStreams.CanPrompt() {
-				return cmdutil.FlagErrorf("`<name>` required when not running interactively")
+				return cmdutil.FlagErrorf("repository name required when not running interactively")
 			}
 			return run(cmd.Context(), f, o)
 		},
@@ -95,7 +95,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		var he *api.HTTPError
 		if errors.As(err, &he) && strings.Contains(he.Message, "TF400948") {
-			return fmt.Errorf("repository %s already exists in project %s", repo.Name, repo.Project)
+			return fmt.Errorf("repository %s already exists in project %s; choose another name", repo.Name, repo.Project)
 		}
 		return err
 	}
@@ -115,7 +115,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		fmt.Fprintf(ios.ErrOut, "Created repository %s/%s\n", repo.Project, repo.Name)
 	}
 	if pushErr != nil {
-		fmt.Fprintf(ios.ErrOut, "warning: the repository was created, but adding the initial files failed: %v\n", pushErr)
+		fmt.Fprintf(ios.ErrOut, "%s Created the repository, but adding the initial files failed: %v\n", ios.ColorScheme().Yellow("!"), pushErr)
 	}
 	fmt.Fprintln(ios.Out, webURL)
 	if pushErr != nil {
@@ -136,6 +136,9 @@ func promptNameProject(f *cmdutil.Factory, o *options) error {
 	if o.name = strings.TrimSpace(name); o.name == "" {
 		return errors.New("a repository name is required")
 	}
+	if strings.ContainsAny(o.name, `/\:`) {
+		return fmt.Errorf("invalid repository name %q", o.name)
+	}
 	if o.project != "" {
 		return nil
 	}
@@ -143,7 +146,8 @@ func promptNameProject(f *cmdutil.Factory, o *options) error {
 	if r, err := target(f, "", o.name); err == nil {
 		def = r.Project
 	}
-	o.project, err = f.Prompter.Input("Project", def)
+	p, err := f.Prompter.Input("Project", def)
+	o.project = strings.TrimSpace(p)
 	return err
 }
 
@@ -218,7 +222,7 @@ func gitignoreTemplate(ctx context.Context, client *api.RepoClient, want string)
 		}
 	}
 	if len(matches) == 0 {
-		return "", fmt.Errorf("unknown gitignore template %q", want)
+		return "", fmt.Errorf("unknown gitignore template %q; omit --gitignore on a terminal to choose from the list", want)
 	}
 	return "", fmt.Errorf("unknown gitignore template %q; did you mean: %s", want, strings.Join(matches, ", "))
 }

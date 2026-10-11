@@ -4,7 +4,7 @@ package delete
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"regexp"
 	"strings"
 
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/repo/shared"
@@ -81,15 +81,13 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err := client.DeleteRepository(ctx, r.ID); err != nil {
 		return err
 	}
-	// A bare name resolves against the same context in `repo restore`; anything else is spelled out.
+	// A bare name resolves against the same git context in `repo restore`; a target from an
+	// argument path, -R or ADO_REPO is spelled out so the hint works when pasted elsewhere.
 	ref := r.Name
-	if strings.ContainsAny(o.arg, "/:") {
+	if strings.ContainsAny(o.arg, "/:") || !f.BaseRepoFromGit() {
 		ref = repo.Org + "/" + r.Project + "/" + r.Name
 	}
-	if strings.Contains(ref, " ") {
-		ref = strconv.Quote(ref)
-	}
-	restore := "ado repo restore " + ref
+	restore := "ado repo restore " + shellQuote(ref)
 	if !o.permanent {
 		fmt.Fprintf(ios.ErrOut, "Deleted repository %s (restorable for 30 days: %s)\n", fullName, restore)
 		return nil
@@ -99,4 +97,14 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	fmt.Fprintf(ios.ErrOut, "Permanently deleted repository %s\n", fullName)
 	return nil
+}
+
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
+
+// shellQuote single-quotes s for POSIX shells unless it only has [A-Za-z0-9._/-].
+func shellQuote(s string) string {
+	if shellSafe.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

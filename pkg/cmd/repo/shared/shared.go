@@ -42,7 +42,7 @@ func HumanSize(b uint64) string {
 		return strconv.FormatUint(b, 10) + " B"
 	}
 	v, unit := float64(b)/1024, 0
-	for v >= 1024 && unit < 3 {
+	for v >= 1023.95 && unit < 3 { // move up before %.1f rounds v to 1024.0
 		v /= 1024
 		unit++
 	}

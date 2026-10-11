@@ -203,7 +203,7 @@ func TestRepoCreateUnknownGitignore(t *testing.T) {
 	t.Run("no match", func(t *testing.T) {
 		e := newRepoCreateEnv(t, false)
 		e.stubTemplates()
-		require.EqualError(t, e.run("svc", "-g", "Haskell"), `unknown gitignore template "Haskell"`)
+		require.EqualError(t, e.run("svc", "-g", "Haskell"), `unknown gitignore template "Haskell"; omit --gitignore on a terminal to choose from the list`)
 	})
 }
 
@@ -227,7 +227,7 @@ func TestRepoCreateNameConflict(t *testing.T) {
 		httpmock.StatusJSONResponse(http.StatusConflict, map[string]any{
 			"message": "TF400948: A Git repository with the name svc already exists."}))
 	err := e.run("svc", "--add-readme", "--clone")
-	require.EqualError(t, err, "repository svc already exists in project My Proj")
+	require.EqualError(t, err, "repository svc already exists in project My Proj; choose another name")
 	assert.Equal(t, cmdutil.ExitError, cmdutil.HandleError(io.Discard, err, ""))
 	e.reg.Verify(t)
 	assert.Empty(t, e.out.String())
@@ -249,7 +249,7 @@ func TestRepoCreatePushFailure(t *testing.T) {
 	require.ErrorIs(t, err, cmdutil.SilentError)
 	assert.Equal(t, cmdutil.ExitError, cmdutil.HandleError(io.Discard, err, ""))
 	e.reg.Verify(t)
-	assert.Contains(t, e.errOut.String(), "warning:")
+	assert.Contains(t, e.errOut.String(), "! Created the repository, but adding the initial files failed")
 	assert.Contains(t, e.errOut.String(), "push rejected")
 	assert.Equal(t, e.webURL("My%20Proj", "svc")+"\n", e.out.String(), "URL still printed")
 	for _, r := range e.reg.Requests {
@@ -289,6 +289,79 @@ func TestRepoCreateTTYPromptsProjectAndClone(t *testing.T) {
 	assert.Equal(t, []string{"clone -- https://x/svc svc"}, e.git.Calls)
 }
 
+func TestRepoCreateTTYPromptsSkipFlagged(t *testing.T) {
+	e := newRepoCreateEnv(t, true)
+	// name, project (default), README yes; -g and --clone are not asked again
+	e.in.WriteString("svc\n\ny\n")
+	e.stubTemplates()
+	e.stubCreate(t, "My%20Proj", "My Proj", "svc")
+	e.stubPush(t, httpmock.JSONResponse(map[string]any{"pushId": 1}))
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/svc"),
+		httpmock.JSONResponse(map[string]any{"id": repoCreateID, "name": "svc", "remoteUrl": "https://x/svc"}))
+	require.NoError(t, e.run("-g", "go", "--clone"))
+	e.reg.Verify(t)
+	assert.NotContains(t, e.out.String(), ".gitignore?")
+	assert.NotContains(t, e.out.String(), "Clone")
+	changes := e.pushes[0]["commits"].([]any)[0].(map[string]any)["changes"].([]any)
+	require.Len(t, changes, 2)
+	assert.Equal(t, map[string]any{"name": "Go.gitignore", "type": "gitignore"},
+		changes[1].(map[string]any)["newContentTemplate"])
+	assert.Equal(t, []string{"clone -- https://x/svc svc"}, e.git.Calls)
+}
+
+func TestRepoCreateTTYPromptErrors(t *testing.T) {
+	t.Run("no gitignore templates", func(t *testing.T) {
+		e := newRepoCreateEnv(t, true)
+		// name, project (default), README no, .gitignore yes
+		e.in.WriteString("svc\n\nn\ny\n")
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/templates"),
+			httpmock.JSONResponse(map[string]any{"count": 0, "value": []any{}}))
+		require.EqualError(t, e.run(), "the project has no gitignore templates")
+		assert.Empty(t, e.creates)
+	})
+	t.Run("templates request fails", func(t *testing.T) {
+		e := newRepoCreateEnv(t, true)
+		e.in.WriteString("svc\n\nn\ny\n")
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/templates"),
+			httpmock.StatusJSONResponse(http.StatusForbidden, map[string]any{"message": "TF401027: denied"}))
+		require.ErrorContains(t, e.run(), "TF401027")
+		assert.Empty(t, e.creates)
+	})
+	t.Run("input ends at README", func(t *testing.T) {
+		e := newRepoCreateEnv(t, true)
+		e.in.WriteString("svc\n\n")
+		require.Error(t, e.run())
+		assert.Empty(t, e.creates)
+	})
+	t.Run("input ends at template choice", func(t *testing.T) {
+		e := newRepoCreateEnv(t, true)
+		e.in.WriteString("svc\n\nn\ny\n")
+		e.stubTemplates()
+		require.Error(t, e.run())
+		assert.Empty(t, e.creates)
+	})
+}
+
+func TestRepoCreateTTYInvalidName(t *testing.T) {
+	e := newRepoCreateEnv(t, true)
+	e.in.WriteString("a/b\n")
+	err := e.run()
+	require.EqualError(t, err, `invalid repository name "a/b"`)
+	var fe *cmdutil.FlagError
+	assert.False(t, errors.As(err, &fe), "not a FlagError")
+	assert.NotContains(t, e.out.String(), "Project")
+	assert.Empty(t, e.reg.Requests)
+}
+
+func TestRepoCreateTTYProjectTrimmed(t *testing.T) {
+	e := newRepoCreateEnv(t, true)
+	// name, project with stray spaces, README no, .gitignore no, clone no
+	e.in.WriteString("svc\n  Other \nn\nn\nn\n")
+	e.stubCreate(t, "Other", "Other", "svc")
+	require.NoError(t, e.run())
+	e.reg.Verify(t)
+}
+
 func TestRepoCreateTTYEmptyName(t *testing.T) {
 	e := newRepoCreateEnv(t, true)
 	e.in.WriteString("\n")
@@ -301,7 +374,7 @@ func TestRepoCreateUsageErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"non-TTY missing name", nil, "`<name>` required"},
+		{"non-TTY missing name", nil, "repository name required when not running interactively"},
 		{"slash in name", []string{"a/b"}, "invalid repository name"},
 		{"colon in name", []string{"a:b"}, "invalid repository name"},
 		{"too many args", []string{"a", "b"}, "accepts at most 1 arg"},

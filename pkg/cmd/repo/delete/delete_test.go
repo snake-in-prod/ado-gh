@@ -41,6 +41,7 @@ func newRepoDeleteEnv(t *testing.T, tty bool) *repoDeleteEnv {
 	t.Setenv("AZURE_DEVOPS_EXT_PAT", "")
 	t.Setenv("ADO_ORG", "")
 	t.Setenv("ADO_PROJECT", "")
+	t.Setenv("ADO_REPO", "")
 	keyring.MockInit()
 	cfg, err := config.Load()
 	require.NoError(t, err)
@@ -128,8 +129,34 @@ func TestRepoDeleteSoft(t *testing.T) {
 		e.stubSoftDelete("My%20Proj", repoDeleteNoContent())
 		require.NoError(t, e.run(e.org+"/My Proj/api", "-y"))
 		e.reg.Verify(t)
-		assert.Contains(t, e.errOut.String(), `ado repo restore "`+e.org+`/My Proj/api")`)
+		assert.Contains(t, e.errOut.String(), `ado repo restore '`+e.org+`/My Proj/api')`)
 	})
+	t.Run("hint with shell metacharacters is single-quoted", func(t *testing.T) {
+		e := newRepoDeleteEnv(t, false)
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/repositories/it%27s&%28x%29"),
+			httpmock.JSONResponse(map[string]any{"id": repoDeleteID, "name": "it's&(x)", "project": map[string]any{"name": "My Proj"}}))
+		e.stubSoftDelete("My%20Proj", repoDeleteNoContent())
+		require.NoError(t, e.run("it's&(x)", "-y"))
+		e.reg.Verify(t)
+		assert.Contains(t, e.errOut.String(), `ado repo restore 'it'\''s&(x)')`)
+	})
+	for _, tt := range []struct {
+		name string
+		set  func(t *testing.T, e *repoDeleteEnv)
+	}{
+		{"-R target hint is qualified", func(_ *testing.T, e *repoDeleteEnv) { e.f.RepoOverride = e.org + "/My Proj/web" }},
+		{"ADO_REPO target hint is qualified", func(t *testing.T, e *repoDeleteEnv) { t.Setenv("ADO_REPO", e.org+"/My Proj/web") }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newRepoDeleteEnv(t, false)
+			tt.set(t, e)
+			e.stubGet("My%20Proj", "My Proj", "web", false)
+			e.stubSoftDelete("My%20Proj", repoDeleteNoContent())
+			require.NoError(t, e.run("-y"))
+			e.reg.Verify(t)
+			assert.Contains(t, e.errOut.String(), `ado repo restore '`+e.org+`/My Proj/web')`)
+		})
+	}
 	t.Run("disabled repo is not blocked", func(t *testing.T) {
 		e := newRepoDeleteEnv(t, false)
 		e.stubGet("My%20Proj", "My Proj", "web", true)

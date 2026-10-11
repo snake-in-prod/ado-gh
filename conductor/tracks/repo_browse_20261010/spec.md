@@ -12,7 +12,7 @@ Add the `ado repo` command group (`list`, `view`, `clone`, `create`, `delete`, `
 ## Functional Requirements
 
 ### FR1: `ado repo list [<org>[/<project>]]`
-- No argument: repos in the current project (from context). `<org>`: every repo across all projects in that org (adds a project column). `<org>/<project>`: that project.
+- No argument: repos in the current project (from context). `<org>`: every repo across all projects in that org (the name column shows `project/repo`). `<org>/<project>`: that project.
 - `-L/--limit` (default 30), sorted by name.
 - Filters: `--disabled` / `--no-disabled` (ADO `isDisabled`; hidden aliases `--archived` / `--no-archived`), `--fork` / `--source` (`isFork`; mutually exclusive), `--match <glob>` (client-side on name).
 - TTY table: name (`project/repo` when org-wide), default branch, info (`fork`, `disabled`, `empty` for a repo with no commits), size. Non-TTY: TSV. An empty repo has JSON `defaultBranch` `""` (o5).

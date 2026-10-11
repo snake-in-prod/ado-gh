@@ -34,6 +34,7 @@
 ## Config & Context
 - YAML config at `$ADO_CONFIG_DIR`, else `$XDG_CONFIG_HOME/ado/config.yml` (`%AppData%\ado` on Windows) via `gopkg.in/yaml.v3`. Holds defaults, aliases, per-host settings; per-host keys use the original remote host (no normalization to dev.azure.com).
 - Git context from shelling out to `git` (`git remote -v`, `git rev-parse`), same as gh. Parses `https://dev.azure.com/{org}/{project}/_git/{repo}`, `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`, `https://{org}.visualstudio.com/...`.
+- Default repo per checkout via `remote.<name>.ado-resolved = base` (gh's mechanism, set by `ado repo set-default`); resolution order `-R` > `ADO_REPO` > `ado-resolved` > `origin` > `upstream` > first ADO remote. Global config `org` and per-host `git_protocol` (`https`|`ssh`).
 - Extensions: `ado-<name>` executables found on `PATH` / extension dir, gh model.
 
 ## Testing & Quality

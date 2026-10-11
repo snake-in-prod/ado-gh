@@ -17,7 +17,7 @@ Today's Azure DevOps terminal tooling (`az devops` extension, raw REST) is verbo
 
 ## Core Features
 ### Command groups
-- **`repo`**: list, view, clone, create, browse.
+- **`repo`**: list, view, clone, create, delete, restore, set-default; top-level `ado browse` (files, lines, PRs, work items, commits, project sections).
 - **`pr`**: create, list, view, checkout, diff, review/approve/vote, comment, merge/complete, close/abandon, status, reviewers.
 - **`workitem`** (issue-like, alias `wi`): create, list, view, edit, close, comment, assign; run WIQL/saved queries; sprint/iteration views.
 - **`pipeline`** (alias `run`): list, run/trigger, view, watch, logs, cancel, rerun.

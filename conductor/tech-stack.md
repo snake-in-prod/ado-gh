@@ -5,7 +5,7 @@
 - Module path: `github.com/snake-in-prod/ado-gh`; binary name: `ado`.
 
 ## Azure DevOps API
-- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`** pinned at `v7.1.0`: typed clients for Git (repos, PRs), Work Item Tracking, Build/Pipelines, Core (projects). Clients are built as `<pkg>.ClientImpl` over `azuredevops.NewClientWithOptions(..., WithHTTPClient(shared))` with an empty `AuthorizationString`; auth lives only in ado's RoundTripper (the SDK is mostly dormant and has no transport hook).
+- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`** pinned at `v7.1.0`: typed clients for Git (repos, PRs), Work Item Tracking, Work (iterations, boards), Build/Pipelines, Core (projects, teams). Work Item Search goes through the `almsearch` host. Clients are built as `<pkg>.ClientImpl` over `azuredevops.NewClientWithOptions(..., WithHTTPClient(shared))` with an empty `AuthorizationString`; auth lives only in ado's RoundTripper (the SDK is mostly dormant and has no transport hook).
 - **`net/http`** raw client for `ado api` and for endpoints the SDK lacks. It shares auth, user-agent and debug-logging transport with the SDK.
 - Every request sends `X-TFS-FedAuthRedirect: Suppress`; 401 and 203 (sign-in page) map to exit code 4.
 - Target: Azure DevOps Services (`dev.azure.com`, `*.visualstudio.com`). Host is configurable to leave room for Azure DevOps Server later.
@@ -37,6 +37,7 @@
 - YAML config at `$ADO_CONFIG_DIR`, else `$XDG_CONFIG_HOME/ado/config.yml` (`%AppData%\ado` on Windows) via `gopkg.in/yaml.v3`. Holds defaults, aliases, per-host settings; per-host keys use the original remote host (no normalization to dev.azure.com).
 - Git context from shelling out to `git` (`git remote -v`, `git rev-parse`), same as gh. Parses `https://dev.azure.com/{org}/{project}/_git/{repo}`, `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`, `https://{org}.visualstudio.com/...`.
 - Default repo per checkout via `remote.<name>.ado-resolved = base` (gh's mechanism, set by `ado repo set-default`); resolution order `-R` > `ADO_REPO` > `ado-resolved` > `origin` > `upstream` > first ADO remote. Global config `org` and per-host `git_protocol` (`https`|`ssh`).
+- Project-scoped commands (`workitem`, `sprint`, `board`) also accept `-R ORG/PROJECT`; per-project `team` config key under the hosts-map scope `dev.azure.com/ORG/PROJECT` (`ado config set team X --project ORG/PROJECT`).
 - Extensions: `ado-<name>` executables found on `PATH` / extension dir, gh model.
 
 ## Testing & Quality

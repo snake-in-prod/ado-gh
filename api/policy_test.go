@@ -38,7 +38,7 @@ func TestPolicyEvaluationsError(t *testing.T) {
 func TestStatuses(t *testing.T) {
 	org := "prstatusesorg"
 	c, reg := newTestPRClient(t, org)
-	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/git/repositories/repo/pullRequests/42/statuses"),
+	reg.Register(httpmock.REST(http.MethodGet, org+prBase+"/42/statuses"),
 		httpmock.JSONResponse(map[string]any{"count": 1, "value": []map[string]any{
 			{"id": 3, "state": "succeeded", "context": map[string]any{"genre": "ci", "name": "lint"}},
 		}}))

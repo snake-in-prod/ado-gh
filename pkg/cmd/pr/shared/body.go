@@ -12,6 +12,9 @@ import (
 
 // ReadBody reads a pull request description from the file at path, or from in when path is "-".
 func ReadBody(in io.Reader, path string) (string, error) {
+	if path == "" {
+		return "", cmdutil.FlagErrorf(`--body-file needs a file path, or "-" for stdin`)
+	}
 	var b []byte
 	var err error
 	if path == "-" {
@@ -53,7 +56,7 @@ func (b *BodyFlags) Read(f *cmdutil.Factory, initial string) (string, error) {
 	var body string
 	var err error
 	switch {
-	case b.File != "":
+	case b.cmd.Flags().Changed("body-file"):
 		body, err = ReadBody(f.IOStreams.In, b.File)
 	case b.Given():
 		body = b.Body

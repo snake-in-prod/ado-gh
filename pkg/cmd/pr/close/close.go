@@ -5,11 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/snake-in-prod/ado-gh/api"
+	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -53,7 +55,7 @@ branch is checked out first.`,
 }
 
 func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
-	pr, c, _, err := shared.Find(ctx, f, o.ref)
+	pr, c, repo, err := shared.Find(ctx, f, o.ref)
 	if err != nil {
 		return err
 	}
@@ -83,9 +85,10 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 
 	branch := strings.TrimPrefix(shared.Deref(pr.SourceRefName), "refs/heads/")
 	var errs []error
-	// With -R the current directory may be another repository: leave local branches alone (gh).
-	if f.RepoOverride == "" {
-		errs = append(errs, deleteLocal(ctx, f, c, branch))
+	// With -R or ADO_REPO the current directory may be another repository: leave local
+	// branches alone.
+	if f.BaseRepoFromGit() {
+		errs = append(errs, deleteLocal(ctx, f, c, repo, pr, branch))
 	}
 	if pr.ForkSource != nil && pr.ForkSource.Repository != nil {
 		fmt.Fprintf(ios.ErrOut, "%s Skipped deleting remote branch %s: it is in a fork\n", cs.Yellow("!"), branch)
@@ -98,11 +101,12 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	return nil
 }
 
-// deleteLocal deletes every local branch whose upstream is the remote branch, plus a local branch
-// of the same name (gh deletes that one), checking out the repository's default branch first
-// when one of them is checked out.
-func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, branch string) error {
-	out, err := f.GitClient.Exec(ctx, "config", "--get-regexp", `^branch\..*\.merge$`)
+// deleteLocal deletes every local branch tracking the source branch of pr (in repo, or in the
+// fork pr comes from), plus a local branch of the same name without an upstream (gh deletes
+// that one), checking out the repository's default branch first when one of them is checked
+// out. A branch tracking a same-named branch of another repository is kept.
+func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo adocontext.Repo, pr *git.GitPullRequest, branch string) error {
+	out, err := f.GitClient.Exec(ctx, "config", "--get-regexp", `^branch\..*\.(merge|remote)$`)
 	var gitErr *gitcmd.Error
 	if errors.As(err, &gitErr) && gitErr.ExitCode == 1 {
 		out, err = nil, nil // no branch has an upstream
@@ -110,14 +114,45 @@ func deleteLocal(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, branc
 	if err != nil {
 		return err
 	}
-	var locals []string
+	// The upstream of each local branch: the merge ref and the remote it comes from.
+	merges, remoteOf := map[string]string{}, map[string]string{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		key, merge, _ := strings.Cut(line, " ")
-		if merge == "refs/heads/"+branch {
-			locals = append(locals, strings.TrimSuffix(strings.TrimPrefix(key, "branch."), ".merge"))
+		key, value, _ := strings.Cut(line, " ")
+		key = strings.TrimPrefix(key, "branch.")
+		if name, ok := strings.CutSuffix(key, ".merge"); ok {
+			merges[name] = value
+		} else {
+			remoteOf[strings.TrimSuffix(key, ".remote")] = value
 		}
 	}
-	if !slices.Contains(locals, branch) {
+	var candidates []string
+	for _, name := range slices.Sorted(maps.Keys(merges)) {
+		if merges[name] == "refs/heads/"+branch {
+			candidates = append(candidates, name)
+		}
+	}
+	var locals []string
+	if len(candidates) > 0 {
+		head, _, _, err := shared.SourceRepo(ctx, c, repo, pr)
+		if err != nil {
+			return err
+		}
+		remotes, err := f.GitClient.Remotes(ctx)
+		if err != nil {
+			return err
+		}
+		// branch.<name>.remote is a remote name, or a URL (pr checkout of a fork without a remote).
+		for _, name := range candidates {
+			u := remoteOf[name]
+			if i := slices.IndexFunc(remotes, func(r gitcmd.Remote) bool { return r.Name == u }); i >= 0 {
+				u = remotes[i].FetchURL
+			}
+			if shared.PointsAt(u, head) {
+				locals = append(locals, name)
+			}
+		}
+	}
+	if _, tracked := merges[branch]; !tracked {
 		if _, err := f.GitClient.Exec(ctx, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch); err == nil {
 			locals = append([]string{branch}, locals...)
 		}

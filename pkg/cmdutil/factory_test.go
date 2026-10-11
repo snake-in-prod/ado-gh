@@ -34,6 +34,17 @@ func TestNewFactoryBaseRepo(t *testing.T) {
 	assert.Equal(t, adocontext.Repo{Host: "dev.azure.com", Org: "a", Project: "b", Name: "c"}, repo)
 }
 
+func TestBaseRepoFromGit(t *testing.T) {
+	f := &Factory{}
+	t.Setenv("ADO_REPO", "")
+	assert.True(t, f.BaseRepoFromGit())
+	t.Setenv("ADO_REPO", "p/r")
+	assert.False(t, f.BaseRepoFromGit(), "ADO_REPO")
+	t.Setenv("ADO_REPO", "")
+	f.RepoOverride = "p/r"
+	assert.False(t, f.BaseRepoFromGit(), "-R")
+}
+
 func TestNewFactoryDebugFromEnv(t *testing.T) {
 	for v, want := range map[string]bool{"": false, "0": false, "false": false, "1": true, "true": true, "api": true} {
 		t.Setenv("ADO_DEBUG", v)

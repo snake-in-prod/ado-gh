@@ -204,7 +204,8 @@ func TestPRMutations(t *testing.T) {
 	reg.Register(httpmock.REST(http.MethodPatch, org+prBase+"/9"), capture(&updated, map[string]any{"pullRequestId": 9, "status": "completed"}))
 	reg.Register(httpmock.REST(http.MethodPut, org+prBase+"/9/reviewers/me-id"), capture(&voted, map[string]any{"id": "me-id", "vote": 0}))
 	reg.Register(httpmock.REST(http.MethodPost, org+prBase+"/9/reviewers"), func(r *http.Request) (*http.Response, error) {
-		b, _ := io.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(b, &reviewers))
 		return httpmock.JSONResponse(map[string]any{"count": 2, "value": []map[string]any{{"id": "a"}, {"id": "b"}}})(r)
 	})
@@ -251,10 +252,7 @@ func TestPRThreadsAndComments(t *testing.T) {
 	bodies := map[string]map[string]any{}
 	capture := func(key string, resp any) httpmock.Responder {
 		return func(r *http.Request) (*http.Response, error) {
-			var body map[string]any
-			b, _ := io.ReadAll(r.Body)
-			require.NoError(t, json.Unmarshal(b, &body))
-			bodies[key] = body
+			bodies[key] = jsonBody(t, r)
 			return httpmock.JSONResponse(resp)(r)
 		}
 	}

@@ -40,8 +40,8 @@ func changePath(ch git.GitPullRequestChange) string {
 	return p
 }
 
-// inlineContext anchors a new thread to lines o.start..o.end of o.file, on the side o.left picks,
-// in the latest iteration of pull request id compared with the merge base (the Files tab).
+// inlineContext anchors a new thread to lines o.start..o.end of o.file, on the side o.left picks
+// (the only side of an added or deleted file), in the latest iteration of pull request id compared with the merge base (the Files tab).
 func inlineContext(ctx context.Context, c *api.PRClient, o *options, id int) (*git.CommentThreadContext, *git.GitPullRequestCommentThreadContext, error) {
 	its, err := c.Iterations(ctx, id)
 	if err != nil {
@@ -65,7 +65,7 @@ func inlineContext(ctx context.Context, c *api.PRClient, o *options, id int) (*g
 		i = slices.IndexFunc(changes, func(ch git.GitPullRequestChange) bool { return shared.Deref(ch.OriginalPath) == want })
 	}
 	if i < 0 {
-		return nil, nil, fmt.Errorf("%s is not changed in pull request !%d", o.file, id)
+		return nil, nil, fmt.Errorf("%s is not changed in pull request !%d; list the changed files with: ado pr diff %d --name-only", o.file, id, id)
 	}
 	ch := changes[i]
 	filePath, one := changePath(ch), 1
@@ -73,7 +73,15 @@ func inlineContext(ctx context.Context, c *api.PRClient, o *options, id int) (*g
 	// anchors on the end line.
 	start, end := &git.CommentPosition{Line: &o.start, Offset: &one}, &git.CommentPosition{Line: &o.end, Offset: &one}
 	tc := &git.CommentThreadContext{FilePath: &filePath}
-	if o.left {
+	// An added file has only a new (right) side, a deleted one only an old (left) side.
+	left := o.left
+	switch kinds := shared.ChangeKinds(ch.ChangeType); {
+	case slices.Contains(kinds, "add"):
+		left = false
+	case slices.Contains(kinds, "delete"):
+		left = true
+	}
+	if left {
 		tc.LeftFileStart, tc.LeftFileEnd = start, end
 	} else {
 		tc.RightFileStart, tc.RightFileEnd = start, end

@@ -1,4 +1,3 @@
-// Package diff implements `ado pr diff`.
 package diff
 
 import (
@@ -18,7 +17,8 @@ import (
 // cloneDiff writes pull request pr's diff computed by the local clone: from the latest
 // iteration's common commit to its source commit (the web Files tab), only the changed names
 // with nameOnly, or the source commits as format-patch mails with patch. The source and target
-// branches are fetched first. git never colours or runs external diff tools; writeDiff colours.
+// branches are fetched first. git never colours or runs external diff tools or textconv
+// filters, and user config can't change prefixes or paths (gitDiffArgs); writeDiff colours.
 func cloneDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo adocontext.Repo, pr *git.GitPullRequest, nameOnly, patch, color bool) error {
 	id := *pr.PullRequestId
 	base, src, tgt, err := iterationCommits(ctx, c, pr)
@@ -82,7 +82,7 @@ func cloneDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo ad
 		if err := ensure(tgt, targetFrom); err != nil {
 			return err
 		}
-		args = []string{"format-patch", "--no-color", "--no-ext-diff", "--stdout", tgt + ".." + src}
+		args = gitDiffArgs("format-patch", "--stdout", tgt+".."+src)
 	} else {
 		if base == "" || !has(base) && !fetch(targetFrom, base) {
 			if err := ensure(tgt, targetFrom); err != nil {
@@ -94,17 +94,24 @@ func cloneDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, repo ad
 			}
 			base = strings.TrimSpace(string(out))
 		}
-		args = []string{"diff", "--no-color", "--no-ext-diff"}
+		args = gitDiffArgs("diff", base, src)
 		if nameOnly {
-			args = append(args, "--name-only")
+			args = gitDiffArgs("diff", "--name-only", base, src)
 		}
-		args = append(args, base, src)
 	}
 	out, err := gc.Exec(ctx, args...)
 	if err != nil {
 		return err
 	}
 	return writeDiff(f.IOStreams.Out, out, color && !nameOnly)
+}
+
+// gitDiffArgs returns the git arguments for the diff command cmd with args, overriding the
+// config that would make the output differ from the Files tab: no a/ b/ prefixes, paths
+// relative to the cwd, colour, external diff tools and textconv filters.
+func gitDiffArgs(cmd string, args ...string) []string {
+	return append([]string{"-c", "diff.noprefix=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.relative=false",
+		cmd, "--no-color", "--no-ext-diff", "--no-textconv"}, args...)
 }
 
 // refspec returns the fetch refspec for branch ref: into the remote's tracking ref, or just the
@@ -128,7 +135,7 @@ func iterationCommits(ctx context.Context, c *api.PRClient, pr *git.GitPullReque
 	}
 	src, tgt = commitID(pr.LastMergeSourceCommit), commitID(pr.LastMergeTargetCommit)
 	if len(its) > 0 {
-		it := slices.MaxFunc(its, func(a, b git.GitPullRequestIteration) int { return cmp.Compare(intOr0(a.Id), intOr0(b.Id)) })
+		it := latestIteration(its)
 		base = commitID(it.CommonRefCommit)
 		src, tgt = cmp.Or(commitID(it.SourceRefCommit), src), cmp.Or(commitID(it.TargetRefCommit), tgt)
 	}
@@ -151,9 +158,7 @@ func commitID(c *git.GitCommitRef) string {
 	return *c.CommitId
 }
 
-func intOr0(p *int) int {
-	if p == nil {
-		return 0
-	}
-	return *p
+// latestIteration returns the iteration with the highest ID; its must not be empty.
+func latestIteration(its []git.GitPullRequestIteration) git.GitPullRequestIteration {
+	return slices.MaxFunc(its, func(a, b git.GitPullRequestIteration) int { return cmp.Compare(shared.Deref(a.Id), shared.Deref(b.Id)) })
 }

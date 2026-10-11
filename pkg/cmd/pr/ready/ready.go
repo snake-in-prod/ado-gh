@@ -56,7 +56,11 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		if !ios.CanPrompt() {
 			return cmdutil.FlagErrorf("--yes required when not running interactively")
 		}
-		ok, err := f.Prompter.Confirm(fmt.Sprintf("Converting pull request !%d (%s) to draft removes its %d votes. Continue?", id, title, votes), false)
+		noun := "votes"
+		if votes == 1 {
+			noun = "vote"
+		}
+		ok, err := f.Prompter.Confirm(fmt.Sprintf("Converting pull request !%d (%s) to draft removes its %d %s. Continue?", id, title, votes, noun), false)
 		if err != nil {
 			return err
 		}
@@ -78,12 +82,21 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	return nil
 }
 
+// countVotes counts the reviewers who voted. A vote cast for a group or team also shows on the
+// group's entry, which isn't counted; group votes alone count as one.
 func countVotes(pr *git.GitPullRequest) int {
-	n := 0
+	n, group := 0, false
 	for _, r := range shared.Deref(pr.Reviewers) {
-		if shared.Deref(r.Vote) != 0 {
+		switch {
+		case shared.Deref(r.Vote) == 0:
+		case shared.Deref(r.IsContainer):
+			group = true
+		default:
 			n++
 		}
+	}
+	if n == 0 && group {
+		return 1
 	}
 	return n
 }

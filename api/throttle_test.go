@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"testing/synctest"
 	"time"
 
@@ -67,6 +68,40 @@ func TestTransport429WithoutRetryAfterWaitsDefault(t *testing.T) {
 	})
 }
 
+func TestTransport429WithRetryAfterZeroRetriesNow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		reg := &httpmock.Registry{}
+		reg.Register(httpmock.MatchAny, throttled(http.StatusTooManyRequests, "Retry-After", "0"))
+		reg.Register(httpmock.MatchAny, httpmock.StringResponse("ok"))
+		hc := NewHTTPClient(ClientOptions{Transport: reg})
+
+		start := time.Now()
+		status, err := throttleGet(context.Background(), t, hc)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Zero(t, time.Since(start))
+		reg.Verify(t)
+	})
+}
+
+func TestTransportLogsDrainError(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		reg := &httpmock.Registry{}
+		reg.Register(httpmock.MatchAny, func(req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusTooManyRequests, Header: http.Header{"Retry-After": {"1"}},
+				Body: io.NopCloser(iotest.ErrReader(errors.New("reset"))), Request: req}, nil
+		})
+		reg.Register(httpmock.MatchAny, httpmock.StringResponse("ok"))
+		var log bytes.Buffer
+		hc := NewHTTPClient(ClientOptions{Transport: reg, Log: &log})
+
+		status, err := throttleGet(context.Background(), t, hc)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Contains(t, log.String(), "< drain error: reset")
+	})
+}
+
 func TestTransportGivesUpAfterMaxRetries(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		reg := &httpmock.Registry{}
@@ -102,7 +137,8 @@ func TestTransportResendsBodyOnRetry(t *testing.T) {
 		reg := &httpmock.Registry{}
 		record := func(resp httpmock.Responder) httpmock.Responder {
 			return func(req *http.Request) (*http.Response, error) {
-				b, _ := io.ReadAll(req.Body)
+				b, err := io.ReadAll(req.Body)
+				require.NoError(t, err)
 				bodies = append(bodies, string(b))
 				return resp(req)
 			}

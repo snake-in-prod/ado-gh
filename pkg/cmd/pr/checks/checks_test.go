@@ -365,6 +365,20 @@ func TestChecksWatch(t *testing.T) {
 		assert.True(t, strings.HasPrefix(final, "All checks were successful\n"), final)
 	})
 
+	t.Run("--required stops once only optional checks are pending", func(t *testing.T) {
+		e := newChecksCmdEnv(t, false)
+		synctest.Test(t, func(t *testing.T) {
+			e.stubChecksPR()
+			e.stubChecksRound(append(checksCmdPending, checksCmdBuild("E2E", "running", false)))
+			e.stubChecksRound(append(checksCmdPass, checksCmdBuild("E2E", "running", false)))
+			require.NoError(t, e.run(t, "12", "--required", "--watch"))
+		})
+		e.reg.Verify(t)
+		assert.Len(t, e.polls, 2)
+		assert.Contains(t, e.out.String(), "CI\tpass")
+		assert.NotContains(t, e.out.String(), "E2E")
+	})
+
 	t.Run("non-tty prints only the final state with the default interval", func(t *testing.T) {
 		e := newChecksCmdEnv(t, false)
 		synctest.Test(t, func(t *testing.T) {

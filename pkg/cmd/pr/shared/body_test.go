@@ -4,10 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/editortest"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/spf13/cobra"
@@ -31,36 +31,13 @@ func TestReadBody(t *testing.T) {
 	assert.ErrorContains(t, err, "reading the description")
 }
 
-// TestBodyEditorHelperProcess is not a test: run as an editor by bodyEditorCmd, it records the
-// file's initial text in $ADO_TEST_BODY_SEEN and replaces it with $ADO_TEST_BODY_TEXT.
-func TestBodyEditorHelperProcess(*testing.T) {
-	if os.Getenv("ADO_TEST_BODY_EDITOR") != "1" {
-		return
-	}
-	path := os.Args[len(os.Args)-1]
-	b, _ := os.ReadFile(path)
-	_ = os.WriteFile(os.Getenv("ADO_TEST_BODY_SEEN"), b, 0o600)
-	_ = os.WriteFile(path, []byte(os.Getenv("ADO_TEST_BODY_TEXT")), 0o600)
-	os.Exit(0)
-}
+// TestBodyEditorHelperProcess is not a test: it is the fake editor of editortest.Command.
+func TestBodyEditorHelperProcess(*testing.T) { editortest.HelperProcess() }
 
-// bodyEditorCmd sets ADO_EDITOR to TestBodyEditorHelperProcess writing text and returns the file
-// where it records the text it was opened with.
+// bodyEditorCmd sets ADO_EDITOR to a fake editor writing text and returns the file where it
+// records the text it was opened with.
 func bodyEditorCmd(t *testing.T, text string) (seen string) {
-	t.Helper()
-	exe, err := os.Executable()
-	require.NoError(t, err)
-	seen = filepath.Join(t.TempDir(), "seen")
-	t.Setenv("ADO_TEST_BODY_EDITOR", "1")
-	t.Setenv("ADO_TEST_BODY_SEEN", seen)
-	t.Setenv("ADO_TEST_BODY_TEXT", text)
-	cmd := "'" + exe + "' '-test.run=^TestBodyEditorHelperProcess$' --"
-	if runtime.GOOS == "windows" {
-		if strings.Contains(exe, " ") {
-			t.Skip("test binary path has spaces")
-		}
-		cmd = exe + " -test.run=^TestBodyEditorHelperProcess$ --"
-	}
+	cmd, seen := editortest.Command(t, "TestBodyEditorHelperProcess", text)
 	t.Setenv("ADO_EDITOR", cmd)
 	return seen
 }
@@ -92,6 +69,7 @@ func TestBodyFlagsRead(t *testing.T) {
 		{name: "editor flag without tty", args: []string{"-e"}, wantErr: "--editor", flagErr: true},
 		{name: "empty body", args: []string{"-b", ""}, given: true, wantErr: "body cannot be blank", flagErr: true},
 		{name: "blank editor result", tty: true, edited: " \n", wantErr: "body cannot be blank", flagErr: true},
+		{name: "empty file path", args: []string{"-F", ""}, given: true, wantErr: `--body-file needs a file path, or "-" for stdin`, flagErr: true},
 		{name: "missing file", args: []string{"-F", filepath.Join(t.TempDir(), "missing")}, given: true, wantErr: "reading the description"},
 	}
 	for _, tt := range tests {

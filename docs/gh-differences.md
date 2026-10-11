@@ -77,16 +77,20 @@ Azure DevOps calls merging a PR **completing** it. `ado pr merge` has the alias
   interactively`, prints the usage and exits 1, like `ado pr merge`.
 - Closing an already abandoned PR prints a warning and exits 0. A completed PR
   can't be abandoned (exit 1).
-- `close -d/--delete-branch` deletes the remote source branch after abandoning,
-  then the local branch with the same name (as `gh` does) and **every** local
-  branch whose upstream (`branch.<name>.merge`) is that branch, so branches made
-  with `pr checkout -b` or fork-prefixed names go too. Remote deletion is
-  skipped with a warning for PRs from a fork. Deleting a branch needs the
+- `close -d/--delete-branch` abandons the PR, then deletes the local branch
+  with the same name (as `gh` does) and **every** local branch whose upstream is
+  the source branch, so branches made with `pr checkout -b` or fork-prefixed
+  names go too, and then the remote source branch. A local branch counts only
+  when its `branch.<name>.remote` points at the repository holding the source
+  branch (the fork, for a PR from a fork); a branch tracking a same-named
+  branch of another repository is kept, and so is a same-name branch that does.
+  With `-R` or `ADO_REPO`, local branches are left alone (`gh` only checks
+  `--repo`). Remote deletion is skipped with a warning for PRs from a fork. Deleting a branch needs the
   **Force push** permission, which Contributors usually only have on branches
   they created. When the delete fails, the PR stays abandoned and `ado` exits 1
   naming the branch and the missing permission.
 - `ado pr reopen` fails when the source branch no longer exists, naming the
-  branch and asking you to push it again. The web UI can restore it; `ado`
+  branch and asking you to push it again (to the fork, for a PR from a fork). The web UI can restore it; `ado`
   doesn't.
 - `ado pr ready --undo` marks the PR as a draft again. Azure DevOps then
   **removes every vote**, so `ado` asks for confirmation when the PR has votes
@@ -103,7 +107,9 @@ Azure DevOps calls merging a PR **completing** it. `ado pr merge` has the alias
 - `--add-work-item`/`--remove-work-item` link and unlink work items by ID.
   Removing only drops the PR link; the work item's branch and commit links stay.
 - `--add-label`/`--remove-label` edit the PR's **tags**. Azure DevOps creates
-  a tag the first time it's used, so unknown labels aren't an error.
+  a tag the first time it's used, so unknown labels aren't an error. Tags are
+  case-insensitive: a name repeated in another case is applied once.
+- Adding and removing the same reviewer in one run is an error.
 - `-B/--base` needs the PR retargeting feature. When the server ignores the
   change, the edit is reported as failed.
 - Descriptions are limited to 4000 characters.
@@ -134,6 +140,11 @@ Reactions aren't supported.
 and replies. In `ado pr view --json`, `threads` and its alias `comments` are
 arrays of threads (`id,status,filePath,line,comments[{id,author,content,publishedDate}]`),
 not `gh`'s flat list of comments. Vote and policy system threads are hidden.
+
+`ado pr view` also shows the PR's labels (tags): a `Labels:` line on a
+terminal, a `labels:` row when piped, and a `labels` field in `--json`, an
+array of `{id,name}` objects. The PR itself doesn't carry its labels, so they
+cost one extra request; `pr list` and `pr status` don't offer `labels`.
 
 ## `pr diff` matches the Files tab
 
@@ -194,6 +205,9 @@ linking, comment resolution, merge strategy, status policies) and the latest
 - `--json` takes PR fields (the `pr list` fields plus `checks` and
   `reviewDecision`) and returns `{currentBranch, createdBy, needsReview}`, like
   `gh`.
+- The "Current branch" section is hidden with `-R`, as in `gh`, and also when the
+  repository comes from `ADO_REPO`, because the current directory may then be a
+  different repository.
 
 ## `-R` takes `[ORG/]PROJECT/REPO`
 
@@ -214,6 +228,9 @@ ado pr list -R web                   # organization from ADO_ORG, project from A
   the project. `ado` treats the project as equal to the repo name in that case.
 - `ado` uses `ADO_*` environment variables and its own config only. It ignores
   `GH_REPO`, `GH_HOST`, `GH_BROWSER` and other `GH_*` variables.
+- The text editor comes from `ADO_EDITOR`, then `ado config set editor`, then
+  `VISUAL`, then `EDITOR`, else `nano` (`notepad` on Windows). `GH_EDITOR` and
+  `gh`'s `editor` setting are ignored.
 
 ## `pr checkout` fetches the source branch
 

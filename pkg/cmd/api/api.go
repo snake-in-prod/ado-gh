@@ -336,7 +336,9 @@ func (o *options) write(body []byte, isJSON bool) error {
 func (o *options) resolveURL() (u *url.URL, host, org string, err error) {
 	p := o.path
 	// Absolute only when the path starts with a scheme: queries may hold URLs (artifactId=vstfs:///...).
-	abs := strings.HasPrefix(p, "https://") || strings.HasPrefix(p, "http://")
+	// Schemes are case-insensitive.
+	lp := strings.ToLower(p)
+	abs := strings.HasPrefix(lp, "https://") || strings.HasPrefix(lp, "http://")
 	var repo adocontext.Repo
 	switch {
 	case strings.Contains(p, "{project}") || strings.Contains(p, "{repo}"):

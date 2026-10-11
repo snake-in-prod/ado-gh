@@ -24,8 +24,8 @@ func (e *fieldsEnv) iaTTY(answers string) {
 	e.ios.In = iotest.OneByteReader(e.in)
 }
 
-// stubIaPR stubs the SDK locations and GET of pull request 12 with reviewers, labels and the
-// repository IDs work item links need.
+// stubIaPR stubs the SDK locations and GET of pull request 12 with reviewers and the
+// repository IDs work item links need. Like the real API, the GET has no labels.
 func (e *fieldsEnv) stubIaPR() {
 	e.reg.StubLocations(e.org, httpmock.GitPRLocations...)
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/pullRequests/12"), httpmock.JSONResponse(map[string]any{
@@ -36,7 +36,6 @@ func (e *fieldsEnv) stubIaPR() {
 			{"id": revOpt, "displayName": "Opal", "vote": 0},
 			{"id": revReq, "displayName": "Rex", "vote": 0, "isRequired": true},
 		},
-		"labels": []map[string]any{{"id": lnkBugLabel, "name": "bug"}, {"id": iaWipLabel, "name": "wip"}},
 	}))
 }
 
@@ -44,7 +43,7 @@ func TestEditInteractiveFields(t *testing.T) {
 	e := newFieldsEnv(t)
 	// Title, Description, Base branch; new title, keep the description, new base.
 	e.iaTTY("1\n2\n3\n0\nNew title\n\ndevelop\n")
-	e.stubFieldsPR()
+	e.stubFieldsPR(false)
 	e.stubFieldsRefs("develop", true)
 	e.stubFieldsPatch("refs/heads/develop")
 
@@ -65,6 +64,7 @@ func TestEditInteractiveLists(t *testing.T) {
 		"2\n0\n44\n" + // unselect #43, add #44
 		"2\n0\ndocs, ui\n") // unselect wip, add docs and ui
 	e.stubIaPR()
+	e.stubLabels(lnkBugLabel, "bug", iaWipLabel, "wip")
 	e.stubRevPut(revAnn, 0)
 	e.stubRevDelete(revOpt, httpmock.StringResponse(""))
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+fieldsRepoPath+"/pullRequests/12/workitems"),
@@ -76,11 +76,7 @@ func TestEditInteractiveLists(t *testing.T) {
 	e.reg.Register(httpmock.REST(http.MethodDelete, e.org+fieldsRepoPath+"/pullRequests/12/labels/"+iaWipLabel),
 		httpmock.StringResponse(""))
 	for range 2 {
-		e.reg.Register(httpmock.REST(http.MethodPost, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
-			func(req *http.Request) (*http.Response, error) {
-				e.patches = append(e.patches, revReqBody(req))
-				return httpmock.JSONResponse(map[string]any{"name": "x"})(req)
-			})
+		e.stubLabelPost()
 	}
 
 	err := e.run(t, "12")
@@ -148,4 +144,15 @@ func TestEditPatchFailureIsPartial(t *testing.T) {
 	require.EqualError(t, err, "failed to update title, description: denied (HTTP 403)\napplied: added reviewer "+revAnn)
 	// cobra prints the usage on Out after the URL.
 	assert.True(t, strings.HasPrefix(e.out.String(), strings.Replace(fieldsURL, "ORG", e.org, 1)), e.out.String())
+}
+
+func TestEditInteractiveLabelsLookupFailure(t *testing.T) {
+	e := newFieldsEnv(t)
+	e.iaTTY("6\n0\n") // Labels
+	e.stubIaPR()
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
+		httpmock.StatusJSONResponse(http.StatusForbidden, map[string]any{"message": "denied"}))
+
+	require.EqualError(t, e.run(t, "12"), "denied (HTTP 403)")
+	e.reg.Verify(t)
 }

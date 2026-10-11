@@ -67,6 +67,9 @@ func TestRegistry_MatchesAndVerifies(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no registered HTTP stubs matched") {
 		t.Errorf("unmatched err = %v", err)
 	}
+	if len(reg.Requests) != 3 {
+		t.Errorf("Requests = %d, want 3: unmatched requests are recorded too", len(reg.Requests))
+	}
 
 	ft := &fakeT{}
 	reg.Verify(ft)
@@ -226,6 +229,46 @@ func TestStubIMS(t *testing.T) {
 		t.Errorf("locations = %+v", locs)
 	}
 	reg.Verify(t)
+}
+
+func TestStubMemberGroups(t *testing.T) {
+	c := &http.Client{}
+	reg := ReplaceTripper(c)
+	reg.StubMemberGroups("org", "ME", []string{"d;team"}, map[string]string{"g1": "d;team"})
+	base := "https://vssps.dev.azure.com/org/_apis/identities?"
+
+	// A search is not a membership read.
+	resp, err := c.Get(base + "queryMembership=None&searchFilter=General&filterValue=x")
+	if err == nil {
+		resp.Body.Close()
+		t.Error("a search matched")
+	}
+	_, raw := do(t, c, "GET", base+"identityIds=me&queryMembership=expandedUp")
+	var up collection[map[string]any]
+	if err := json.Unmarshal([]byte(raw), &up); err != nil {
+		t.Fatal(err)
+	}
+	if up.Count != 1 || fmt.Sprint(up.Value[0]["memberOf"]) != "[d;team]" {
+		t.Errorf("expandedUp = %+v", up)
+	}
+	_, raw = do(t, c, "GET", base+"identityIds=g1&queryMembership=None")
+	var groups collection[map[string]any]
+	if err := json.Unmarshal([]byte(raw), &groups); err != nil {
+		t.Fatal(err)
+	}
+	if groups.Count != 1 || groups.Value[0]["descriptor"] != "d;team" {
+		t.Errorf("groups = %+v", groups)
+	}
+	reg.Verify(t)
+
+	// Without groups only the expandedUp read is stubbed.
+	reg2 := &Registry{}
+	reg2.StubMemberGroups("org", "ME", nil, nil)
+	ft := &fakeT{}
+	reg2.Verify(ft)
+	if len(ft.errs) != 1 || !strings.Contains(ft.errs[0], "1 HTTP stubs unmatched") {
+		t.Errorf("Verify errs = %v", ft.errs)
+	}
 }
 
 func TestGitPRLocations(t *testing.T) {

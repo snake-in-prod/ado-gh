@@ -86,7 +86,8 @@ func run(t *testing.T, s setup, stubs func(*httpmock.Registry), args ...string) 
 	for _, req := range reg.Requests {
 		b := ""
 		if req.Body != nil {
-			raw, _ := io.ReadAll(req.Body)
+			raw, readErr := io.ReadAll(req.Body)
+			require.NoError(t, readErr)
 			b = string(raw)
 		}
 		r.bodies = append(r.bodies, b)
@@ -146,6 +147,12 @@ func TestURL(t *testing.T) {
 		{
 			name: "absolute URL needs no context",
 			args: []string{"https://dev.azure.com/fabrikam/_apis/projects"},
+			repo: &adocontext.Repo{},
+			want: "https://dev.azure.com/fabrikam/_apis/projects?api-version=7.1",
+		},
+		{
+			name: "uppercase scheme is absolute",
+			args: []string{"HTTPS://dev.azure.com/fabrikam/_apis/projects"},
 			repo: &adocontext.Repo{},
 			want: "https://dev.azure.com/fabrikam/_apis/projects?api-version=7.1",
 		},

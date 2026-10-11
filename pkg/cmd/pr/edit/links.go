@@ -3,6 +3,7 @@ package edit
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
@@ -19,6 +20,20 @@ func artifactURL(pr *git.GitPullRequest) (string, error) {
 		return "", fmt.Errorf("cannot link work items: the repository and project IDs of pull request !%d are unknown", shared.Deref(pr.PullRequestId))
 	}
 	return api.PullRequestArtifactURL(r.Project.Id.String(), r.Id.String(), shared.Deref(pr.PullRequestId)), nil
+}
+
+// loadLabels fills pr.Labels from the labels endpoint unless it is already set: the pull
+// request GET leaves labels out.
+func loadLabels(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) error {
+	if pr.Labels != nil {
+		return nil
+	}
+	ls, err := c.ListLabels(ctx, shared.Deref(pr.PullRequestId))
+	if err != nil {
+		return err
+	}
+	pr.Labels = &ls
+	return nil
 }
 
 // applyLinks links and unlinks work items (url is the PR's artifact URL) and adds and removes
@@ -59,7 +74,7 @@ func applyLinks(ctx context.Context, ios *iostreams.IOStreams, c *api.PRClient, 
 		}
 		return ""
 	}
-	for _, name := range o.addLabels {
+	for _, name := range uniqueFold(o.addLabels) {
 		if label(name) != "" {
 			continue
 		}
@@ -69,7 +84,7 @@ func applyLinks(ctx context.Context, ios *iostreams.IOStreams, c *api.PRClient, 
 			applied = append(applied, "added label "+name)
 		}
 	}
-	for _, name := range o.removeLabels {
+	for _, name := range uniqueFold(o.removeLabels) {
 		lid := label(name)
 		if lid == "" {
 			fmt.Fprintf(ios.ErrOut, "%s label %s not found on pull request !%d\n", warn, name, id)
@@ -82,4 +97,16 @@ func applyLinks(ctx context.Context, ios *iostreams.IOStreams, c *api.PRClient, 
 		}
 	}
 	return applied, failed
+}
+
+// uniqueFold returns names without case-insensitive repeats, keeping the first spelling:
+// tags are case-insensitive, so a repeat would be a second call for the same label.
+func uniqueFold(names []string) []string {
+	var out []string
+	for _, n := range names {
+		if !slices.ContainsFunc(out, func(o string) bool { return strings.EqualFold(o, n) }) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

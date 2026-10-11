@@ -107,7 +107,7 @@ func TestDiffWeb(t *testing.T) {
 }
 
 func TestDiffPathSelection(t *testing.T) {
-	cloneNames := "diff --no-color --no-ext-diff --name-only " + cloneBaseSHA + " " + cloneSrcSHA
+	cloneNames := "-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv --name-only " + cloneBaseSHA + " " + cloneSrcSHA
 	tests := []struct {
 		name      string
 		remotes   string

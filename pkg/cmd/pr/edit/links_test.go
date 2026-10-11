@@ -19,8 +19,8 @@ const (
 	lnkArtifact = "vstfs:///Git/PullRequestId/" + lnkProject + "%2F" + lnkRepo + "%2F12"
 )
 
-// stubLnkPR stubs the SDK locations and GET of pull request 12 with its repository IDs and
-// the label "bug"; noIDs leaves the repository IDs out.
+// stubLnkPR stubs the SDK locations and GET of pull request 12 with its repository IDs; noIDs
+// leaves them out. Like the real API, the GET has no labels (see stubLabels).
 func (e *fieldsEnv) stubLnkPR(noIDs bool) {
 	repo := map[string]any{"name": "web", "id": lnkRepo, "project": map[string]any{"id": lnkProject}}
 	if noIDs {
@@ -31,15 +31,26 @@ func (e *fieldsEnv) stubLnkPR(noIDs bool) {
 		"pullRequestId": 12, "title": "T", "status": "active",
 		"sourceRefName": "refs/heads/feat", "targetRefName": "refs/heads/main",
 		"repository": repo,
-		"labels":     []map[string]any{{"id": lnkBugLabel, "name": "bug"}},
 	}))
+}
+
+// stubLabels answers GET of the labels of pull request 12 with labels, as id/name pairs.
+func (e *fieldsEnv) stubLabels(labels ...string) {
+	var value []map[string]any
+	for i := 0; i+1 < len(labels); i += 2 {
+		value = append(value, map[string]any{"id": labels[i], "name": labels[i+1]})
+	}
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
+		httpmock.JSONResponse(map[string]any{"count": len(value), "value": value}))
 }
 
 // stubLnkPatch stubs PATCH of work item id, recording the json-patch document.
 func (e *fieldsEnv) stubLnkPatch(id string, resp httpmock.Responder) {
 	e.reg.Register(httpmock.REST(http.MethodPatch, e.org+"/_apis/wit/workitems/"+id), func(req *http.Request) (*http.Response, error) {
 		var ops []map[string]any
-		_ = json.NewDecoder(req.Body).Decode(&ops)
+		if err := json.NewDecoder(req.Body).Decode(&ops); err != nil {
+			return nil, err
+		}
 		e.patches = append(e.patches, ops...)
 		return resp(req)
 	})
@@ -106,12 +117,9 @@ func TestEditLinks(t *testing.T) {
 			name: "add labels creating tags on demand and skipping existing ones",
 			args: []string{"--add-label", "needs docs,BUG", "--add-label", "ui"},
 			stub: func(e *fieldsEnv) {
+				e.stubLabels(lnkBugLabel, "bug")
 				for range 2 {
-					e.reg.Register(httpmock.REST(http.MethodPost, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
-						func(req *http.Request) (*http.Response, error) {
-							e.patches = append(e.patches, revReqBody(req))
-							return httpmock.JSONResponse(map[string]any{"name": "x"})(req)
-						})
+					e.stubLabelPost()
 				}
 			},
 			labels: []map[string]any{{"name": "needs docs"}, {"name": "ui"}},
@@ -120,10 +128,22 @@ func TestEditLinks(t *testing.T) {
 			name: "remove labels by ID and warn on missing ones",
 			args: []string{"--remove-label", "Bug,nope"},
 			stub: func(e *fieldsEnv) {
+				e.stubLabels(lnkBugLabel, "bug")
 				e.reg.Register(httpmock.REST(http.MethodDelete, e.org+fieldsRepoPath+"/pullRequests/12/labels/"+lnkBugLabel),
 					httpmock.StringResponse(""))
 			},
 			wantWarn: "! label nope not found on pull request !12\n",
+		},
+		{
+			name: "repeated label names are applied once",
+			args: []string{"--add-label", "ui,UI", "--remove-label", "bug", "--remove-label", "BUG"},
+			stub: func(e *fieldsEnv) {
+				e.stubLabels(lnkBugLabel, "bug")
+				e.stubLabelPost()
+				e.reg.Register(httpmock.REST(http.MethodDelete, e.org+fieldsRepoPath+"/pullRequests/12/labels/"+lnkBugLabel),
+					httpmock.StringResponse(""))
+			},
+			labels: []map[string]any{{"name": "ui"}},
 		},
 		{
 			name: "failures are reported with the applied edits",
@@ -131,6 +151,7 @@ func TestEditLinks(t *testing.T) {
 			stub: func(e *fieldsEnv) {
 				e.stubLnkPatch("5", ok)
 				e.stubLnkPatch("9", httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "no 9"}))
+				e.stubLabels(lnkBugLabel, "bug")
 				e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/_apis/wit/workitems/8"),
 					httpmock.StatusJSONResponse(http.StatusNotFound, map[string]any{"message": "no 8"}))
 				e.reg.Register(httpmock.REST(http.MethodPost, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
@@ -187,6 +208,22 @@ func TestEditLinks(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantWarn, e.errOut.String())
 			assert.Equal(t, url, e.out.String())
+		})
+	}
+}
+
+func TestEditLabelsLookupFailure(t *testing.T) {
+	for _, args := range [][]string{{"--remove-label", "bug"}, {"-t", "New", "--add-label", "ui"}} {
+		t.Run(args[0], func(t *testing.T) {
+			e := newFieldsEnv(t)
+			e.stubLnkPR(false)
+			e.reg.Register(httpmock.REST(http.MethodGet, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
+				httpmock.StatusJSONResponse(http.StatusForbidden, map[string]any{"message": "denied"}))
+
+			err := e.run(t, append([]string{"12"}, args...)...)
+			require.EqualError(t, err, "denied (HTTP 403)")
+			e.reg.Verify(t)
+			assert.Empty(t, e.patches, "nothing is edited")
 		})
 	}
 }

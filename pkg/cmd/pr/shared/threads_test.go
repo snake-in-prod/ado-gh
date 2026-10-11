@@ -35,7 +35,7 @@ func TestVisibleThreads(t *testing.T) {
 	for i, th := range got {
 		ids[i] = Deref(th.Id)
 	}
-	assert.Equal(t, []int{1, 5}, ids)
+	require.Equal(t, []int{1, 5}, ids)
 	require.Len(t, *got[0].Comments, 1)
 	assert.Equal(t, "keep", Deref((*got[0].Comments)[0].Content))
 	assert.Empty(t, VisibleThreads(nil))
@@ -48,7 +48,9 @@ func TestFilePathAndThreadLines(t *testing.T) {
 		{"id": 3, "threadContext": {"filePath": "/b.go", "rightFileStart": {"line": 4, "offset": 1}, "rightFileEnd": {"line": 8, "offset": 1}}},
 		{"id": 4, "threadContext": {"filePath": "/c.go", "leftFileStart": {"line": 7, "offset": 1}, "leftFileEnd": {"line": 9, "offset": 1}}},
 		{"id": 5, "threadContext": {"filePath": "/d.go"}},
-		{"id": 6, "threadContext": {"filePath": "/e.go", "rightFileStart": {"line": 3, "offset": 1}}}
+		{"id": 6, "threadContext": {"filePath": "/e.go", "rightFileStart": {"line": 3, "offset": 1}}},
+		{"id": 7, "threadContext": {"filePath": "/f.go", "leftFileStart": {"line": 20, "offset": 1}, "leftFileEnd": {"line": 22, "offset": 1},
+		 "rightFileStart": {"line": 5, "offset": 1}, "rightFileEnd": {"line": 6, "offset": 1}}}
 	]`)
 	tests := []struct {
 		file       string
@@ -60,10 +62,17 @@ func TestFilePathAndThreadLines(t *testing.T) {
 		{"/c.go", 7, 9},
 		{"/d.go", 0, 0},
 		{"/e.go", 3, 3},
+		{"/f.go", 5, 6}, // the right side wins
 	}
 	for i, tt := range tests {
 		assert.Equal(t, tt.file, FilePath(ths[i]), "thread %d", i+1)
 		start, end := ThreadLines(ths[i])
 		assert.Equal(t, [2]int{tt.start, tt.end}, [2]int{start, end}, "thread %d", i+1)
 	}
+}
+
+func TestChangeKinds(t *testing.T) {
+	ct := git.VersionControlChangeType("Rename, edit")
+	assert.Equal(t, []string{"rename", "edit"}, ChangeKinds(&ct))
+	assert.Empty(t, ChangeKinds(nil))
 }

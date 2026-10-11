@@ -11,7 +11,6 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/text"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/policy"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
@@ -108,8 +107,9 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	s.me = strings.ToLower(ids[0].String())
 
-	// Current branch: repository-scoped even with --project, hidden with -R as in gh.
-	showCurrent := f.RepoOverride == ""
+	// Current branch: repository-scoped even with --project, hidden with -R (as in gh) or
+	// ADO_REPO, when the current directory may be another repository.
+	showCurrent := f.BaseRepoFromGit()
 	var branch string
 	var current []row
 	if showCurrent {
@@ -292,15 +292,14 @@ func awaitsReview(pr git.GitPullRequest, me string, groups map[string]bool) (wan
 // requiredPending reports whether a required reviewer policy naming one of groups hasn't
 // passed; a group no policy names (made required by hand) waits until it approves.
 func (s *statusRun) requiredPending(ctx context.Context, pr git.GitPullRequest, groups []git.IdentityRefWithVote) (bool, error) {
-	evals, err := s.policyEvaluations(ctx, pr)
+	evals, err := shared.Evaluations(ctx, s.c, &pr)
 	if err != nil {
 		return false, err
 	}
 	for _, g := range groups {
 		named := false
 		for _, e := range evals {
-			if e.Configuration == nil || e.Configuration.Type == nil || e.Configuration.Type.Id == nil ||
-				e.Configuration.Type.Id.String() != requiredReviewersPolicy {
+			if shared.PolicyType(e) != "requiredReviewers" {
 				continue
 			}
 			settings, _ := e.Configuration.Settings.(map[string]any)
@@ -318,15 +317,6 @@ func (s *statusRun) requiredPending(ctx context.Context, pr git.GitPullRequest, 
 		}
 	}
 	return false, nil
-}
-
-const requiredReviewersPolicy = "fd2167ab-b0be-447a-8ec8-39368250530e"
-
-func (s *statusRun) policyEvaluations(ctx context.Context, pr git.GitPullRequest) ([]policy.PolicyEvaluationRecord, error) {
-	if pr.Repository == nil || pr.Repository.Project == nil || pr.Repository.Project.Id == nil {
-		return nil, nil
-	}
-	return s.c.PolicyEvaluations(ctx, pr.Repository.Project.Id.String(), shared.Deref(pr.PullRequestId))
 }
 
 func reviewers(pr git.GitPullRequest) []git.IdentityRefWithVote {
@@ -378,13 +368,14 @@ func (s *statusRun) printRows(w io.Writer, cs *iostreams.ColorScheme, rows []row
 	for _, r := range rows {
 		pr := r.pr
 		status, draft := shared.Deref(pr.Status), shared.Deref(pr.IsDraft)
-		color := map[git.PullRequestStatus]func(string) string{"completed": cs.Magenta, "abandoned": cs.Red}[status]
+		color := cs.Green
 		switch {
-		case color != nil:
+		case status == git.PullRequestStatusValues.Completed:
+			color = cs.Magenta
+		case status == git.PullRequestStatusValues.Abandoned:
+			color = cs.Red
 		case draft:
 			color = cs.Gray
-		default:
-			color = cs.Green
 		}
 		branch := strings.TrimPrefix(shared.Deref(pr.SourceRefName), "refs/heads/")
 		fmt.Fprintf(w, "  %s  %s %s", color(fmt.Sprintf("%s#%d", r.repoName, shared.Deref(pr.PullRequestId))),

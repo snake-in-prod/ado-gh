@@ -68,11 +68,16 @@ func (e *readyEnv) run(t *testing.T, args ...string) error {
 
 // stubReadyPR stubs the SDK locations and GET of pull request 12 with the given fields.
 func (e *readyEnv) stubReadyPR(status string, draft bool, votes ...int) {
-	e.reg.StubLocations(e.org, httpmock.GitPRLocations...)
 	reviewers := []map[string]any{}
 	for _, v := range votes {
 		reviewers = append(reviewers, map[string]any{"id": "r", "vote": v})
 	}
+	e.stubReadyPRReviewers(status, draft, reviewers)
+}
+
+// stubReadyPRReviewers stubs the SDK locations and GET of pull request 12 with reviewers.
+func (e *readyEnv) stubReadyPRReviewers(status string, draft bool, reviewers []map[string]any) {
+	e.reg.StubLocations(e.org, httpmock.GitPRLocations...)
 	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/pullRequests/12"), httpmock.JSONResponse(map[string]any{
 		"pullRequestId": 12, "title": "Add feature", "status": status, "isDraft": draft,
 		"sourceRefName": "refs/heads/feat", "targetRefName": "refs/heads/main",
@@ -85,8 +90,9 @@ func (e *readyEnv) stubReadyPatch() {
 	e.reg.Register(httpmock.REST(http.MethodPatch, e.org+"/My%20Proj/_apis/git/repositories/web/pullRequests/12"),
 		func(req *http.Request) (*http.Response, error) {
 			var body map[string]any
-			b, _ := io.ReadAll(req.Body)
-			_ = json.Unmarshal(b, &body)
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				return nil, err
+			}
 			e.patches = append(e.patches, body)
 			return httpmock.JSONResponse(map[string]any{"pullRequestId": 12})(req)
 		})
@@ -196,6 +202,34 @@ func TestReadyUndoWithVotes(t *testing.T) {
 				assert.Equal(t, cmdutil.ExitCancel, cmdutil.HandleError(io.Discard, err, ""))
 				assert.Empty(t, e.patches)
 			}
+		})
+	}
+}
+
+func TestReadyUndoCountsGroupVotesOnce(t *testing.T) {
+	tests := []struct {
+		name      string
+		reviewers []map[string]any
+		question  string
+	}{
+		{"a vote for a group counts for its voter", []map[string]any{
+			{"id": "p", "vote": 10, "votedFor": []map[string]any{{"id": "g"}}},
+			{"id": "g", "vote": 10, "isContainer": true},
+			{"id": "q", "vote": -5},
+		}, "removes its 2 votes."},
+		{"group votes alone count once", []map[string]any{
+			{"id": "g", "vote": 10, "isContainer": true},
+			{"id": "h", "vote": 5, "isContainer": true},
+		}, "removes its 1 vote."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newReadyEnv(t, true)
+			e.stubReadyPRReviewers("active", false, tt.reviewers)
+			e.in.WriteString("n\n")
+
+			require.ErrorIs(t, e.run(t, "12", "--undo"), cmdutil.CancelError)
+			assert.Contains(t, e.out.String(), tt.question)
 		})
 	}
 }

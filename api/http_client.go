@@ -129,7 +129,8 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		t.logf("< HTTP %d (%s)\n\n", resp.StatusCode, time.Since(start).Round(time.Millisecond))
 		d := backoff(resp)
-		if d == 0 {
+		// A 429 with Retry-After: 0 asks for an immediate retry.
+		if d == 0 && resp.StatusCode != http.StatusTooManyRequests {
 			break
 		}
 		t.mu.Lock()
@@ -141,7 +142,10 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if resp.StatusCode != http.StatusTooManyRequests || attempt == maxRetries || !retryable {
 			break
 		}
-		_, _ = io.Copy(io.Discard, resp.Body)
+		// Drain so the connection can be reused; a failed drain only costs that reuse.
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			t.logf("< drain error: %v\n\n", err)
+		}
 		resp.Body.Close()
 	}
 

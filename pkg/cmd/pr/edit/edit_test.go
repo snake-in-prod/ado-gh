@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -68,14 +67,19 @@ func (e *fieldsEnv) run(t *testing.T, args ...string) error {
 	return cmd.Execute()
 }
 
-// stubFieldsPR stubs the SDK locations and GET of pull request 12.
-func (e *fieldsEnv) stubFieldsPR() {
-	e.reg.StubLocations(e.org, httpmock.GitPRLocations...)
-	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/pullRequests/12"), httpmock.JSONResponse(map[string]any{
+// stubFieldsPR stubs the SDK locations and GET of pull request 12; fork makes it come from a
+// fork.
+func (e *fieldsEnv) stubFieldsPR(fork bool) {
+	pr := map[string]any{
 		"pullRequestId": 12, "title": "Old title", "description": "Old body", "status": "active",
 		"sourceRefName": "refs/heads/feat", "targetRefName": "refs/heads/main",
 		"repository": map[string]any{"name": "web"},
-	}))
+	}
+	if fork {
+		pr["forkSource"] = map[string]any{"name": "refs/heads/feat", "repository": map[string]any{"name": "web-fork"}}
+	}
+	e.reg.StubLocations(e.org, httpmock.GitPRLocations...)
+	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/git/pullRequests/12"), httpmock.JSONResponse(pr))
 }
 
 // stubFieldsRefs answers the lookup of refs/heads/<branch>, which exists when exists is true.
@@ -93,11 +97,31 @@ func (e *fieldsEnv) stubFieldsRefs(branch string, exists bool) {
 func (e *fieldsEnv) stubFieldsPatch(targetRefName string) {
 	e.reg.Register(httpmock.REST(http.MethodPatch, e.org+fieldsRepoPath+"/pullRequests/12"),
 		func(req *http.Request) (*http.Response, error) {
-			var body map[string]any
-			b, _ := io.ReadAll(req.Body)
-			_ = json.Unmarshal(b, &body)
-			e.patches = append(e.patches, body)
+			if err := e.record(req); err != nil {
+				return nil, err
+			}
 			return httpmock.JSONResponse(map[string]any{"pullRequestId": 12, "targetRefName": targetRefName})(req)
+		})
+}
+
+// record appends the decoded JSON object body of req to e.patches.
+func (e *fieldsEnv) record(req *http.Request) error {
+	var body map[string]any
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		return err
+	}
+	e.patches = append(e.patches, body)
+	return nil
+}
+
+// stubLabelPost stubs one POST of a label to pull request 12, recording its body.
+func (e *fieldsEnv) stubLabelPost() {
+	e.reg.Register(httpmock.REST(http.MethodPost, e.org+fieldsRepoPath+"/pullRequests/12/labels"),
+		func(req *http.Request) (*http.Response, error) {
+			if err := e.record(req); err != nil {
+				return nil, err
+			}
+			return httpmock.JSONResponse(map[string]any{"name": "x"})(req)
 		})
 }
 
@@ -118,6 +142,7 @@ func TestEditFields(t *testing.T) {
 		wantPatch map[string]any
 		wantErr   string
 		partial   bool // the error is reported after the edits, so the URL is printed
+		fork      bool // the pull request comes from a fork
 	}{
 		{name: "title", args: []string{"-t", "New title"},
 			wantPatch: map[string]any{"title": "New title"}},
@@ -150,6 +175,8 @@ func TestEditFields(t *testing.T) {
 			wantErr: "branch nope not found in My Proj/web"},
 		{name: "base is source branch", args: []string{"-B", "feat"},
 			wantErr: "the base branch cannot be the source branch feat"},
+		{name: "fork source branch name is a valid base", args: []string{"-B", "feat"}, fork: true, refs: "feat", refExists: true,
+			target: "refs/heads/feat", wantPatch: map[string]any{"targetRefName": "refs/heads/feat"}},
 		{name: "body too long", args: []string{"-b", strings.Repeat("é", 4001)}, local: true,
 			wantErr: "the description is 4001 characters long; the maximum is 4000"},
 		{name: "body file too long", args: []string{"-F", "-"}, stdin: strings.Repeat("x", 4001), local: true,
@@ -160,7 +187,7 @@ func TestEditFields(t *testing.T) {
 			e := newFieldsEnv(t)
 			e.in.WriteString(tt.stdin)
 			if !tt.local {
-				e.stubFieldsPR()
+				e.stubFieldsPR(tt.fork)
 			}
 			if tt.refs != "" {
 				e.stubFieldsRefs(tt.refs, tt.refExists)
@@ -203,22 +230,27 @@ func TestEditFieldsBodyFileMissing(t *testing.T) {
 
 func TestEditFieldsFlagErrors(t *testing.T) {
 	tests := []struct {
-		name string
-		args []string
+		name    string
+		args    []string
+		flagErr bool // a *cmdutil.FlagError rather than cobra's plain usage error
+		wantErr string
 	}{
-		{name: "no flags", args: []string{"12"}},
-		{name: "body and body file", args: []string{"12", "-b", "x", "-F", "-"}},
+		{name: "no flags", args: []string{"12"}, flagErr: true,
+			wantErr: "specify at least one of --title, --body, --body-file, --base, --add-reviewer, --add-required-reviewer, " +
+				"--remove-reviewer, --add-work-item, --remove-work-item, --add-label or --remove-label"},
+		{name: "empty body file path", args: []string{"12", "-F", ""}, flagErr: true,
+			wantErr: `--body-file needs a file path, or "-" for stdin`},
+		// cobra's mutually exclusive check is a plain error that HandleError treats as usage.
+		{name: "body and body file", args: []string{"12", "-b", "x", "-F", "-"},
+			wantErr: "if any flags in the group [body body-file] are set none of the others can be; [body body-file] were all set"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newFieldsEnv(t)
 			err := e.run(t, tt.args...)
-			require.Error(t, err)
+			require.EqualError(t, err, tt.wantErr)
 			var fe *cmdutil.FlagError
-			if !errors.As(err, &fe) {
-				// cobra's mutually exclusive check is a plain error that HandleError treats as usage.
-				assert.Contains(t, err.Error(), "none of the others can be")
-			}
+			assert.Equal(t, tt.flagErr, errors.As(err, &fe))
 			e.reg.Verify(t)
 		})
 	}

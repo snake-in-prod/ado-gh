@@ -95,7 +95,8 @@ func TestDeleteRef(t *testing.T) {
 			c, reg := newTestPRClient(t, org)
 			var body []map[string]any
 			reg.Register(httpmock.REST(http.MethodPost, org+refsPath), func(r *http.Request) (*http.Response, error) {
-				b, _ := io.ReadAll(r.Body)
+				b, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(b, &body))
 				if tt.httpErr {
 					return httpmock.StatusJSONResponse(http.StatusForbidden, map[string]any{"message": "denied"})(r)

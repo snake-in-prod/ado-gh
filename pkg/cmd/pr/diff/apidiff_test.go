@@ -150,7 +150,6 @@ func TestAPIDiff(t *testing.T) {
 		patch     bool
 		colorMode string
 		want      string
-		wantErr   string
 	}{
 		{
 			name:  "edit",
@@ -352,10 +351,6 @@ func TestAPIDiff(t *testing.T) {
 			require.NoError(t, err)
 
 			err = apiDiff(context.Background(), e.f, e.c, e.pr, tt.nameOnly, tt.patch, color)
-			if tt.wantErr != "" {
-				require.EqualError(t, err, tt.wantErr)
-				return
-			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, e.out.String())
 		})

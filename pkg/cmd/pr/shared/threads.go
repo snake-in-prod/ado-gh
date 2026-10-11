@@ -2,6 +2,7 @@ package shared
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 )
@@ -61,4 +62,15 @@ func ThreadLines(t git.GitPullRequestCommentThread) (start, end int) {
 		end = Deref(to.Line)
 	}
 	return start, end
+}
+
+// ChangeKinds splits a change type flags value such as "rename, edit" into lowercase kinds.
+func ChangeKinds(t *git.VersionControlChangeType) []string {
+	var out []string
+	if t != nil {
+		for k := range strings.SplitSeq(string(*t), ",") {
+			out = append(out, strings.ToLower(strings.TrimSpace(k)))
+		}
+	}
+	return out
 }

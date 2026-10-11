@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 
 	udiff "github.com/aymanbagabas/go-udiff"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/snake-in-prod/ado-gh/api"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -53,8 +54,8 @@ func apiDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, pr *git.G
 	if len(its) == 0 {
 		return fmt.Errorf("pull request !%d has no iterations", id)
 	}
-	it := slices.MaxFunc(its, func(a, b git.GitPullRequestIteration) int { return cmp.Compare(intOr0(a.Id), intOr0(b.Id)) })
-	raw, err := c.IterationChanges(ctx, id, intOr0(it.Id))
+	it := latestIteration(its)
+	raw, err := c.IterationChanges(ctx, id, shared.Deref(it.Id))
 	if err != nil {
 		return err
 	}
@@ -78,36 +79,16 @@ func apiDiff(ctx context.Context, f *cmdutil.Factory, c *api.PRClient, pr *git.G
 	base := cmp.Or(commitID(it.CommonRefCommit), commitID(it.TargetRefCommit))
 
 	out := make([][]byte, len(changes))
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	var (
-		once     sync.Once
-		firstErr error
-		wg       sync.WaitGroup
-	)
-	jobs := make(chan int)
-	for range min(apiWorkers, len(changes)) {
-		wg.Go(func() {
-			for i := range jobs {
-				var err error
-				if out[i], err = fileDiff(ctx, c, newSide, base, changes[i]); err != nil {
-					once.Do(func() { firstErr = err; cancel() })
-				}
-			}
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(apiWorkers)
+	for i, ch := range changes {
+		g.Go(func() (err error) {
+			out[i], err = fileDiff(ctx, c, newSide, base, ch)
+			return err
 		})
 	}
-feed:
-	for i := range changes {
-		select {
-		case jobs <- i:
-		case <-ctx.Done():
-			break feed
-		}
-	}
-	close(jobs)
-	wg.Wait()
-	if firstErr != nil {
-		return firstErr
+	if err := g.Wait(); err != nil {
+		return err
 	}
 	return writeDiff(f.IOStreams.Out, bytes.Join(out, nil), color)
 }
@@ -127,11 +108,7 @@ func parseChanges(raw []git.GitPullRequestChange) []fileChange {
 		if ch.OriginalPath != nil && *ch.OriginalPath != "" {
 			fc.oldPath = strings.TrimPrefix(*ch.OriginalPath, "/")
 		}
-		if ch.ChangeType != nil {
-			for k := range strings.SplitSeq(string(*ch.ChangeType), ",") {
-				fc.kinds = append(fc.kinds, strings.ToLower(strings.TrimSpace(k)))
-			}
-		}
+		fc.kinds = shared.ChangeKinds(ch.ChangeType)
 		out = append(out, fc)
 	}
 	// git prints files in byte order of their paths; ADO returns its own order.

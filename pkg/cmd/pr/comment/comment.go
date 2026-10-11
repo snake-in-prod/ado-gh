@@ -133,6 +133,8 @@ func parseInline(cmd *cobra.Command, o *options, lines, side string) error {
 		return nil
 	case !fl.Changed("line"):
 		return cmdutil.FlagErrorf("--file requires --line")
+	case strings.TrimSpace(o.file) == "":
+		return cmdutil.FlagErrorf("--file cannot be empty")
 	}
 	switch strings.ToLower(side) {
 	case "right":

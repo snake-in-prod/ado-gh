@@ -25,8 +25,8 @@ func TestRepoURLAndToJSON(t *testing.T) {
 func TestToJSONLabels(t *testing.T) {
 	inactive := false
 	got := ToJSON(git.GitPullRequest{Labels: &[]core.WebApiTagDefinition{
-		{Id: ptrUUID("6f1c2a5e-0000-4000-8000-000000000001"), Name: ptrStr("smoke")},
-		{Name: ptrStr("old"), Active: &inactive},
+		{Id: ptrUUID("6f1c2a5e-0000-4000-8000-000000000001"), Name: ptr("smoke")},
+		{Name: ptr("old"), Active: &inactive},
 	}}, "u")
 	if len(got.Labels) != 1 || got.Labels[0].Name != "smoke" || got.Labels[0].ID == "" {
 		t.Errorf("labels = %+v, want only the active label smoke with its id", got.Labels)
@@ -36,7 +36,5 @@ func TestToJSONLabels(t *testing.T) {
 	}
 	assert.NotContains(t, JSONFields, "labels", "labels need an extra request per PR, so only pr view offers them")
 }
-
-func ptrStr(s string) *string { return &s }
 
 func ptrUUID(s string) *uuid.UUID { u := uuid.MustParse(s); return &u }

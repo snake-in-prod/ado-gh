@@ -4,11 +4,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/editortest"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -59,49 +59,27 @@ func (e *commentEnv) stubDeleteLast() {
 	})
 }
 
-// TestCommentLastEditorHelperProcess is not a test: run as an editor by lastEditorCmd, it records
-// the file's initial text in $ADO_TEST_LAST_SEEN and replaces it with $ADO_TEST_LAST_TEXT.
-func TestCommentLastEditorHelperProcess(*testing.T) {
-	if os.Getenv("ADO_TEST_LAST_EDITOR") != "1" {
-		return
-	}
-	path := os.Args[len(os.Args)-1]
-	b, _ := os.ReadFile(path)
-	_ = os.WriteFile(os.Getenv("ADO_TEST_LAST_SEEN"), b, 0o600)
-	_ = os.WriteFile(path, []byte(os.Getenv("ADO_TEST_LAST_TEXT")), 0o600)
-	os.Exit(0)
-}
+// TestCommentLastEditorHelperProcess is not a test: it is the fake editor of editortest.Command.
+func TestCommentLastEditorHelperProcess(*testing.T) { editortest.HelperProcess() }
 
-// lastEditorCmd sets ADO_EDITOR to TestCommentLastEditorHelperProcess writing text and returns
-// the file where it records the text it was opened with.
+// lastEditorCmd sets ADO_EDITOR to a fake editor writing text and returns the file where it
+// records the text it was opened with.
 func lastEditorCmd(t *testing.T, text string) (seen string) {
-	t.Helper()
-	exe, err := os.Executable()
-	require.NoError(t, err)
-	seen = filepath.Join(t.TempDir(), "seen")
-	t.Setenv("ADO_TEST_LAST_EDITOR", "1")
-	t.Setenv("ADO_TEST_LAST_SEEN", seen)
-	t.Setenv("ADO_TEST_LAST_TEXT", text)
-	cmd := "'" + exe + "' '-test.run=^TestCommentLastEditorHelperProcess$' --"
-	if runtime.GOOS == "windows" {
-		if strings.Contains(exe, " ") {
-			t.Skip("test binary path has spaces")
-		}
-		cmd = exe + " -test.run=^TestCommentLastEditorHelperProcess$ --"
-	}
+	cmd, seen := editortest.Command(t, "TestCommentLastEditorHelperProcess", text)
 	t.Setenv("ADO_EDITOR", cmd)
 	return seen
 }
 
-// afterEditorReader hides r until the editor has written seen, so the editor process's stdin
-// copy doesn't swallow the answers meant for the prompts that follow it.
+// afterEditorReader answers its first Read, os/exec copying stdin to the editor (which Run
+// waits for), with EOF, so the editor doesn't swallow the answers meant for the prompts that
+// follow it.
 type afterEditorReader struct {
-	seen string
-	r    io.Reader
+	started *atomic.Bool
+	r       io.Reader
 }
 
 func (a afterEditorReader) Read(p []byte) (int, error) {
-	if _, err := os.Stat(a.seen); err != nil {
+	if a.started.CompareAndSwap(false, true) {
 		return 0, io.EOF
 	}
 	return a.r.Read(p)
@@ -119,6 +97,17 @@ func TestCommentEditLastWithBody(t *testing.T) {
 	assert.Equal(t, e.prURL()+"?discussionId=2\n", e.out.String())
 }
 
+func TestCommentEditLastWithBodyFile(t *testing.T) {
+	e := newCommentEnv(t, false)
+	e.in.WriteString("from file")
+	e.stubLast(lastThreads)
+	e.stubWrite(t, http.MethodPatch, "/threads/2/comments/2", "edit", httpmock.JSONResponse(map[string]any{"id": 2}))
+
+	require.NoError(t, e.run(t, "12", "--edit-last", "-F", "-"))
+	require.Equal(t, []string{"edit"}, e.calls)
+	assert.Equal(t, map[string]any{"content": "from file"}, e.bodies[0])
+}
+
 func TestCommentEditLastNonInteractiveNeedsBody(t *testing.T) {
 	e := newCommentEnv(t, false)
 	e.stubLast(lastThreads)
@@ -134,7 +123,7 @@ func TestCommentEditLastEditor(t *testing.T) {
 	t.Run("submitted", func(t *testing.T) {
 		e := newCommentEnv(t, true)
 		seen := lastEditorCmd(t, "from editor")
-		e.ios.In = afterEditorReader{seen: seen, r: e.in}
+		e.ios.In = afterEditorReader{started: &atomic.Bool{}, r: e.in}
 		e.in.WriteString("y\n")
 		e.stubLast(lastThreads)
 		e.stubWrite(t, http.MethodPatch, "/threads/2/comments/2", "edit", httpmock.JSONResponse(map[string]any{"id": 2}))
@@ -150,8 +139,8 @@ func TestCommentEditLastEditor(t *testing.T) {
 	})
 	t.Run("declined", func(t *testing.T) {
 		e := newCommentEnv(t, true)
-		seen := lastEditorCmd(t, "from editor")
-		e.ios.In = afterEditorReader{seen: seen, r: e.in}
+		lastEditorCmd(t, "from editor")
+		e.ios.In = afterEditorReader{started: &atomic.Bool{}, r: e.in}
 		e.in.WriteString("n\n")
 		e.stubLast(lastThreads)
 

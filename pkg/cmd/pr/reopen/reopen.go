@@ -59,7 +59,10 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		if err != nil {
 			return err
 		}
-		if ref == nil {
+		switch {
+		case ref == nil && head.Repo != c.Repo:
+			return fmt.Errorf("source branch %s of pull request !%d was deleted from its fork; push it to the fork or restore it there, then retry", branch, id)
+		case ref == nil:
 			return fmt.Errorf("source branch %s of pull request !%d was deleted; push it (git push origin %s) or restore it, then retry", branch, id, branch)
 		}
 	}

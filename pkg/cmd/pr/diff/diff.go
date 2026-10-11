@@ -1,3 +1,4 @@
+// Package diff implements `ado pr diff`.
 package diff
 
 import (
@@ -12,6 +13,7 @@ import (
 type options struct {
 	ref                  string
 	color                string
+	useColor             bool
 	nameOnly, patch, web bool
 }
 
@@ -30,14 +32,15 @@ source and target branches. Elsewhere (for example with -R) it is rebuilt from t
 Without an argument, the pull request of the current branch is shown.`,
 		Example: `  ado pr diff 123
   ado pr diff 123 --name-only
-  ado pr diff --color never | less -R
+  ado pr diff --color always | less -R
   ado pr diff 123 -R org/project/repo`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				o.ref = args[0]
 			}
-			if _, err := useColor(f.IOStreams, o.color); err != nil {
+			var err error
+			if o.useColor, err = useColor(f.IOStreams, o.color); err != nil {
 				return cmdutil.FlagErrorf("%s", err)
 			}
 			return run(cmd.Context(), f, o)
@@ -63,11 +66,10 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		}
 		return f.Browser.Browse(u)
 	}
-	color, _ := useColor(ios, o.color)
 	// The clone path needs the cwd to be a clone with a remote for the PR's repository; not
 	// being in a git repository at all (no remotes) means the API path.
 	if remotes, err := f.GitClient.Remotes(ctx); err == nil && shared.MatchRemote(remotes, repo) != "" {
-		return cloneDiff(ctx, f, c, repo, pr, o.nameOnly, o.patch, color)
+		return cloneDiff(ctx, f, c, repo, pr, o.nameOnly, o.patch, o.useColor)
 	}
-	return apiDiff(ctx, f, c, pr, o.nameOnly, o.patch, color)
+	return apiDiff(ctx, f, c, pr, o.nameOnly, o.patch, o.useColor)
 }

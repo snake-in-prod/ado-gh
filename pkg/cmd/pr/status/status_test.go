@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
@@ -41,6 +42,8 @@ type statusEnv struct {
 	override string
 }
 
+var envSeq atomic.Int64
+
 // newStatusEnv returns an env for its own org: the SDK caches locations per base URL for the
 // whole process.
 func newStatusEnv(t *testing.T, tty bool) *statusEnv {
@@ -51,7 +54,8 @@ func newStatusEnv(t *testing.T, tty bool) *statusEnv {
 	keyring.MockInit()
 	ios, _, out, _ := iostreams.Test()
 	ios.SetStdoutTTY(tty)
-	org := "prstatus-" + strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name()))
+	// The sequence number keeps orgs unique under -count>1.
+	org := fmt.Sprintf("prstatus-%s-%d", strings.NewReplacer("/", "-", " ", "-").Replace(strings.ToLower(t.Name())), envSeq.Add(1))
 	e := &statusEnv{org: org, reg: &httpmock.Registry{}, ios: ios, out: out, git: &gittest.Runner{}}
 	t.Cleanup(func() { e.reg.Verify(t) })
 	return e
@@ -95,8 +99,16 @@ func (e *statusEnv) repoPath() string {
 func (e *statusEnv) projectPath() string { return e.org + "/My%20Proj/_apis/git/pullrequests" }
 
 func isCurrent(q url.Values) bool { return q.Get("searchCriteria.sourceRefName") != "" }
-func isCreated(q url.Values) bool { return q.Get("searchCriteria.creatorId") != "" }
-func isReview(q url.Values) bool  { return !isCurrent(q) && !isCreated(q) }
+
+// isCreated matches the active pull requests created by the signed-in user.
+func isCreated(q url.Values) bool {
+	return !isCurrent(q) && strings.EqualFold(q.Get("searchCriteria.creatorId"), stMeID) && q.Get("searchCriteria.status") == "active"
+}
+
+// isReview matches the active pull requests of anyone.
+func isReview(q url.Values) bool {
+	return !isCurrent(q) && q.Get("searchCriteria.creatorId") == "" && q.Get("searchCriteria.status") == "active"
+}
 
 // stubPRs answers the first page of the list at path whose query matches, and an empty
 // second page when some but fewer than limit pull requests are returned.
@@ -310,15 +322,22 @@ func TestStatusCurrentBranchClosed(t *testing.T) {
 }
 
 func TestStatusRepoOverrideHidesCurrentBranch(t *testing.T) {
-	e := newStatusEnv(t, false)
-	e.override = "My Proj/web"
-	e.stubBase(false)
-	e.stubPRs(e.repoPath(), isCreated, sectionLimit+1)
-	e.stubPRs(e.repoPath(), isReview, reviewCandidates)
+	for name, set := range map[string]func(t *testing.T, e *statusEnv){
+		"-R":       func(_ *testing.T, e *statusEnv) { e.override = "My Proj/web" },
+		"ADO_REPO": func(t *testing.T, _ *statusEnv) { t.Setenv("ADO_REPO", "My Proj/web") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newStatusEnv(t, false)
+			set(t, e)
+			e.stubBase(false)
+			e.stubPRs(e.repoPath(), isCreated, sectionLimit+1)
+			e.stubPRs(e.repoPath(), isReview, reviewCandidates)
 
-	require.NoError(t, e.run(t))
-	assert.NotContains(t, e.out.String(), "Current branch")
-	assert.Empty(t, e.git.Calls)
+			require.NoError(t, e.run(t))
+			assert.NotContains(t, e.out.String(), "Current branch")
+			assert.Empty(t, e.git.Calls)
+		})
+	}
 }
 
 func TestStatusProject(t *testing.T) {
@@ -336,6 +355,20 @@ func TestStatusProject(t *testing.T) {
 		require.NoError(t, e.run(t, "--project"))
 		assert.Contains(t, e.out.String(), "Relevant pull requests in My Proj\n")
 		assert.Contains(t, e.out.String(), "  api#5  In api [b5]\n")
+	})
+	t.Run("without -R the current branch stays repo-scoped and other repos are prefixed", func(t *testing.T) {
+		e := newStatusEnv(t, true)
+		e.git.Replies = map[string]string{"symbolic-ref --quiet HEAD": "refs/heads/feat\n"}
+		e.stubBase(false)
+		e.stubPRs(e.repoPath(), isCurrent, 30, stPR(7, "Current", set("sourceRefName", "refs/heads/feat")))
+		e.stubStatuses("web", 7)
+		e.stubPRs(e.projectPath(), isCreated, sectionLimit+1)
+		e.stubPRs(e.projectPath(), isReview, reviewCandidates, stPR(9, "Review api", apiRepo, reviewer(stMeID, 0)))
+		e.stubStatuses("api", 9)
+
+		require.NoError(t, e.run(t, "--project"))
+		assert.Contains(t, e.out.String(), "Current branch\n  #7  Current [feat]\n")
+		assert.Contains(t, e.out.String(), "Requesting a code review from you\n  api#9  Review api [b9]\n")
 	})
 	t.Run("json", func(t *testing.T) {
 		e := newStatusEnv(t, false)
@@ -380,7 +413,42 @@ func TestStatusErrors(t *testing.T) {
 	t.Run("current user", func(t *testing.T) {
 		e := newStatusEnv(t, false)
 		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/_apis/connectionData"), httpmock.StatusStringResponse(http.StatusInternalServerError, ""))
-		require.Error(t, e.run(t))
+		require.ErrorContains(t, e.run(t), "reading the current user")
+		assert.Empty(t, e.git.Calls)
+	})
+	boom := httpmock.StatusJSONResponse(http.StatusInternalServerError, map[string]any{"message": "boom"})
+	t.Run("candidates list", func(t *testing.T) {
+		e := newStatusEnv(t, false)
+		e.override = "My Proj/web"
+		e.stubBase(false)
+		e.stubPRs(e.repoPath(), isCreated, sectionLimit+1)
+		e.reg.Register(func(req *http.Request) bool {
+			return httpmock.REST(http.MethodGet, e.repoPath())(req) && isReview(req.URL.Query())
+		}, boom)
+		require.EqualError(t, e.run(t), "boom (HTTP 500)")
+		assert.NotContains(t, e.out.String(), "Relevant pull requests", "cobra prints only the usage")
+	})
+	t.Run("group memberships", func(t *testing.T) {
+		e := newStatusEnv(t, false)
+		e.override = "My Proj/web"
+		e.stubBase(true)
+		e.stubPRs(e.repoPath(), isCreated, sectionLimit+1)
+		e.stubPRs(e.repoPath(), isReview, reviewCandidates, stPR(1, "team", reviewer(stTeamID, 0, "isContainer")))
+		e.reg.Register(func(req *http.Request) bool { return req.URL.Host == "vssps.dev.azure.com" }, boom)
+		require.ErrorContains(t, e.run(t), "boom")
+		assert.NotContains(t, e.out.String(), "Relevant pull requests", "cobra prints only the usage")
+	})
+	t.Run("policy evaluations of a required group", func(t *testing.T) {
+		e := newStatusEnv(t, false)
+		e.override = "My Proj/web"
+		e.stubBase(true)
+		e.stubPRs(e.repoPath(), isCreated, sectionLimit+1)
+		e.stubPRs(e.repoPath(), isReview, reviewCandidates,
+			stPR(7, "required team", inProject, reviewer(stReqTeamID, 10, "isContainer", "isRequired")))
+		e.reg.StubMemberGroups(e.org, stMeID, []string{"d;req"}, map[string]string{stReqTeamID: "d;req"})
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/"+stProjectID+"/_apis/policy/evaluations"), boom)
+		require.EqualError(t, e.run(t), "boom (HTTP 500)")
+		assert.NotContains(t, e.out.String(), "Relevant pull requests", "cobra prints only the usage")
 	})
 	t.Run("list", func(t *testing.T) {
 		e := newStatusEnv(t, false)
@@ -393,7 +461,9 @@ func TestStatusErrors(t *testing.T) {
 		e.git.Fails = map[string]error{"symbolic-ref --quiet HEAD": &git.Error{ExitCode: 128, Stderr: "not a git repository"}}
 		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/_apis/connectionData"),
 			httpmock.JSONResponse(map[string]any{"authenticatedUser": map[string]any{"id": stMeID}}))
-		require.Error(t, e.run(t))
+		var gitErr *git.Error
+		require.ErrorAs(t, e.run(t), &gitErr)
+		assert.Equal(t, 128, gitErr.ExitCode)
 	})
 }
 

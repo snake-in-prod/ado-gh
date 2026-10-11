@@ -41,6 +41,12 @@ type Factory struct {
 	BaseRepo func() (adocontext.Repo, error)
 }
 
+// BaseRepoFromGit reports whether BaseRepo comes from the git remotes of the current directory,
+// not from -R or ADO_REPO, so that local branches belong to the base repository.
+func (f *Factory) BaseRepoFromGit() bool {
+	return f.RepoOverride == "" && os.Getenv("ADO_REPO") == ""
+}
+
 // NewFactory returns the production Factory for the given version and streams.
 func NewFactory(appVersion string, ios *iostreams.IOStreams) *Factory {
 	f := &Factory{

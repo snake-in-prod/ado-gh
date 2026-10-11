@@ -44,7 +44,7 @@ func promptEdits(ctx context.Context, p *cmdutil.Prompter, c *api.PRClient, pr *
 		case "Work items":
 			err = promptWorkItems(ctx, p, c, pr, o)
 		case "Labels":
-			err = promptLabels(p, pr, o)
+			err = promptLabels(ctx, p, c, pr, o)
 		}
 		if err != nil {
 			return err
@@ -93,7 +93,10 @@ func promptWorkItems(ctx context.Context, p *cmdutil.Prompter, c *api.PRClient, 
 	return nil
 }
 
-func promptLabels(p *cmdutil.Prompter, pr *git.GitPullRequest, o *options) error {
+func promptLabels(ctx context.Context, p *cmdutil.Prompter, c *api.PRClient, pr *git.GitPullRequest, o *options) error {
+	if err := loadLabels(ctx, c, pr); err != nil {
+		return err
+	}
 	var names []string
 	for _, l := range shared.Deref(pr.Labels) {
 		names = append(names, shared.Deref(l.Name))

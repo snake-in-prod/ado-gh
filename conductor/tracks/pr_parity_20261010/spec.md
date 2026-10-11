@@ -25,6 +25,7 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 
 ### FR2: `ado pr comment [<ref>]`
 - New thread: `-b/--body`, `-F/--body-file` (`-` = stdin), `-e/--editor`. On TTY with no body flag, open `$EDITOR`. On non-TTY with no body, fail naming `--body`.
+- The editor is `ADO_EDITOR`, else the `editor` config key, else `VISUAL`, else `EDITOR`, else `nano` (`notepad` on Windows); `GH_EDITOR` is ignored.
 - Reply: `--thread <id>` + body adds a reply to an existing thread.
 - Thread status: `--thread <id> --status {active|fixed|wontFix|closed|byDesign|pending}` (may be combined with a body).
 - Inline: `--file <path> --line <n>[:<m>] [--side {right|left}]` (default right) anchors a new thread to diff lines in the latest iteration. `--line` without `--file` is a usage error.
@@ -36,7 +37,7 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 
 ### FR3: `ado pr close [<ref>]` (abandon)
 - Sets status to `abandoned`. `-c/--comment <text>` posts a comment first.
-- `-d/--delete-branch`: deletes the remote source branch (abandon happens first). Deletes the same-name local branch and every local branch whose `branch.<name>.merge` is the source branch, switching to the default branch first when one is checked out. Skips remote deletion for cross-fork PRs, with a warning. If the remote delete fails (e.g. no Force push permission), exits 1 naming the branch; the PR stays abandoned.
+- `-d/--delete-branch`: deletes the remote source branch (abandon happens first). Deletes every local branch whose upstream (`branch.<name>.merge` plus `branch.<name>.remote`) is the source branch in the PR's repository (or its fork), plus the same-name local branch when it has no upstream, switching to the default branch first when one is checked out. Local branches are left alone when the repository comes from `-R` or `ADO_REPO`. Skips remote deletion for cross-fork PRs, with a warning. If the remote delete fails (e.g. no Force push permission), exits 1 naming the branch; the PR stays abandoned.
 - Confirms on TTY (`Abandon pull request !123 "title"?`). `-y/--yes` skips the prompt. Non-interactive without `--yes` refuses: `--yes required when not running interactively`, with usage printed and exit 1 (like `pr merge`).
 - Already abandoned: warning to stderr, exit 0. Completed: error, exit 1.
 
@@ -50,6 +51,7 @@ All commands take an optional PR reference (number, `!123`, URL or branch; defau
 - `--add-required-reviewer`: adds a reviewer as required, or promotes an existing optional reviewer.
 - `--add-work-item`, `--remove-work-item <id>` (link/unlink).
 - `--add-label`, `--remove-label` (ADO PR tags; created on demand).
+- **`ado pr view`** shows the PR's active labels (tags): a `Labels:` line on TTY, a `labels:` row in raw output, and a `labels` JSON field (`[{id,name}]`, fetched with one extra request; not offered by `pr list`/`pr status`).
 - TTY with no flags: interactive multi-select of fields to edit, prefilled with current values (gh behavior). Non-TTY with no flags: error listing the flags.
 - Prints PR URL. Any partial failure (e.g. one bad reviewer) exits 1 and names which edits applied and which didn't.
 

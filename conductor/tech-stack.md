@@ -18,6 +18,8 @@
   - *2026-10-11:* chosen for git-compatible unified hunks without a git binary; see `tracks/pr_parity_20261010/research.md` q7.
 - **`charm.land/huh/v2`**: interactive prompts on TTY, gated on `IOStreams.CanPrompt()`.
   - *2026-10-10:* chose huh v2 over `AlecAivazis/survey/v2` (archived); see `tracks/mvp_core_20261010/research.md` q10.
+- **`golang.org/x/sync`** (`errgroup`): bounded parallel blob downloads in `ado pr diff` outside a clone.
+  - *2026-10-11:* already an indirect dependency; promoted to direct by the pr_parity review fixes.
 - **`MakeNowJust/heredoc`**: help text and examples.
 
 ## Auth & Credentials

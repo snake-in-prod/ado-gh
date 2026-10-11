@@ -53,9 +53,7 @@ func Edit(ios *iostreams.IOStreams, editor, initial string) (string, error) {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		// ponytail: splits on spaces, so a quoted editor path with spaces breaks; use a
-		// shell-words parser if Windows users hit it.
-		args := strings.Fields(editor)
+		args := windowsEditorArgs(editor)
 		cmd = exec.Command(args[0], append(args[1:], path)...)
 	} else {
 		// Like git: the shell handles quoting and arguments in the editor command.
@@ -66,5 +64,19 @@ func Edit(ios *iostreams.IOStreams, editor, initial string) (string, error) {
 		return "", fmt.Errorf("running the editor %q: %w", editor, err)
 	}
 	b, err := os.ReadFile(path)
-	return string(b), err
+	// Some editors (Notepad among them) save UTF-8 with a byte order mark.
+	return strings.TrimPrefix(string(b), "\uFEFF"), err
+}
+
+// windowsEditorArgs splits a Windows editor command on spaces, keeping a leading quoted
+// program path whole, as in "C:\Program Files\Editor\editor.exe" --wait.
+// ponytail: only the program may be quoted; use a shell-words parser if quoted arguments are needed.
+func windowsEditorArgs(editor string) []string {
+	editor = strings.TrimSpace(editor)
+	if rest, ok := strings.CutPrefix(editor, `"`); ok {
+		if prog, args, ok := strings.Cut(rest, `"`); ok {
+			return append([]string{prog}, strings.Fields(args)...)
+		}
+	}
+	return strings.Fields(editor)
 }

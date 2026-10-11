@@ -73,6 +73,12 @@ from its current value.`,
 			fl := cmd.Flags()
 			o.titleSet, o.baseSet = fl.Changed("title"), fl.Changed("base")
 			o.bodySet = fl.Changed("body") || fl.Changed("body-file")
+			if fl.Changed("body-file") {
+				var err error
+				if o.body, err = shared.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
+					return err
+				}
+			}
 			if !o.titleSet && !o.bodySet && !o.baseSet && !o.hasListEdits() {
 				if !f.IOStreams.CanPrompt() {
 					return cmdutil.FlagErrorf("specify at least one of --title, --body, --body-file, --base, --add-reviewer, --add-required-reviewer, " +
@@ -100,12 +106,6 @@ from its current value.`,
 }
 
 func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
-	if o.bodyFile != "" {
-		var err error
-		if o.body, err = shared.ReadBody(f.IOStreams.In, o.bodyFile); err != nil {
-			return err
-		}
-	}
 	if err := checkBody(o); err != nil {
 		return err
 	}
@@ -133,6 +133,11 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			return err
 		}
 		reviewers.remove = append(reviewers.remove, o.pickedRemovals...)
+	}
+	if len(o.addLabels)+len(o.removeLabels) > 0 {
+		if err := loadLabels(ctx, c, pr); err != nil {
+			return err
+		}
 	}
 	var url string
 	if len(o.addWorkItems)+len(o.removeWorkItems) > 0 {

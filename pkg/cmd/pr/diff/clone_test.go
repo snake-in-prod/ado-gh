@@ -45,7 +45,7 @@ func cloneIteration(id int, base, src, tgt string) map[string]any {
 
 func TestCloneDiff(t *testing.T) {
 	forkRemote := "fork\thttps://dev.azure.com/ORG/other/_git/webfork (fetch)\n"
-	diffCall := "diff --no-color --no-ext-diff " + cloneBaseSHA + " " + cloneSrcSHA
+	diffCall := "-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv " + cloneBaseSHA + " " + cloneSrcSHA
 	sameFetch := "fetch origin +refs/heads/feat:refs/remotes/origin/feat +refs/heads/main:refs/remotes/origin/main --no-tags"
 	missing := &gitcmd.Error{ExitCode: 128, Stderr: "fatal: Not a valid object name"}
 	tests := []struct {
@@ -58,16 +58,19 @@ func TestCloneDiff(t *testing.T) {
 		color      bool
 		replies    map[string]string
 		fails      map[string]error
+		stalePR    bool // the PR's last merge commits differ from the latest iteration's
 		wantCalls  []string
 		wantOut    string
 		wantErr    string
 	}{
 		{
 			name: "same repo diffs the latest iteration's common commit to its source commit",
+			// Oldest first, as Azure DevOps lists them; the PR's last merge commits are stale.
 			iterations: []map[string]any{
-				cloneIteration(2, cloneBaseSHA, cloneSrcSHA, cloneTgtSHA),
 				cloneIteration(1, strings.Repeat("0", 40), strings.Repeat("1", 40), cloneTgtSHA),
+				cloneIteration(2, cloneBaseSHA, cloneSrcSHA, cloneTgtSHA),
 			},
+			stalePR: true,
 			replies: map[string]string{"remote -v": cloneOrigin, diffCall: cloneDiffOut},
 			wantCalls: []string{
 				"remote -v", sameFetch,
@@ -91,7 +94,7 @@ func TestCloneDiff(t *testing.T) {
 			patch:      true,
 			color:      true,
 			replies: map[string]string{"remote -v": cloneOrigin,
-				"diff --no-color --no-ext-diff --name-only " + cloneBaseSHA + " " + cloneSrcSHA: "a.go\n+b.go\n"},
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv --name-only " + cloneBaseSHA + " " + cloneSrcSHA: "a.go\n+b.go\n"},
 			wantOut: "a.go\n+b.go\n",
 		},
 		{
@@ -100,12 +103,12 @@ func TestCloneDiff(t *testing.T) {
 			patch:      true,
 			color:      true,
 			replies: map[string]string{"remote -v": cloneOrigin,
-				"format-patch --no-color --no-ext-diff --stdout " + cloneTgtSHA + ".." + cloneSrcSHA: "From abc\n---\n+x\n"},
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false format-patch --no-color --no-ext-diff --no-textconv --stdout " + cloneTgtSHA + ".." + cloneSrcSHA: "From abc\n---\n+x\n"},
 			wantCalls: []string{
 				"remote -v", sameFetch,
 				"cat-file -e " + cloneSrcSHA + "^{commit}",
 				"cat-file -e " + cloneTgtSHA + "^{commit}",
-				"format-patch --no-color --no-ext-diff --stdout " + cloneTgtSHA + ".." + cloneSrcSHA,
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false format-patch --no-color --no-ext-diff --no-textconv --stdout " + cloneTgtSHA + ".." + cloneSrcSHA,
 			},
 			wantOut: "From abc\n\x1b[1;37m---\x1b[m\n\x1b[32m+x\x1b[m\n",
 		},
@@ -127,8 +130,8 @@ func TestCloneDiff(t *testing.T) {
 			name:       "base not fetchable falls back to git merge-base",
 			iterations: []map[string]any{cloneIteration(1, cloneBaseSHA, cloneSrcSHA, cloneTgtSHA)},
 			replies: map[string]string{"remote -v": cloneOrigin,
-				"merge-base " + cloneTgtSHA + " " + cloneSrcSHA:                   cloneMBSHA + "\n",
-				"diff --no-color --no-ext-diff " + cloneMBSHA + " " + cloneSrcSHA: cloneDiffOut},
+				"merge-base " + cloneTgtSHA + " " + cloneSrcSHA: cloneMBSHA + "\n",
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv " + cloneMBSHA + " " + cloneSrcSHA: cloneDiffOut},
 			fails: map[string]error{
 				"cat-file -e " + cloneBaseSHA + "^{commit}":   missing,
 				"fetch origin " + cloneBaseSHA + " --no-tags": &gitcmd.Error{ExitCode: 128, Stderr: "fatal: not our ref"},
@@ -140,7 +143,7 @@ func TestCloneDiff(t *testing.T) {
 				"fetch origin " + cloneBaseSHA + " --no-tags",
 				"cat-file -e " + cloneTgtSHA + "^{commit}",
 				"merge-base " + cloneTgtSHA + " " + cloneSrcSHA,
-				"diff --no-color --no-ext-diff " + cloneMBSHA + " " + cloneSrcSHA,
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv " + cloneMBSHA + " " + cloneSrcSHA,
 			},
 			wantOut: cloneDiffOut,
 		},
@@ -218,8 +221,8 @@ func TestCloneDiff(t *testing.T) {
 			name:       "no iterations falls back to the last merge commits and merge-base",
 			iterations: []map[string]any{},
 			replies: map[string]string{"remote -v": cloneOrigin,
-				"merge-base " + cloneTgtSHA + " " + cloneSrcSHA:                   cloneMBSHA + "\n",
-				"diff --no-color --no-ext-diff " + cloneMBSHA + " " + cloneSrcSHA: cloneDiffOut},
+				"merge-base " + cloneTgtSHA + " " + cloneSrcSHA: cloneMBSHA + "\n",
+				"-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false diff --no-color --no-ext-diff --no-textconv " + cloneMBSHA + " " + cloneSrcSHA: cloneDiffOut},
 			wantOut: cloneDiffOut,
 		},
 		{
@@ -232,6 +235,7 @@ func TestCloneDiff(t *testing.T) {
 			iterations: []map[string]any{cloneIteration(1, cloneBaseSHA, "--output=x", cloneTgtSHA)},
 			replies:    map[string]string{"remote -v": cloneOrigin},
 			wantErr:    `invalid commit ID "--output=x" in pull request !7`,
+			wantCalls:  []string{},
 		},
 		{
 			name:       "remotes fail",
@@ -278,28 +282,33 @@ func TestCloneDiff(t *testing.T) {
 				LastMergeSourceCommit: &git.GitCommitRef{CommitId: &cloneSrcSHA},
 				LastMergeTargetCommit: &git.GitCommitRef{CommitId: &cloneTgtSHA},
 			}
+			if tt.stalePR {
+				stale := strings.Repeat("9", 40)
+				pr.LastMergeSourceCommit, pr.LastMergeTargetCommit = &git.GitCommitRef{CommitId: &stale}, &git.GitCommitRef{CommitId: &stale}
+			}
 			if tt.fork {
 				forkURL, forkID := sub(cloneForkURL), uuid.New()
 				pr.ForkSource = &git.GitForkRef{Repository: &git.GitRepository{Id: &forkID, RemoteUrl: &forkURL}}
 			}
 
 			err := cloneDiff(context.Background(), f, c, repo, pr, tt.nameOnly, tt.patch, tt.color)
+			if tt.wantCalls != nil {
+				want := make([]string, len(tt.wantCalls))
+				for i, w := range tt.wantCalls {
+					want[i] = sub(w)
+				}
+				assert.Equal(t, want, append([]string{}, g.Calls...))
+			}
 			if tt.wantErr != "" {
 				require.EqualError(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOut, out.String())
-			if tt.wantCalls != nil {
-				want := make([]string, len(tt.wantCalls))
-				for i, w := range tt.wantCalls {
-					want[i] = sub(w)
-				}
-				assert.Equal(t, want, g.Calls)
-			}
 			for _, call := range g.Calls {
-				if strings.HasPrefix(call, "diff ") || strings.HasPrefix(call, "format-patch ") {
-					assert.Contains(t, call, "--no-color --no-ext-diff", "git output is never coloured by git")
+				if strings.Contains(call, " diff ") || strings.Contains(call, " format-patch ") {
+					assert.True(t, strings.HasPrefix(call, "-c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.relative=false "), "user diff config can't change the output: %s", call)
+					assert.Contains(t, call, "--no-color --no-ext-diff --no-textconv", "git never colours or converts")
 				}
 			}
 		})

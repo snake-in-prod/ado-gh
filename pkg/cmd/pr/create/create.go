@@ -2,6 +2,7 @@
 package create
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/snake-in-prod/ado-gh/api"
-	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	gitcmd "github.com/snake-in-prod/ado-gh/internal/git"
 	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
@@ -89,7 +89,11 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			return err
 		}
 	}
-	remote := findRemote(ctx, f.GitClient, repo)
+	// The remote pointing at repo, else origin (also when the remotes can't be listed).
+	remote := "origin"
+	if remotes, err := f.GitClient.Remotes(ctx); err == nil {
+		remote = cmp.Or(shared.MatchRemote(remotes, repo), remote)
+	}
 	base := strings.TrimPrefix(o.base, "refs/heads/")
 
 	if o.web {
@@ -194,18 +198,6 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	fmt.Fprintln(ios.Out, prURL)
 	return nil
-}
-
-// findRemote returns the name of the git remote pointing at repo, else "origin".
-func findRemote(ctx context.Context, gc *gitcmd.Client, repo adocontext.Repo) string {
-	remotes, _ := gc.Remotes(ctx)
-	for _, r := range remotes {
-		got, err := adocontext.ParseRemoteURL(r.FetchURL)
-		if err == nil && strings.EqualFold(got.Org, repo.Org) && strings.EqualFold(got.Project, repo.Project) && strings.EqualFold(got.Name, repo.Name) {
-			return r.Name
-		}
-	}
-	return "origin"
 }
 
 // ensurePushed pushes head to remote when there is no remote-tracking branch for it, after a

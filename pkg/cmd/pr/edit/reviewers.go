@@ -18,7 +18,7 @@ type identity struct{ name, id string }
 type reviewerEdits struct{ add, required, remove []identity }
 
 // resolveReviewers resolves every reviewer flag before anything is changed, so an unknown
-// identity fails the whole edit.
+// identity, or one both added and removed, fails the whole edit.
 func resolveReviewers(ctx context.Context, r *api.IdentityResolver, o *options) (e reviewerEdits, err error) {
 	if e.add, err = resolveIdentities(ctx, r, o.addReviewers); err != nil {
 		return e, err
@@ -26,8 +26,16 @@ func resolveReviewers(ctx context.Context, r *api.IdentityResolver, o *options) 
 	if e.required, err = resolveIdentities(ctx, r, o.requiredReviewers); err != nil {
 		return e, err
 	}
-	e.remove, err = resolveIdentities(ctx, r, o.removeReviewers)
-	return e, err
+	if e.remove, err = resolveIdentities(ctx, r, o.removeReviewers); err != nil {
+		return e, err
+	}
+	// Adding and removing the same identity would depend on the order of the calls.
+	for _, rm := range e.remove {
+		if slices.ContainsFunc(slices.Concat(e.add, e.required), func(i identity) bool { return i.id == rm.id }) {
+			return e, fmt.Errorf("%s is both added and removed as a reviewer", rm.name)
+		}
+	}
+	return e, nil
 }
 
 func resolveIdentities(ctx context.Context, r *api.IdentityResolver, values []string) ([]identity, error) {

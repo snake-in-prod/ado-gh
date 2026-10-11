@@ -99,8 +99,9 @@ func (e *closeEnv) stubAbandon() {
 	e.reg.Register(httpmock.REST(http.MethodPatch, e.org+closeRepoPath+"/pullRequests/12"),
 		func(r *http.Request) (*http.Response, error) {
 			e.calls = append(e.calls, "patch")
-			b, _ := io.ReadAll(r.Body)
-			_ = json.Unmarshal(b, &e.patched)
+			if err := json.NewDecoder(r.Body).Decode(&e.patched); err != nil {
+				return nil, err
+			}
 			return httpmock.JSONResponse(map[string]any{"pullRequestId": 12, "status": "abandoned"})(r)
 		})
 }
@@ -120,12 +121,13 @@ func (e *closeEnv) stubDeleteRef(t *testing.T, updateStatus string) {
 	e.reg.Register(httpmock.REST(http.MethodPost, e.org+closeRepoPath+"/refs"),
 		func(r *http.Request) (*http.Response, error) {
 			var body []map[string]any
-			b, _ := io.ReadAll(r.Body)
-			require.NoError(t, json.Unmarshal(b, &body))
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			require.Len(t, body, 1)
 			assert.Equal(t, "refs/heads/feat", body[0]["name"])
 			assert.Equal(t, strings.Repeat("0", 40), body[0]["newObjectId"])
-			e.calls = append(e.calls, "delete "+body[0]["oldObjectId"].(string))
+			old, isStr := body[0]["oldObjectId"].(string)
+			require.True(t, isStr, "oldObjectId missing: %v", body[0])
+			e.calls = append(e.calls, "delete "+old)
 			ok := strings.HasPrefix(updateStatus, "succeeded")
 			return httpmock.JSONResponse(map[string]any{"count": 1, "value": []map[string]any{
 				{"name": "refs/heads/feat", "success": ok, "updateStatus": updateStatus},
@@ -241,10 +243,21 @@ func TestCloseStates(t *testing.T) {
 	})
 }
 
-const closeTracking = "branch.main.merge refs/heads/main\nbranch.feat.merge refs/heads/feat\n" +
-	"branch.mine.merge refs/heads/feat\nbranch.web/feat.merge refs/heads/feat\nbranch.feat-x.merge refs/heads/feat-x\n"
+// closeTracking is the upstream config: feat and mine track origin/feat, web/feat tracks it by
+// URL, other tracks feat of another repository (upstream) and feat-x another branch.
+const closeTracking = "branch.main.remote origin\nbranch.main.merge refs/heads/main\n" +
+	"branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n" +
+	"branch.mine.remote origin\nbranch.mine.merge refs/heads/feat\n" +
+	"branch.web/feat.remote https://dev.azure.com/ORG/My%20Proj/_git/web\nbranch.web/feat.merge refs/heads/feat\n" +
+	"branch.other.remote upstream\nbranch.other.merge refs/heads/feat\n" +
+	"branch.feat-x.remote origin\nbranch.feat-x.merge refs/heads/feat-x\n"
 
-const closeGetRegexp = `config --get-regexp ^branch\..*\.merge$`
+// closeRemotes lists origin (the pull request's repository), upstream (another one) and fork.
+const closeRemotes = "origin\thttps://dev.azure.com/ORG/My%20Proj/_git/web (fetch)\n" +
+	"upstream\thttps://dev.azure.com/ORG/My%20Proj/_git/web-upstream (fetch)\n" +
+	"fork\thttps://dev.azure.com/ORG/Other/_git/webfork (fetch)\n"
+
+const closeGetRegexp = `config --get-regexp ^branch\..*\.(merge|remote)$`
 
 func TestCloseDeleteBranch(t *testing.T) {
 	boom := errors.New("boom")
@@ -253,6 +266,7 @@ func TestCloseDeleteBranch(t *testing.T) {
 		tty          bool
 		pr           map[string]any
 		repoOverride string
+		adoRepo      string
 		replies      map[string]string
 		fails        map[string]error
 		stub         func(t *testing.T, e *closeEnv)
@@ -264,7 +278,7 @@ func TestCloseDeleteBranch(t *testing.T) {
 		{
 			name: "deletes remote at its tip and every tracking local branch after leaving the current one",
 			tty:  true,
-			replies: map[string]string{closeGetRegexp: closeTracking,
+			replies: map[string]string{closeGetRegexp: closeTracking, "remote -v": closeRemotes,
 				"symbolic-ref --quiet HEAD": "refs/heads/mine\n"},
 			stub: func(t *testing.T, e *closeEnv) {
 				e.stubDefaultBranch()
@@ -302,6 +316,16 @@ func TestCloseDeleteBranch(t *testing.T) {
 			wantGit:   []string{"branch -D feat"},
 		},
 		{
+			name: "same-name local branch tracking another repository is kept",
+			replies: map[string]string{closeGetRegexp: "branch.feat.remote upstream\nbranch.feat.merge refs/heads/feat\n",
+				"remote -v": closeRemotes},
+			stub: func(t *testing.T, e *closeEnv) {
+				e.stubRefs("tip999")
+				e.stubDeleteRef(t, "succeeded")
+			},
+			wantCalls: []string{"patch", "delete tip999"},
+		},
+		{
 			name:  "no upstream configured at all",
 			fails: map[string]error{closeGetRegexp: &git.Error{ExitCode: 1}},
 			stub: func(t *testing.T, e *closeEnv) {
@@ -312,8 +336,8 @@ func TestCloseDeleteBranch(t *testing.T) {
 		},
 		{
 			name: "checkout of the default branch fails",
-			replies: map[string]string{closeGetRegexp: "branch.feat.merge refs/heads/feat\n",
-				"symbolic-ref --quiet HEAD": "refs/heads/feat\n"},
+			replies: map[string]string{closeGetRegexp: "branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n",
+				"remote -v": closeRemotes, "symbolic-ref --quiet HEAD": "refs/heads/feat\n"},
 			fails: map[string]error{"checkout main": &git.Error{ExitCode: 1, Stderr: "error: your local changes would be overwritten"}},
 			stub: func(t *testing.T, e *closeEnv) {
 				e.stubDefaultBranch()
@@ -327,7 +351,7 @@ func TestCloseDeleteBranch(t *testing.T) {
 		},
 		{
 			name:    "local branch delete fails",
-			replies: map[string]string{closeGetRegexp: "branch.feat.merge refs/heads/feat\n"},
+			replies: map[string]string{closeGetRegexp: "branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n", "remote -v": closeRemotes},
 			fails:   map[string]error{"branch -D feat": boom},
 			stub: func(t *testing.T, e *closeEnv) {
 				e.stubRefs("tip999")
@@ -346,10 +370,19 @@ func TestCloseDeleteBranch(t *testing.T) {
 			wantErrOut: "! Remote branch feat was already deleted\n",
 		},
 		{
-			name: "fork pull request skips the remote branch",
+			// The fork's feat is not origin's feat: only branches tracking the fork go.
+			name: "fork pull request skips the remote branch and keeps branches of the base repository",
 			pr: map[string]any{"forkSource": map[string]any{"name": "refs/heads/feat",
 				"repository": map[string]any{"id": "8b6f0a8e-0000-0000-0000-000000000002"}}},
-			replies:    map[string]string{closeGetRegexp: "branch.webfork/feat.merge refs/heads/feat\n"},
+			replies: map[string]string{
+				closeGetRegexp: "branch.webfork/feat.remote fork\nbranch.webfork/feat.merge refs/heads/feat\n" +
+					"branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n",
+				"remote -v": closeRemotes},
+			stub: func(_ *testing.T, e *closeEnv) {
+				e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/_apis/git/repositories/8b6f0a8e-0000-0000-0000-000000000002"),
+					httpmock.JSONResponse(map[string]any{"name": "webfork",
+						"remoteUrl": "https://dev.azure.com/" + e.org + "/Other/_git/webfork"}))
+			},
 			wantCalls:  []string{"patch"},
 			wantGit:    []string{"branch -D webfork/feat"},
 			wantErrOut: "! Skipped deleting remote branch feat: it is in a fork\n",
@@ -390,19 +423,43 @@ func TestCloseDeleteBranch(t *testing.T) {
 		{
 			name:         "-R leaves local branches alone",
 			repoOverride: "proj/web",
-			replies:      map[string]string{closeGetRegexp: "branch.feat.merge refs/heads/feat\n"},
+			replies:      map[string]string{closeGetRegexp: "branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n"},
 			stub: func(t *testing.T, e *closeEnv) {
 				e.stubRefs("tip999")
 				e.stubDeleteRef(t, "succeeded")
 			},
 			wantCalls: []string{"patch", "delete tip999"},
 		},
+		{
+			name:    "ADO_REPO leaves local branches alone",
+			adoRepo: "proj/web",
+			replies: map[string]string{closeGetRegexp: "branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n"},
+			stub: func(t *testing.T, e *closeEnv) {
+				e.stubRefs("tip999")
+				e.stubDeleteRef(t, "succeeded")
+			},
+			wantCalls: []string{"patch", "delete tip999"},
+		},
+		{
+			name:       "listing remotes fails",
+			replies:    map[string]string{closeGetRegexp: "branch.feat.remote origin\nbranch.feat.merge refs/heads/feat\n"},
+			fails:      map[string]error{"remote -v": boom},
+			stub:       func(_ *testing.T, e *closeEnv) { e.stubRefs("") },
+			wantCalls:  []string{"patch"},
+			wantErr:    "pull request !12 was abandoned, but boom",
+			wantErrOut: "! Remote branch feat was already deleted\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newCloseEnv(t, tt.tty)
 			e.repoOverride = tt.repoOverride
-			e.git.Replies, e.git.Fails = tt.replies, tt.fails
+			t.Setenv("ADO_REPO", tt.adoRepo)
+			e.git.Replies = map[string]string{}
+			for k, v := range tt.replies {
+				e.git.Replies[k] = strings.ReplaceAll(v, "ORG", e.org)
+			}
+			e.git.Fails = tt.fails
 			e.stubPR(tt.pr)
 			e.stubAbandon()
 			if tt.stub != nil {
@@ -418,7 +475,7 @@ func TestCloseDeleteBranch(t *testing.T) {
 			e.reg.Verify(t)
 			assert.Equal(t, tt.wantCalls, e.calls)
 			assert.Equal(t, tt.wantGit, e.git.Mutations())
-			if tt.repoOverride != "" {
+			if tt.repoOverride != "" || tt.adoRepo != "" {
 				assert.Empty(t, e.git.Calls)
 			}
 			assert.Equal(t, tt.wantErrOut, e.errOut.String())

@@ -42,10 +42,15 @@ func SourceRepo(ctx context.Context, c *api.PRClient, repo adocontext.Repo, pr *
 // MatchRemote returns the name of the first remote whose fetch URL points at r, or "".
 func MatchRemote(remotes []gitcmd.Remote, r adocontext.Repo) string {
 	for _, rm := range remotes {
-		if rr, err := adocontext.ParseRemoteURL(rm.FetchURL); err == nil && strings.EqualFold(rr.Org, r.Org) &&
-			strings.EqualFold(rr.Project, r.Project) && strings.EqualFold(rr.Name, r.Name) {
+		if PointsAt(rm.FetchURL, r) {
 			return rm.Name
 		}
 	}
 	return ""
+}
+
+// PointsAt reports whether the git URL u is a URL of the Azure DevOps repository r.
+func PointsAt(u string, r adocontext.Repo) bool {
+	rr, err := adocontext.ParseRemoteURL(u)
+	return err == nil && strings.EqualFold(rr.Org, r.Org) && strings.EqualFold(rr.Project, r.Project) && strings.EqualFold(rr.Name, r.Name)
 }

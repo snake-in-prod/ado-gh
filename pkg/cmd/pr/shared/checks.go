@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -75,6 +76,17 @@ var policyTypes = map[string]string{
 	"cbdc66da-9728-4af8-aada-9a5a32e4a226": "statusPolicy",
 }
 
+// PolicyType returns the Check type of policy evaluation e from its policy type GUID, or
+// "policy" for other or unknown types.
+func PolicyType(e policy.PolicyEvaluationRecord) string {
+	if cfg := e.Configuration; cfg != nil && cfg.Type != nil && cfg.Type.Id != nil {
+		if t, ok := policyTypes[cfg.Type.Id.String()]; ok {
+			return t
+		}
+	}
+	return "policy"
+}
+
 // checkBucket maps a policy evaluation or PR status state to its bucket; queued, running,
 // notSet, pending, expired and unknown states are pending.
 func checkBucket(state string) string {
@@ -92,7 +104,7 @@ func checkBucket(state string) string {
 // Checks returns the policy evaluations and the latest PR statuses of pr, a pull request of
 // the repository at repoURL. Statuses matching a status policy are folded into its row.
 func Checks(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest, repoURL string) ([]Check, error) {
-	evals, err := evaluations(ctx, c, pr)
+	evals, err := Evaluations(ctx, c, pr)
 	if err != nil {
 		return nil, err
 	}
@@ -106,16 +118,16 @@ func Checks(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest, repoUR
 // PolicyChecks returns only the policy evaluations of pr, a pull request of the repository
 // at repoURL.
 func PolicyChecks(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest, repoURL string) ([]Check, error) {
-	evals, err := evaluations(ctx, c, pr)
+	evals, err := Evaluations(ctx, c, pr)
 	if err != nil {
 		return nil, err
 	}
 	return aggregateChecks(evals, nil, repoURL, PRURL(repoURL, *pr)), nil
 }
 
-// evaluations fetches the policy evaluations of pr (notApplicable ones aren't requested);
+// Evaluations fetches the policy evaluations of pr (notApplicable ones aren't requested);
 // none when its project ID is unknown.
-func evaluations(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) ([]policy.PolicyEvaluationRecord, error) {
+func Evaluations(ctx context.Context, c *api.PRClient, pr *git.GitPullRequest) ([]policy.PolicyEvaluationRecord, error) {
 	if pr.Repository == nil || pr.Repository.Project == nil || pr.Repository.Project.Id == nil {
 		return nil, nil
 	}
@@ -135,15 +147,9 @@ func aggregateChecks(evals []policy.PolicyEvaluationRecord, statuses []git.GitPu
 			settings, _ = cfg.Settings.(map[string]any)
 			if cfg.Type != nil {
 				typeName = Deref(cfg.Type.DisplayName)
-				if cfg.Type.Id != nil {
-					ch.Type = policyTypes[cfg.Type.Id.String()]
-				}
 			}
 		}
-		if ch.Type == "" {
-			ch.Type = "policy"
-		}
-		ch.Name = typeName
+		ch.Type, ch.Name = PolicyType(e), typeName
 		switch ch.Type {
 		case "build":
 			ctx, _ := e.Context.(map[string]any)
@@ -154,15 +160,15 @@ func aggregateChecks(evals []policy.PolicyEvaluationRecord, statuses []git.GitPu
 				base, _, _ := strings.Cut(repoURL, "/_git/")
 				ch.Link = fmt.Sprintf("%s/_build/results?buildId=%d", base, int64(id))
 			}
-			ch.Name = firstNonEmpty(str(settings, "displayName"), typeName)
+			ch.Name = cmp.Or(str(settings, "displayName"), typeName)
 		case "statusPolicy":
 			genre, name := str(settings, "statusGenre"), str(settings, "statusName")
-			ch.Name = firstNonEmpty(str(settings, "defaultDisplayName"), contextName(genre, name))
+			ch.Name = cmp.Or(str(settings, "defaultDisplayName"), contextName(genre, name))
 			key := statusKey(genre, name)
 			if s, ok := latest[key]; ok {
 				folded[key] = true
 				ch.Description = Deref(s.Description)
-				ch.Link = firstNonEmpty(Deref(s.TargetUrl), prURL)
+				ch.Link = cmp.Or(Deref(s.TargetUrl), prURL)
 			}
 		}
 		ch.Bucket = checkBucket(ch.State)
@@ -179,7 +185,7 @@ func aggregateChecks(evals []policy.PolicyEvaluationRecord, statuses []git.GitPu
 		}
 		ch := Check{
 			Name: contextName(genre, name), State: string(Deref(s.State)), Type: "status",
-			Description: Deref(s.Description), Link: firstNonEmpty(Deref(s.TargetUrl), prURL), StartedAt: timeOf(s.CreationDate),
+			Description: Deref(s.Description), Link: cmp.Or(Deref(s.TargetUrl), prURL), StartedAt: timeOf(s.CreationDate),
 		}
 		ch.Bucket = checkBucket(ch.State)
 		if ch.Bucket != "pending" {
@@ -226,13 +232,6 @@ func contextName(genre, name string) string {
 func str(m map[string]any, key string) string {
 	s, _ := m[key].(string)
 	return s
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 func timeOf(t *azuredevops.Time) *time.Time {

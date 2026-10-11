@@ -2,7 +2,6 @@ package reopen
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -90,7 +89,7 @@ func TestReopen(t *testing.T) {
 		{name: "deleted source branch", status: "abandoned", refs: reopenRefs("refs/heads/feature"),
 			wantErr: "source branch feat of pull request !12 was deleted; push it (git push origin feat) or restore it, then retry"},
 		{name: "deleted source branch in fork", status: "abandoned", fork: true, refs: reopenRefs(),
-			wantErr: "source branch feat of pull request !12 was deleted"},
+			wantErr: "source branch feat of pull request !12 was deleted from its fork; push it to the fork or restore it there, then retry"},
 		{name: "fork branch present", status: "abandoned", fork: true, refs: reopenRefs("refs/heads/feat"), patch: true},
 		{name: "refs lookup fails", status: "abandoned",
 			refs:    httpmock.StatusJSONResponse(http.StatusForbidden, map[string]any{"message": "denied"}),
@@ -125,24 +124,25 @@ func TestReopen(t *testing.T) {
 			if tt.comment {
 				reg.Register(httpmock.REST(http.MethodPost, org+reopenPRPath+"/threads"), func(r *http.Request) (*http.Response, error) {
 					calls = append(calls, "thread")
-					b, _ := io.ReadAll(r.Body)
-					_ = json.Unmarshal(b, &thread)
+					if err := json.NewDecoder(r.Body).Decode(&thread); err != nil {
+						return nil, err
+					}
 					return httpmock.JSONResponse(map[string]any{"id": 1})(r)
 				})
 			}
 			if tt.patch {
 				reg.Register(httpmock.REST(http.MethodPatch, org+reopenPRPath), func(r *http.Request) (*http.Response, error) {
 					calls = append(calls, "patch")
-					b, _ := io.ReadAll(r.Body)
-					_ = json.Unmarshal(b, &patched)
+					if err := json.NewDecoder(r.Body).Decode(&patched); err != nil {
+						return nil, err
+					}
 					return httpmock.JSONResponse(map[string]any{"pullRequestId": 12, "status": "active"})(r)
 				})
 			}
 
 			stderr, err := runReopen(t, reg, org, tt.tty, append([]string{"12"}, tt.args...)...)
 			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				require.EqualError(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 			}
@@ -161,7 +161,9 @@ func TestReopen(t *testing.T) {
 			}
 			if tt.comment {
 				assert.Equal(t, []string{"thread", "patch"}, calls)
-				assert.Equal(t, "back", thread["comments"].([]any)[0].(map[string]any)["content"])
+				comments, ok := thread["comments"].([]any)
+				require.True(t, ok && len(comments) == 1, "%v", thread)
+				assert.Equal(t, "back", comments[0].(map[string]any)["content"])
 			}
 		})
 	}

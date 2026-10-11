@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	checksProjectID = "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c"
-	checksRepoURL   = "https://dev.azure.com/org/My%20Proj/_git/web"
-	checksPRURL     = checksRepoURL + "/pullrequest/7"
-	checksBuildType = "0609b952-1397-4640-95ec-e00a01b2c241"
-	checksStatusTyp = "cbdc66da-9728-4af8-aada-9a5a32e4a226"
-	checksReviewTyp = "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"
+	checksProjectID  = "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c"
+	checksRepoURL    = "https://dev.azure.com/org/My%20Proj/_git/web"
+	checksPRURL      = checksRepoURL + "/pullrequest/7"
+	checksBuildType  = "0609b952-1397-4640-95ec-e00a01b2c241"
+	checksStatusType = "cbdc66da-9728-4af8-aada-9a5a32e4a226"
+	checksReviewType = "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"
 )
 
 // decodeChecksFixture unmarshals a JSON fixture into v, as the SDK does.
@@ -82,21 +82,27 @@ func TestAggregateChecks(t *testing.T) {
 		// Expired via a raw "expired" status.
 		checksEval(checksBuildType, "Build", "expired", true, map[string]any{"displayName": "Older"}, nil),
 		// Status policy with a defaultDisplayName folds the matching status (case-insensitive).
-		checksEval(checksStatusTyp, "Status", "approved", true, map[string]any{"statusGenre": "CI", "statusName": "Lint", "defaultDisplayName": "Linting"}, nil),
+		checksEval(checksStatusType, "Status", "approved", true, map[string]any{"statusGenre": "CI", "statusName": "Lint", "defaultDisplayName": "Linting"}, nil),
 		// Status policy without a display name and no matching status.
-		checksEval(checksStatusTyp, "Status", "queued", false, map[string]any{"statusGenre": "sec", "statusName": "scan"}, nil),
+		checksEval(checksStatusType, "Status", "queued", false, map[string]any{"statusGenre": "sec", "statusName": "scan"}, nil),
 		// Reviewer policy: type display name, listed only.
-		checksEval(checksReviewTyp, "Minimum number of reviewers", "rejected", true, nil, nil),
+		checksEval(checksReviewType, "Minimum number of reviewers", "rejected", true, nil, nil),
+		// The other listed-only policy types.
+		checksEval("fd2167ab-b0be-447a-8ec8-39368250530e", "Required reviewers", "queued", true, nil, nil),
+		checksEval("40e92b44-2fe1-4dd6-b3d8-74a9c21d0c6e", "Work item linking", "rejected", true, nil, nil),
+		checksEval("c6a1889d-b943-4856-b76f-9e46bb6b0df2", "Comment requirements", "approved", true, nil, nil),
+		checksEval("fa4e907d-c16b-4a4c-9dfa-4916e5d171ab", "Require a merge strategy", "approved", true, nil, nil),
 		// Unknown policy type.
 		checksEval("00000000-0000-0000-0000-000000000001", "Custom", "approved", false, nil, nil),
 	})
 	statuses := decodeChecksFixture[[]git.GitPullRequestStatus](t, []map[string]any{
-		checksStatus(1, "ci", "lint", "failed", "2026-10-01T10:01:00Z"),
+		// The highest id wins, even listed first.
 		checksStatus(4, "ci", "lint", "succeeded", "2026-10-01T10:02:00Z"),
+		checksStatus(1, "ci", "lint", "failed", "2026-10-01T10:01:00Z"),
 		checksStatus(2, "", "e2e", "pending", "2026-10-01T10:05:00Z"),
-		// Same id: the later updatedDate wins.
-		checksStatus(3, "qa", "smoke", "pending", "2026-10-01T10:01:00Z"),
+		// Same id: the later updatedDate wins, even listed first.
 		checksStatus(3, "qa", "smoke", "error", "2026-10-01T10:09:00Z"),
+		checksStatus(3, "qa", "smoke", "pending", "2026-10-01T10:01:00Z"),
 		checksStatus(6, "qa", "skip", "notApplicable", "2026-10-01T10:03:00Z"),
 	})
 
@@ -117,6 +123,10 @@ func TestAggregateChecks(t *testing.T) {
 			Description: "lint succeeded", Link: "https://ci/lint"},
 		{Name: "sec/scan", State: "queued", Bucket: "pending", Type: "statusPolicy", Link: checksPRURL},
 		{Name: "Minimum number of reviewers", State: "rejected", Bucket: "fail", Type: "minimumReviewers", IsRequired: true, Link: checksPRURL},
+		{Name: "Required reviewers", State: "queued", Bucket: "pending", Type: "requiredReviewers", IsRequired: true, Link: checksPRURL},
+		{Name: "Work item linking", State: "rejected", Bucket: "fail", Type: "workItemLinking", IsRequired: true, Link: checksPRURL},
+		{Name: "Comment requirements", State: "approved", Bucket: "pass", Type: "commentResolution", IsRequired: true, Link: checksPRURL},
+		{Name: "Require a merge strategy", State: "approved", Bucket: "pass", Type: "mergeStrategy", IsRequired: true, Link: checksPRURL},
 		{Name: "Custom", State: "approved", Bucket: "pass", Type: "policy", Link: checksPRURL},
 		{Name: "e2e", State: "pending", Bucket: "pending", Type: "status", Description: "e2e pending",
 			Link: "https://ci/e2e", StartedAt: ts("2026-10-01T10:00:00Z")},
@@ -194,7 +204,7 @@ func TestChecksFetch(t *testing.T) {
 	reg, checks, _ := checksEnv(t, org, true)
 	reg.Register(httpmock.REST(http.MethodGet, org+"/"+checksProjectID+"/_apis/policy/evaluations"),
 		httpmock.JSONResponse(map[string]any{"count": 1, "value": []map[string]any{
-			checksEval(checksStatusTyp, "Status", "approved", true, map[string]any{"statusGenre": "ci", "statusName": "lint"}, nil),
+			checksEval(checksStatusType, "Status", "approved", true, map[string]any{"statusGenre": "ci", "statusName": "lint"}, nil),
 		}}))
 	reg.Register(httpmock.REST(http.MethodGet, org+"/proj/_apis/git/repositories/web/pullRequests/7/statuses"),
 		httpmock.JSONResponse(map[string]any{"count": 2, "value": []map[string]any{

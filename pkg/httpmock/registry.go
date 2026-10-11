@@ -51,8 +51,9 @@ type Stub struct {
 
 // Registry records requests and answers them from registered stubs.
 type Registry struct {
-	mu       sync.Mutex
-	stubs    []*Stub
+	mu    sync.Mutex
+	stubs []*Stub
+	// Requests are all requests sent, matched or not, so an empty list proves none was sent.
 	Requests []*http.Request
 }
 
@@ -95,6 +96,7 @@ func (r *Registry) Verify(t Testing) {
 // RoundTrip satisfies http.RoundTripper.
 func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 	r.mu.Lock()
+	r.Requests = append(r.Requests, req)
 	var stub *Stub
 	for _, s := range r.stubs {
 		if !s.matched && s.Matcher(req) {
@@ -107,7 +109,6 @@ func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("no registered HTTP stubs matched %v %v", req.Method, req.URL)
 	}
 	stub.matched = true
-	r.Requests = append(r.Requests, req)
 	r.mu.Unlock()
 
 	return stub.Responder(req)

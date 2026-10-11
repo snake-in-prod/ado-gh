@@ -90,12 +90,22 @@ func (e *commentEnv) stubPR() {
 func (e *commentEnv) stubWrite(t *testing.T, method, path, name string, resp httpmock.Responder) {
 	e.reg.Register(httpmock.REST(method, e.org+commentRepoPath+path), func(r *http.Request) (*http.Response, error) {
 		var body map[string]any
-		b, _ := io.ReadAll(r.Body)
-		require.NoError(t, json.Unmarshal(b, &body))
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		e.calls = append(e.calls, name)
 		e.bodies = append(e.bodies, body)
 		return resp(r)
 	})
+}
+
+// writes returns the method and path of every write request sent, stubbed or not.
+func (e *commentEnv) writes() []string {
+	var out []string
+	for _, r := range e.reg.Requests {
+		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
+			out = append(out, r.Method+" "+r.URL.Path)
+		}
+	}
+	return out
 }
 
 // stubThread answers GET of thread 7 with comments 3 (a reply) and 1 (the root).
@@ -112,7 +122,7 @@ func TestCommentNewThread(t *testing.T) {
 
 	require.NoError(t, e.run(t, "12", "-b", "Looks good"))
 	e.reg.Verify(t)
-	assert.Equal(t, []string{"thread"}, e.calls)
+	require.Equal(t, []string{"thread"}, e.calls)
 	assert.Equal(t, map[string]any{
 		"comments": []any{map[string]any{"content": "Looks good", "commentType": "text"}},
 		"status":   "active",
@@ -128,7 +138,44 @@ func TestCommentBodyFromStdin(t *testing.T) {
 	e.in.WriteString("from stdin")
 
 	require.NoError(t, e.run(t, "12", "-F", "-"))
-	assert.Equal(t, "from stdin", e.bodies[0]["comments"].([]any)[0].(map[string]any)["content"])
+	require.Equal(t, []string{"thread"}, e.calls)
+	assert.Equal(t, "from stdin", threadContent(t, e.bodies[0]))
+}
+
+// threadContent returns the content of the only comment of a new thread's body.
+func threadContent(t *testing.T, body map[string]any) any {
+	t.Helper()
+	comments, ok := body["comments"].([]any)
+	require.True(t, ok && len(comments) == 1, "%v", body)
+	comment, ok := comments[0].(map[string]any)
+	require.True(t, ok, "%v", body)
+	return comment["content"]
+}
+
+// TTY without a body flag: the editor writes the new thread's body.
+func TestCommentTTYNoBodyOpensEditor(t *testing.T) {
+	e := newCommentEnv(t, true)
+	lastEditorCmd(t, "from editor")
+	e.stubPR()
+	e.stubWrite(t, http.MethodPost, "/threads", "thread", httpmock.JSONResponse(map[string]any{"id": 9}))
+
+	require.NoError(t, e.run(t, "12"))
+	require.Equal(t, []string{"thread"}, e.calls)
+	assert.Equal(t, "from editor", threadContent(t, e.bodies[0]))
+}
+
+// -e with --status still asks for a body, and replies before changing the status.
+func TestCommentStatusWithEditorReplies(t *testing.T) {
+	e := newCommentEnv(t, true)
+	lastEditorCmd(t, "why")
+	e.stubPR()
+	e.stubThread()
+	e.stubWrite(t, http.MethodPost, "/threads/7/comments", "reply", httpmock.JSONResponse(map[string]any{"id": 4}))
+	e.stubWrite(t, http.MethodPatch, "/threads/7", "status", httpmock.JSONResponse(map[string]any{"id": 7}))
+
+	require.NoError(t, e.run(t, "12", "--thread", "7", "--status", "fixed", "-e"))
+	require.Equal(t, []string{"reply", "status"}, e.calls)
+	assert.Equal(t, "why", e.bodies[0]["content"])
 }
 
 func TestCommentReply(t *testing.T) {
@@ -139,7 +186,7 @@ func TestCommentReply(t *testing.T) {
 
 	require.NoError(t, e.run(t, "12", "--thread", "7", "-b", "Done"))
 	e.reg.Verify(t)
-	assert.Equal(t, []string{"reply"}, e.calls)
+	require.Equal(t, []string{"reply"}, e.calls)
 	assert.Equal(t, map[string]any{"content": "Done", "commentType": "text", "parentCommentId": float64(1)}, e.bodies[0])
 	assert.Equal(t, e.prURL()+"?discussionId=7\n", e.out.String())
 }
@@ -152,7 +199,7 @@ func TestCommentReplyThreadNotFound(t *testing.T) {
 
 	err := e.run(t, "12", "--thread", "7", "-b", "Done")
 	require.EqualError(t, err, "thread 7 not found in pull request !12")
-	assert.Empty(t, e.calls)
+	assert.Empty(t, e.writes())
 }
 
 func TestCommentStatusOnly(t *testing.T) {
@@ -164,7 +211,7 @@ func TestCommentStatusOnly(t *testing.T) {
 
 			require.NoError(t, e.run(t, "12", "--thread", "7", "--status", "fixed"))
 			e.reg.Verify(t)
-			assert.Equal(t, []string{"status"}, e.calls, "no body and no editor")
+			require.Equal(t, []string{"status"}, e.calls, "no body and no editor")
 			assert.Equal(t, map[string]any{"status": "fixed"}, e.bodies[0])
 			assert.Equal(t, e.prURL()+"?discussionId=7\n", e.out.String())
 		})
@@ -190,7 +237,7 @@ func TestCommentReplyAndStatus(t *testing.T) {
 
 	require.NoError(t, e.run(t, "12", "--thread", "7", "--status", "WONTFIX", "-b", "Not now"))
 	e.reg.Verify(t)
-	assert.Equal(t, []string{"reply", "status"}, e.calls)
+	require.Equal(t, []string{"reply", "status"}, e.calls)
 	assert.Equal(t, map[string]any{"status": "wontFix"}, e.bodies[1])
 	assert.Equal(t, e.prURL()+"?discussionId=7\n", e.out.String())
 }
@@ -256,7 +303,7 @@ func TestCommentNonInteractiveNeedsBody(t *testing.T) {
 	var fe *cmdutil.FlagError
 	require.ErrorAs(t, err, &fe)
 	assert.Contains(t, err.Error(), "--body")
-	assert.Empty(t, e.calls)
+	assert.Empty(t, e.writes())
 }
 
 func TestCommentWeb(t *testing.T) {
@@ -267,5 +314,5 @@ func TestCommentWeb(t *testing.T) {
 	e.reg.Verify(t)
 	assert.Equal(t, []string{e.prURL()}, e.browser.urls)
 	assert.Equal(t, "Opening "+e.prURL()+" in your browser.\n", e.errOut.String())
-	assert.Empty(t, e.calls)
+	assert.Empty(t, e.writes())
 }

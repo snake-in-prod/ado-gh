@@ -1,7 +1,6 @@
 package edit
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -19,12 +18,6 @@ const (
 	revReq  = "55555555-5555-5555-5555-555555555555" // required (by policy)
 	revGrp  = "66666666-6666-6666-6666-666666666666" // optional team
 )
-
-func revReqBody(req *http.Request) map[string]any {
-	var body map[string]any
-	_ = json.NewDecoder(req.Body).Decode(&body)
-	return body
-}
 
 // stubRevPR stubs the SDK locations and GET of pull request 12 with its reviewers.
 func (e *fieldsEnv) stubRevPR() {
@@ -56,7 +49,9 @@ func (e *fieldsEnv) stubRevIdentity(value, id string, container bool) {
 func (e *fieldsEnv) stubRevPut(id string, vote int) {
 	e.reg.Register(httpmock.REST(http.MethodPut, e.org+fieldsRepoPath+"/pullRequests/12/reviewers/"+id),
 		func(req *http.Request) (*http.Response, error) {
-			e.patches = append(e.patches, revReqBody(req))
+			if err := e.record(req); err != nil {
+				return nil, err
+			}
 			return httpmock.JSONResponse(map[string]any{"id": id, "vote": vote})(req)
 		})
 }
@@ -73,6 +68,7 @@ func TestEditReviewers(t *testing.T) {
 		stub     func(e *fieldsEnv)
 		bodies   []map[string]any // PUT bodies, in order
 		wantErr  string
+		local    bool // fails before any edit
 		wantWarn string
 	}{
 		{
@@ -159,6 +155,13 @@ func TestEditReviewers(t *testing.T) {
 				}
 			},
 			wantErr: "could not resolve bob: user must be added to the organization",
+			local:   true,
+		},
+		{
+			name:    "same identity added and removed fails before any edit",
+			args:    []string{"-t", "New", "--add-required-reviewer", revOpt, "--remove-reviewer", revOpt},
+			wantErr: revOpt + " is both added and removed as a reviewer",
+			local:   true,
 		},
 	}
 	for _, tt := range tests {
@@ -188,7 +191,7 @@ func TestEditReviewers(t *testing.T) {
 				// cobra prints the error after the warnings.
 				assert.True(t, strings.HasPrefix(e.errOut.String(), tt.wantWarn), e.errOut.String())
 				// cobra prints the usage on Out after the URL.
-				if strings.HasPrefix(tt.wantErr, "could not resolve") {
+				if tt.local {
 					assert.NotContains(t, e.out.String(), "pullrequest/12")
 				} else {
 					assert.EqualError(t, err, tt.wantErr)

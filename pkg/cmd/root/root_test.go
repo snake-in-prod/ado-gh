@@ -37,8 +37,11 @@ func runWithAliases(t *testing.T, aliases map[string]string, args ...string) (f 
 
 func TestVersion(t *testing.T) {
 	_, out, err := run(t, "--version")
-	if err != nil || out != "ado version 1.2.3\n" {
+	if err != nil || !strings.HasPrefix(out, "ado version 1.2.3") || !strings.HasSuffix(out, "/releases/tag/v1.2.3\n") {
 		t.Errorf("out = %q, err = %v", out, err)
+	}
+	if _, sub, err := run(t, "version"); err != nil || sub != out {
+		t.Errorf("version = %q, err = %v; want --version output %q", sub, err, out)
 	}
 }
 
@@ -128,6 +131,7 @@ var webCmds = map[string]bool{
 var noWebCmds = map[string]string{
 	"ado api":                 "raw REST access, no single page",
 	"ado completion":          "prints shell scripts, no page",
+	"ado version":             "prints build metadata and the release URL",
 	"ado auth login":          "local credentials, no page",
 	"ado auth logout":         "local credentials, no page",
 	"ado auth status":         "local credentials, no page",

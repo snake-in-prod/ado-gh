@@ -25,6 +25,7 @@ import (
 	releaseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/release"
 	repoCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/repo"
 	sprintCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/sprint"
+	versionCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/version"
 	workitemCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/workitem"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/extension"
@@ -44,7 +45,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 	cmd.SetIn(f.IOStreams.In)
 	cmd.SetOut(f.IOStreams.Out)
 	cmd.SetErr(f.IOStreams.ErrOut)
-	cmd.SetVersionTemplate("ado version {{.Version}}\n")
+	cmd.SetVersionTemplate(versionCmd.Text(f))
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return cmdutil.FlagErrorWrap(err)
 	})
@@ -57,7 +58,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), extensionCmd.NewCmdExtension(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
+	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), extensionCmd.NewCmdExtension(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), versionCmd.NewCmdVersion(f), workitemCmd.NewCmdWorkItem(f))
 	addAliasCommands(cmd, f)
 	addExtensionCommands(cmd, f)
 

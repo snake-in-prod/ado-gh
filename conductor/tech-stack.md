@@ -50,9 +50,17 @@
 - **`golangci-lint`**, `go vet`, `gofmt`. Coverage gate in CI.
 
 ## Build, Release & CI
-- **GitHub Actions**: lint + test matrix (linux/macos/windows).
-- **GoReleaser**: cross-compiled binaries (windows/darwin/linux × amd64/arm64), checksums, GitHub Releases, Homebrew tap, Scoop bucket, winget manifest.
-- Version injected via `-ldflags`.
+- **GitHub Actions**: lint + test matrix (linux/macos/windows). Actions pinned by commit SHA.
+- **Go toolchain** go1.27.2 for release builds, pinned with a `toolchain` line in `go.mod` (minimum stays `go 1.25.8`); release and reproducibility jobs use `setup-go` `go-version-file: go.mod` and `GOTOOLCHAIN=local`.
+- **GoReleaser** v2.18.3 (OSS, exact pin, upgraded deliberately): cross-compiled binaries (windows/darwin/linux × amd64/arm64), checksums, SBOMs, nFPM deb/rpm, GitHub Releases, Homebrew cask (`snake-in-prod/homebrew-tap`), Scoop bucket (`snake-in-prod/scoop-bucket`), winget (`SnakeInProd.Ado`, PR from `snake-in-prod/winget-pkgs`).
+- Version, commit and commit date injected via `-ldflags` into `internal/build`; `go install` builds fall back to `debug.ReadBuildInfo`.
+- **Signing and provenance:** cosign v3.1.3 (via `sigstore/cosign-installer` v4.1.2) keyless `sign-blob` bundle on `checksums.txt`; GPG detached signature from a CI signing subkey (plain `gpg --batch`, temporary `GNUPGHOME`); `actions/attest` v4.2.2 build provenance, bundle uploaded as a release asset.
+- **syft** via `anchore/sbom-action/download-syft` v0.24.3 (SPDX SBOM per archive).
+- **git-cliff** v2.14.2: `CHANGELOG.md` and release notes from Conventional Commits.
+- **Docs site:** MkDocs 1.6.1 + Material for MkDocs 9.7.7 (two exact pins, plugin-free), deployed to GitHub Pages.
+- **Workflow and script linting:** actionlint v1.7.12, shellcheck, PSScriptAnalyzer; install-script tests with a POSIX sh harness over python3 `http.server` and Pester 5 (CI).
+- **Go libraries:** `golang.org/x/mod/semver` (update notifier) and `github.com/spf13/cobra/doc` (manpages and reference pages; brings `cpuguy83/go-md2man/v2` v2.0.6 and `russross/blackfriday/v2` v2.1.0).
+  - *2026-10-12:* versions pinned by the release_dist research (`tracks/release_dist_20261010/research.md`); Material for MkDocs reaches end of life on 2026-11-05, move to Zensical once it is stable.
 
 ## Architecture (gh-inspired layout)
 - `cmd/ado/`: main.

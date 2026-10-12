@@ -6,25 +6,25 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ---
 
-## Phase 1: Build Metadata, `ado version`, Update Notifier
+## Phase 1: Build Metadata, `ado version`, Update Notifier [checkpoint: 18ed2b4]
 
-- [ ] Task: Record new dependencies and tools
-    - [ ] Add to `tech-stack.md` with a dated note (2026-10-12) and pinned versions: GoReleaser v2.18.3 (exact, upgrade deliberately), cosign v3.1.3 via cosign-installer v4.1.2 (`cosign-release: v3.1.3`), actions/attest v4.2.2, syft via anchore/sbom-action/download-syft v0.24.3, git-cliff v2.14.2, MkDocs 1.6.1 + Material 9.7.7 (plugin-free; Material EOL 2026-11-05, move to Zensical later), actionlint v1.7.12, shellcheck, PSScriptAnalyzer, Pester 5, python3 `http.server` for script tests, Go toolchain go1.27.2, pinned runner labels
-    - [ ] Add Go deps: `golang.org/x/mod/semver`, `spf13/cobra/doc` (go-md2man v2.0.6, blackfriday v2.1.0)
-- [ ] Task: Build info (`internal/build`)
-    - [ ] Write tests (`readBuildInfo` test seam): ldflags values win; `!ok` → DEV; any `vcs.*` setting present → DEV (incl. a local tagged clean or dirty build); `Main.Version` `(devel)`/empty → DEV; module-cache install (`go install …@vX.Y.Z`, no `vcs.*`) → `Main.Version`; pseudo-version → Commit and Date parsed with a small regex; Dirty always from `vcs.modified`; empty revision/time allowed for `go install`
-    - [ ] Implement; remove `main.version`, `main.go` passes `build.Version` to `NewFactory`; fix `cmd/ado/main_test.go:23-25,336` and `root_test.go:38-43` in the same task
-- [ ] Task: `ado version` / `--version`
-    - [ ] Write tests: three-line output with release URL, commit line omitted when Commit is empty, dev build omits URL, `--json` fields, `--version` and `version` byte-identical; tighten the `strings.Contains` assertion in `TestRun`
-    - [ ] Implement: `SetVersionTemplate` renders the same three lines as `ado version`; one repo-URL constant shared with `pkg/extension/create.go:29` `docsURL`
-- [ ] Task: Install-method detection
-    - [ ] Write tests for pure `detectInstallMethod(exe, goos, getenv, buildInfo)` (table-driven, runs on Linux CI for every OS; `\`→`/` and lowercase normalization): Homebrew Caskroom segment and `/Cellar/ado/` (both → `brew upgrade ado`), Scoop user and global, WinGet Packages (user/machine) plus Links fallback, `go install` from `Main.Sum` after checking ldflags values (custom GOBIN), `~/.local/bin` and `%LocalAppData%/Programs/ado` (install script), `/usr/bin` → release URL, unknown → release URL
-    - [ ] Implement; `EvalSymlinks` happens in the notifier, not in `Factory.Executable`
-    - [ ] Update spec FR2 (line 28): detection is path plus build info (go install from `Main.Sum`), and Homebrew matches Caskroom and Cellar
-- [ ] Task: Update notifier
-    - [ ] Write tests (fake clock, fast fake server, temp state dir): once per 24 h; `config.StateDir()` table test next to `TestDataDir`; atomic state-file round-trip; `checked_for_update_at` written only after a successful check (failures and rate limits retry next command); `v`-prefix before `semver.Compare`, newer-only; stable only (`-rc` never offered); notify as soon as releases/latest changes (no per-channel grace); disabled by `ADO_NO_UPDATE_NOTIFIER`, CI vars incl. explicit `TF_BUILD`, non-TTY, DEV build (explicit skip), and `ADO_EXTENSION_NAME` (an ado started inside an extension); parent ado still prints after dispatching an extension or alias; notice printed only when the command succeeded; 2 s timeout never blocks longer; errors silent (debug only); message per install method; uses `pkg/extension` `GitHubClient`: `GH_TOKEN`/`GITHUB_TOKEN` sent as Bearer only to api.github.com when set, otherwise unauthenticated, ADO token never sent
-    - [ ] Implement and wire into `run()` in `cmd/ado/main.go` (covers errors, aliases and extensions): start before `ExecuteC` with a 2 s `context.WithTimeout` and buffered channel, read `f.Debug` after `ExecuteC`, print after `HandleError` only on success
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Build Metadata, ado version, Update Notifier' (Protocol in workflow.md)
+- [x] Task: Record new dependencies and tools
+    - [x] Add to `tech-stack.md` with a dated note (2026-10-12) and pinned versions: GoReleaser v2.18.3 (exact, upgrade deliberately), cosign v3.1.3 via cosign-installer v4.1.2 (`cosign-release: v3.1.3`), actions/attest v4.2.2, syft via anchore/sbom-action/download-syft v0.24.3, git-cliff v2.14.2, MkDocs 1.6.1 + Material 9.7.7 (plugin-free; Material EOL 2026-11-05, move to Zensical later), actionlint v1.7.12, shellcheck, PSScriptAnalyzer, Pester 5, python3 `http.server` for script tests, Go toolchain go1.27.2, pinned runner labels
+    - [x] Add Go deps (added by the tasks that import them): `golang.org/x/mod/semver`, `spf13/cobra/doc` (go-md2man v2.0.6, blackfriday v2.1.0)
+- [x] Task: Build info (`internal/build`) `18ed2b4`
+    - [x] Write tests (`readBuildInfo` test seam): ldflags values win; `!ok` → DEV; any `vcs.*` setting present → DEV (incl. a local tagged clean or dirty build); `Main.Version` `(devel)`/empty → DEV; module-cache install (`go install …@vX.Y.Z`, no `vcs.*`) → `Main.Version`; pseudo-version → Commit and Date parsed with a small regex; Dirty always from `vcs.modified`; empty revision/time allowed for `go install`
+    - [x] Implement; remove `main.version`, `main.go` passes `build.Version` to `NewFactory`; fix `cmd/ado/main_test.go:23-25,336` and `root_test.go:38-43` in the same task
+- [x] Task: `ado version` / `--version` `18ed2b4`
+    - [x] Write tests: three-line output with release URL, commit line omitted when Commit is empty, dev build omits URL, `--json` fields, `--version` and `version` byte-identical; tighten the `strings.Contains` assertion in `TestRun`
+    - [x] Implement: `SetVersionTemplate` renders the same three lines as `ado version`; one repo-URL constant shared with `pkg/extension/create.go:29` `docsURL`
+- [x] Task: Install-method detection `18ed2b4`
+    - [x] Write tests for pure `detectInstallMethod(exe, goos, getenv, buildInfo)` (table-driven, runs on Linux CI for every OS; `\`→`/` and lowercase normalization): Homebrew Caskroom segment (→ `brew upgrade --cask ado`) and `/Cellar/ado/` (→ `brew upgrade ado`), Scoop user and global, WinGet Packages (user/machine) plus Links fallback, `go install` from `Main.Sum` after checking ldflags values (custom GOBIN), `~/.local/bin` and `%LocalAppData%/Programs/ado` (install script), `/usr/bin` → release URL, unknown → release URL
+    - [x] Implement; `EvalSymlinks` happens in the notifier, not in `Factory.Executable`
+    - [x] Update spec FR2 (line 28): detection is path plus build info (go install from `Main.Sum`), and Homebrew matches Caskroom and Cellar (main session)
+- [x] Task: Update notifier `18ed2b4`
+    - [x] Write tests (fake clock, fast fake server, temp state dir): once per 24 h; `config.StateDir()` table test next to `TestDataDir`; atomic state-file round-trip; `checked_for_update_at` written only after a successful check (failures and rate limits retry next command); `v`-prefix before `semver.Compare`, newer-only; stable only (`-rc` never offered); notify as soon as releases/latest changes (no per-channel grace); disabled by `ADO_NO_UPDATE_NOTIFIER`, CI vars incl. explicit `TF_BUILD`, non-TTY, DEV build (explicit skip), and `ADO_EXTENSION_NAME` (an ado started inside an extension); parent ado still prints after dispatching an extension or alias; notice printed only when the command succeeded; 2 s timeout never blocks longer; errors silent (debug only); message per install method; uses `pkg/extension` `GitHubClient`: `GH_TOKEN`/`GITHUB_TOKEN` sent as Bearer only to api.github.com when set, otherwise unauthenticated, ADO token never sent
+    - [x] Implement and wire into `run()` in `cmd/ado/main.go` (covers errors, aliases and extensions): start before `ExecuteC` with a 2 s `context.WithTimeout` and buffered channel, read `f.Debug` after `ExecuteC`, print after `HandleError` only on success
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Build Metadata, ado version, Update Notifier' (Protocol in workflow.md)
 
 ## Phase 2: Reference Docs and Docs Site
 

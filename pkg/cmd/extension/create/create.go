@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/snake-in-prod/ado-gh/internal/build"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	extpkg "github.com/snake-in-prod/ado-gh/pkg/extension"
 )
@@ -26,7 +27,7 @@ const (
 	// pipelineGoVersion is the Go that azure-pipelines.yml installs: GoTool@0 needs a full
 	// version and cannot read go.mod.
 	pipelineGoVersion = "1.27.2"
-	docsURL           = "https://github.com/snake-in-prod/ado-gh/blob/main/docs/extensions.md"
+	docsURL           = build.RepoURL + "/blob/main/docs/extensions.md"
 )
 
 //go:embed templates

@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/snake-in-prod/ado-gh/internal/build"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -20,9 +21,15 @@ import (
 
 func TestRun(t *testing.T) {
 	t.Setenv("ADO_CONFIG_DIR", t.TempDir()) // never the user's aliases
-	old := version
-	version = "9.9.9" // as injected by -ldflags "-X main.version=9.9.9"
-	t.Cleanup(func() { version = old })
+	oldVersion, oldCommit, oldDate, oldDirty := build.Version, build.Commit, build.Date, build.Dirty
+	// as injected by -ldflags "-X …/internal/build.Version=9.9.9 …"
+	build.Version, build.Commit, build.Date, build.Dirty = "9.9.9", "abc1234def", "2026-10-10T08:00:00Z", false
+	t.Cleanup(func() {
+		build.Version, build.Commit, build.Date, build.Dirty = oldVersion, oldCommit, oldDate, oldDirty
+	})
+	versionOut := "ado version 9.9.9 (2026-10-10)\n" +
+		"commit abc1234 · " + runtime.Version() + " · " + runtime.GOOS + "/" + runtime.GOARCH + "\n" +
+		"https://github.com/snake-in-prod/ado-gh/releases/tag/v9.9.9\n"
 
 	tests := []struct {
 		args       []string
@@ -30,7 +37,9 @@ func TestRun(t *testing.T) {
 		wantOut    string
 		wantErrOut string
 	}{
-		{[]string{"--version"}, cmdutil.ExitOK, "ado version 9.9.9\n", ""},
+		{[]string{"--version"}, cmdutil.ExitOK, versionOut, ""},
+		{[]string{"version"}, cmdutil.ExitOK, versionOut, ""},
+		{[]string{"version", "--json", "version,dirty"}, cmdutil.ExitOK, `{"dirty":false,"version":"9.9.9"}` + "\n", ""},
 		{[]string{"nope"}, cmdutil.ExitError, "", "unknown command \"nope\" for \"ado\""},
 		{[]string{"--nope"}, cmdutil.ExitError, "", "Usage:"},
 	}
@@ -40,7 +49,7 @@ func TestRun(t *testing.T) {
 			if got := run(tt.args, ios); got != tt.wantCode {
 				t.Errorf("code = %d, want %d", got, tt.wantCode)
 			}
-			if !strings.Contains(out.String(), tt.wantOut) {
+			if out.String() != tt.wantOut {
 				t.Errorf("stdout = %q, want %q", out, tt.wantOut)
 			}
 			if !strings.Contains(errOut.String(), tt.wantErrOut) {
@@ -333,7 +342,7 @@ func TestNewFactoryHTTPClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if gotUA != "ado-cli/"+version {
+	if gotUA != "ado-cli/"+build.Version {
 		t.Errorf("User-Agent = %q", gotUA)
 	}
 	if !strings.Contains(errOut.String(), "> GET "+srv.URL) {

@@ -60,15 +60,24 @@ func dir(goos string) string {
 // Windows, else ~/.local/share/ado.
 func DataDir() string { return dataDir(runtime.GOOS) }
 
-func dataDir(goos string) string {
-	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+func dataDir(goos string) string { return xdgDir(goos, "XDG_DATA_HOME", "share") }
+
+// StateDir returns the state directory: $XDG_STATE_HOME/ado, else %LocalAppData%\ado on
+// Windows, else ~/.local/state/ado.
+func StateDir() string { return stateDir(runtime.GOOS) }
+
+func stateDir(goos string) string { return xdgDir(goos, "XDG_STATE_HOME", "state") }
+
+// xdgDir returns $env/ado, else %LocalAppData%\ado on Windows, else ~/.local/<sub>/ado.
+func xdgDir(goos, env, sub string) string {
+	if d := os.Getenv(env); d != "" {
 		return filepath.Join(d, "ado")
 	}
 	if d := os.Getenv("LocalAppData"); goos == "windows" && d != "" {
 		return filepath.Join(d, "ado")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "ado")
+	return filepath.Join(home, ".local", sub, "ado")
 }
 
 // Load reads the config file. A missing file yields an empty config.
@@ -195,11 +204,17 @@ func (c *Config) Write() error {
 	if err != nil {
 		return err
 	}
-	d := filepath.Dir(c.path)
+	return WriteFileAtomic(c.path, b)
+}
+
+// WriteFileAtomic writes b to path through a temporary file renamed into place, with mode
+// 0600, creating the parent directory with mode 0700.
+func WriteFileAtomic(path string, b []byte) error {
+	d := filepath.Dir(path)
 	if err := os.MkdirAll(d, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(d, fileName+".*")
+	tmp, err := os.CreateTemp(d, filepath.Base(path)+".*")
 	if err != nil {
 		return err
 	}
@@ -211,5 +226,5 @@ func (c *Config) Write() error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), c.path)
+	return os.Rename(tmp.Name(), path)
 }

@@ -25,14 +25,14 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 - Runs in a background goroutine with a 2 s network timeout and prints to stderr after the command finishes. It never delays a command beyond that timeout, and failures are silent (visible only with `--debug`).
 - Checks GitHub `releases/latest` (stable only) at most once per 24 h. State lives in `$XDG_STATE_HOME/ado/state.yml` (`%LocalAppData%\ado` on Windows): last check time and latest version/URL. Only notifies when the latest release is a newer SemVer.
 - Disabled when: `ADO_NO_UPDATE_NOTIFIER` is set, `CI`/`TF_BUILD`/`BUILD_NUMBER`/`RUN_ID`/`GITHUB_ACTIONS` is set, stdout or stderr is not a TTY, it's a dev build, or it's running inside an extension (`ADO_EXTENSION_NAME`).
-- Message: `A new release of ado is available: 1.2.3 → 1.3.0`, then an upgrade command matched to how `ado` was installed (detected from the executable path):
-  - Homebrew: `brew upgrade --cask ado`
+- Message: `A new release of ado is available: 1.2.3 → 1.3.0`, then an upgrade command matched to how `ado` was installed (detected from the resolved executable path plus build info: `go install` builds are recognised by `Main.Sum`, so a custom GOBIN works):
+  - Homebrew: `brew upgrade --cask ado` (Caskroom path); `brew upgrade ado` for a formula install (Cellar path)
   - Scoop: `scoop update ado`
   - winget: `winget upgrade <Owner>.Ado`
   - `go install`: `go install …@latest`
   - install script: re-run command
   - anything else: release URL.
-- Never sends the ADO token. GitHub calls are unauthenticated.
+- Never sends the ADO token. GitHub calls send `GH_TOKEN`/`GITHUB_TOKEN` as a Bearer token only to api.github.com when one is set, otherwise they are unauthenticated.
 
 ### FR3: Command reference and manpages
 - `ado help reference`: prints the full command reference as Markdown to stdout (gh parity).

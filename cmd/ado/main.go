@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
@@ -10,14 +11,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/snake-in-prod/ado-gh/api"
+	"github.com/snake-in-prod/ado-gh/internal/build"
+	"github.com/snake-in-prod/ado-gh/internal/update"
 	aliasShared "github.com/snake-in-prod/ado-gh/pkg/cmd/alias/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/root"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
-
-// version is injected at build time: -ldflags "-X main.version=v1.2.3".
-var version = "DEV"
 
 func main() {
 	os.Exit(int(run(os.Args[1:], iostreams.System())))
@@ -26,13 +26,26 @@ func main() {
 // newCmdRoot builds the command tree; tests add commands to it.
 var newCmdRoot = root.NewCmdRoot
 
+// updateTransport carries the update check's GitHub requests; nil is http.DefaultTransport.
+var updateTransport http.RoundTripper
+
 func run(args []string, ios *iostreams.IOStreams) cmdutil.ExitCode {
+	// The update check runs alongside the command; every path, aliases and extensions
+	// included, comes back here, so the notice is printed once, after the command.
+	ctx, cancel := context.WithTimeout(context.Background(), update.Timeout)
+	defer cancel()
+	updates := update.Start(ctx, ios, build.Version, updateTransport)
+
 	f := newFactory(ios)
 	rootCmd := newCmdRoot(f)
 	args = pathExtensionArgs(rootCmd, f, args)
 	rootCmd.SetArgs(dispatchArgs(rootCmd, args))
 	cmd, err := rootCmd.ExecuteC()
-	return cmdutil.HandleError(ios.ErrOut, err, cmd.UsageString())
+	code := cmdutil.HandleError(ios.ErrOut, err, cmd.UsageString())
+	if code == cmdutil.ExitOK {
+		update.Print(ctx, ios, updates, build.Version, f.Debug) // f.Debug is final after ExecuteC
+	}
+	return code
 }
 
 // dispatchArgs applies the global flags leading the command name to root and drops them from
@@ -90,7 +103,7 @@ func globalFlagsLen(args []string) int {
 
 // newFactory wires the api transport into the Factory here because cmdutil can't import api.
 func newFactory(ios *iostreams.IOStreams) *cmdutil.Factory {
-	f := cmdutil.NewFactory(version, ios)
+	f := cmdutil.NewFactory(build.Version, ios)
 	f.HttpClient = sync.OnceValues(func() (*http.Client, error) {
 		// Built lazily: f.Debug is final only after flag parsing.
 		// ponytail: no Token provider yet; the credential store plugs in here.

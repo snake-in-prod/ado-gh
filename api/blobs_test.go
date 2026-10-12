@@ -20,7 +20,7 @@ func TestBlob(t *testing.T) {
 	b, err := c.Blob(context.Background(), "abc123")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(6<<20), *b.Size)
-	assert.True(t, strings.HasPrefix(reg.Requests[1].Header.Get("Accept"), "application/json"))
+	assert.True(t, strings.HasPrefix(sdkRequests(reg)[0].Header.Get("Accept"), "application/json"))
 }
 
 func TestBlobContent(t *testing.T) {
@@ -32,7 +32,7 @@ func TestBlobContent(t *testing.T) {
 	data, err := c.BlobContent(context.Background(), "abc123")
 	require.NoError(t, err)
 	assert.Equal(t, "line\x00bin", string(data))
-	assert.True(t, strings.HasPrefix(reg.Requests[1].Header.Get("Accept"), "application/octet-stream"))
+	assert.True(t, strings.HasPrefix(sdkRequests(reg)[0].Header.Get("Accept"), "application/octet-stream"))
 }
 
 func TestBlobForkRepoHasNoProject(t *testing.T) {
@@ -54,7 +54,7 @@ func TestItemContentAt(t *testing.T) {
 	data, err := c.ItemContentAt(context.Background(), "/dir/a.go", "c0ffee")
 	require.NoError(t, err)
 	assert.Equal(t, "old\n", string(data))
-	q := reg.Requests[1].URL.Query()
+	q := sdkRequests(reg)[0].URL.Query()
 	assert.Equal(t, "/dir/a.go", q.Get("path"))
 	assert.Equal(t, "c0ffee", q.Get("versionDescriptor.version"))
 	assert.Equal(t, "commit", q.Get("versionDescriptor.versionType"))

@@ -23,7 +23,7 @@ func TestPolicyEvaluations(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, policy.PolicyEvaluationStatusValues.Approved, *got[0].Status)
-	assert.Equal(t, "vstfs:///CodeReview/CodeReviewId/"+policyProjectID+"/42", reg.Requests[1].URL.Query().Get("artifactId"))
+	assert.Equal(t, "vstfs:///CodeReview/CodeReviewId/"+policyProjectID+"/42", sdkRequests(reg)[0].URL.Query().Get("artifactId"))
 }
 
 func TestPolicyEvaluationsError(t *testing.T) {

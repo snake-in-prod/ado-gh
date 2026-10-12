@@ -214,9 +214,9 @@ func TestStubVSRM(t *testing.T) {
 			return err
 		}},
 	}
-	for i, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
-			org := fmt.Sprintf("vsrmorg%d", i) // the SDK caches discovery per base URL
+			org := uniqueOrg("vsrmorg")
 			c := &http.Client{}
 			reg := ReplaceTripper(c)
 			reg.StubLocations(org, PipelineLocations...)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -200,10 +201,18 @@ func TestWorkItemLocations(t *testing.T) {
 	}
 }
 
+var orgSeq atomic.Int64
+
+// uniqueOrg returns an org name of its own per call: the SDK caches discovery per base URL for
+// the whole process, so a reused org skips the discovery requests these tests verify (-count>1).
+func uniqueOrg(prefix string) string {
+	return fmt.Sprintf("%s%d", prefix, orgSeq.Add(1))
+}
+
 func TestStubSearch(t *testing.T) {
 	c := &http.Client{}
 	reg := ReplaceTripper(c)
-	org := "searchorg"
+	org := uniqueOrg("searchorg")
 	reg.StubLocations(org, WorkItemLocations...)
 	reg.StubSearch(org)
 	reg.Register(REST(http.MethodPost, org+"/proj/_apis/search/workitemsearchresults"), JSONResponse(map[string]any{"count": 1}))
@@ -220,7 +229,7 @@ func TestStubSearch(t *testing.T) {
 			base = *a.LocationUrl
 		}
 	}
-	if base != "https://almsearch.dev.azure.com/searchorg/" {
+	if base != "https://almsearch.dev.azure.com/"+org+"/" {
 		t.Fatalf("search base = %q", base)
 	}
 	client := &search.ClientImpl{Client: *azuredevops.NewClientWithOptions(&azuredevops.Connection{}, base, azuredevops.WithHTTPClient(c))}

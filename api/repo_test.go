@@ -54,7 +54,7 @@ func TestListRepositories(t *testing.T) {
 		got, err := c.ListRepositories(context.Background())
 		require.NoError(t, err)
 		assert.Equal(t, want, got)
-		q := reg.Requests[1].URL.Query()
+		q := sdkRequests(reg)[0].URL.Query()
 		assert.Empty(t, q.Get("includeHidden"))
 		assert.Empty(t, q.Get("includeLinks"))
 	})
@@ -95,7 +95,7 @@ func TestRepositoryWithParent(t *testing.T) {
 
 	got, err := c.Repository(context.Background(), "api")
 	require.NoError(t, err)
-	assert.Equal(t, "true", reg.Requests[1].URL.Query().Get("includeParent"))
+	assert.Equal(t, "true", sdkRequests(reg)[0].URL.Query().Get("includeParent"))
 	assert.Equal(t, Repository{ID: repoTestID, Name: "api", DefaultBranch: "develop", IsFork: true,
 		ParentRepository: &ParentRepository{ID: repoTestParentID, Name: "upstream", Project: "other",
 			RemoteURL: "https://dev.azure.com/o/other/_git/upstream", SSHURL: "git@ssh.dev.azure.com:v3/o/other/upstream"},
@@ -123,7 +123,7 @@ func TestRootItems(t *testing.T) {
 	got, err := c.RootItems(ctx, "api", "")
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
-	q := reg.Requests[1].URL.Query()
+	q := sdkRequests(reg)[0].URL.Query()
 	assert.Equal(t, "/", q.Get("scopePath"))
 	assert.Equal(t, "oneLevel", q.Get("recursionLevel"))
 	assert.False(t, q.Has("versionDescriptor.version"))
@@ -132,7 +132,7 @@ func TestRootItems(t *testing.T) {
 	got, err = c.RootItems(ctx, "api", "refs/heads/feature/x")
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
-	q = reg.Requests[2].URL.Query()
+	q = sdkRequests(reg)[1].URL.Query()
 	assert.Equal(t, "feature/x", q.Get("versionDescriptor.version"))
 	assert.Equal(t, "branch", q.Get("versionDescriptor.versionType"))
 
@@ -164,10 +164,10 @@ func TestGitignoreTemplates(t *testing.T) {
 	got, err := c.GitignoreTemplates(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Go.gitignore", "VisualStudio.gitignore"}, got)
-	q := reg.Requests[1].URL.Query()
+	q := sdkRequests(reg)[0].URL.Query()
 	assert.Equal(t, "gitignore", q.Get("type"))
 	// The SDK sends the api-version in the Accept header.
-	assert.Contains(t, reg.Requests[1].Header.Get("Accept"), "api-version=7.1")
+	assert.Contains(t, sdkRequests(reg)[0].Header.Get("Accept"), "api-version=7.1")
 
 	_, err = c.GitignoreTemplates(context.Background())
 	var he *HTTPError

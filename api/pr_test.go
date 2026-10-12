@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -27,6 +28,12 @@ func newTestPRClient(t *testing.T, org string) (*PRClient, *httpmock.Registry) {
 	t.Cleanup(func() { reg.Verify(t) })
 	hc := NewHTTPClient(ClientOptions{Transport: reg})
 	return NewPRClient(hc, "https://dev.azure.com/"+org, "proj", "repo"), reg
+}
+
+// sdkRequests returns the requests reg received other than the SDK's OPTIONS location discovery,
+// which is only sent on the first run in a process (-count>1).
+func sdkRequests(reg *httpmock.Registry) []*http.Request {
+	return slices.DeleteFunc(slices.Clone(reg.Requests), func(r *http.Request) bool { return r.Method == http.MethodOptions })
 }
 
 func prs(from, n int, draft bool) []map[string]any {

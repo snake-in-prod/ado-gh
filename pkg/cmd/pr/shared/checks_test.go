@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -218,7 +220,13 @@ func TestChecksFetch(t *testing.T) {
 	assert.Equal(t, "ci/lint", got[0].Name)
 	assert.Equal(t, "https://ci/lint", got[0].Link)
 	assert.Equal(t, "ci/test", got[1].Name)
-	q := reg.Requests[1].URL.Query()
+	// Find the evaluations request by path: the SDK caches location discovery per process,
+	// so its OPTIONS request is missing when the test runs more than once (-count>1).
+	i := slices.IndexFunc(reg.Requests, func(r *http.Request) bool {
+		return strings.HasSuffix(r.URL.Path, "/_apis/policy/evaluations")
+	})
+	require.GreaterOrEqual(t, i, 0, "no policy evaluations request")
+	q := reg.Requests[i].URL.Query()
 	assert.Equal(t, "vstfs:///CodeReview/CodeReviewId/"+checksProjectID+"/7", q.Get("artifactId"))
 	assert.False(t, q.Has("includeNotApplicable"))
 }

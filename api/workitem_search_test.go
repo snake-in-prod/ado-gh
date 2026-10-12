@@ -4,14 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var searchOrgSeq atomic.Int64
+
+// searchOrg returns an org of its own per run for tests that stub the search area: the SDK caches
+// resource-area discovery per base URL for the whole process, and StubSearch requires it (-count>1).
+func searchOrg(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, searchOrgSeq.Add(1))
+}
 
 // newSearcher returns a searcher for its own org (the SDK caches discovery per base URL) with
 // the org's locations stubbed; stub the search area with reg.StubSearch.
@@ -25,7 +35,7 @@ func newSearcher(t *testing.T, org string) (*WorkItemSearcher, *httpmock.Registr
 }
 
 func TestWorkItemSearch(t *testing.T) {
-	org := "search-page"
+	org := searchOrg("search-page")
 	s, reg := newSearcher(t, org)
 	reg.StubSearch(org)
 	var body map[string]any
@@ -68,7 +78,7 @@ func TestWorkItemSearchUnavailable(t *testing.T) {
 		assert.ErrorIs(t, err, ErrSearchUnavailable)
 	})
 	t.Run("404", func(t *testing.T) {
-		org := "search-404"
+		org := searchOrg("search-404")
 		s, reg := newSearcher(t, org)
 		reg.StubSearch(org)
 		reg.Register(httpmock.REST(http.MethodPost, org+"/My%20Proj/_apis/search/workitemsearchresults"),
@@ -77,7 +87,7 @@ func TestWorkItemSearchUnavailable(t *testing.T) {
 		assert.ErrorIs(t, err, ErrSearchUnavailable)
 	})
 	t.Run("other errors pass through", func(t *testing.T) {
-		org := "search-500"
+		org := searchOrg("search-500")
 		s, reg := newSearcher(t, org)
 		reg.StubSearch(org)
 		reg.Register(httpmock.REST(http.MethodPost, org+"/My%20Proj/_apis/search/workitemsearchresults"),

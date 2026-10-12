@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
@@ -212,7 +213,13 @@ func TestFind(t *testing.T) {
 			assert.Equal(t, repo.Name, c.Repo)
 			assert.Equal(t, repo.Project, c.Project)
 			if tt.wantSource != "" {
-				last := reg.Requests[1].URL.Query() // after OPTIONS _apis
+				// The list request, found by its query: the OPTIONS discovery request is
+				// only sent on the first run in a process (-count>1).
+				i := slices.IndexFunc(reg.Requests, func(r *http.Request) bool {
+					return r.URL.Query().Has("searchCriteria.status")
+				})
+				require.GreaterOrEqual(t, i, 0, "no pull request list request")
+				last := reg.Requests[i].URL.Query()
 				assert.Equal(t, tt.wantSource, last.Get("searchCriteria.sourceRefName"))
 				assert.Equal(t, "all", last.Get("searchCriteria.status"))
 				assert.Equal(t, "30", last.Get("$top"))

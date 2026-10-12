@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
@@ -45,8 +46,10 @@ type wiListEnv struct {
 	searches []map[string]any
 }
 
-// newWIListEnv returns an env for its own org (the SDK caches discovery per base URL) with the
-// location and Agile process metadata stubs registered.
+var wiListOrgSeq atomic.Int64
+
+// newWIListEnv returns an env for its own org, per test and per run (the SDK caches discovery
+// per base URL for the whole process), with the location and Agile process metadata stubs registered.
 func newWIListEnv(t *testing.T, tty bool) *wiListEnv {
 	t.Helper()
 	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
@@ -56,7 +59,7 @@ func newWIListEnv(t *testing.T, tty bool) *wiListEnv {
 	ios, _, out, errOut := iostreams.Test()
 	ios.SetStdinTTY(tty)
 	ios.SetStdoutTTY(tty)
-	org := "wilist-" + strings.NewReplacer("/", "-", " ", "-", "@", "-", ",", "-").Replace(strings.ToLower(t.Name()))
+	org := fmt.Sprintf("wilist-%s-%d", strings.NewReplacer("/", "-", " ", "-", "@", "-", ",", "-").Replace(strings.ToLower(t.Name())), wiListOrgSeq.Add(1))
 	e := &wiListEnv{org: org, reg: &httpmock.Registry{}, ios: ios, out: out, errOut: errOut, browser: &browsertest.Browser{}}
 	t.Cleanup(func() { e.reg.Verify(t) })
 	e.reg.StubLocations(org, httpmock.WorkItemLocations...)

@@ -71,6 +71,7 @@ func newFactory(t *testing.T, reg *httpmock.Registry) (*cmdutil.Factory, *config
 	t.Setenv("ADO_CONFIG_DIR", dir)
 	t.Setenv("ADO_TOKEN", "")
 	t.Setenv("AZURE_DEVOPS_EXT_PAT", "")
+	t.Setenv("ADO_TOKEN_TYPE", "")
 	t.Setenv("ADO_ENTRA_CLIENT_ID", "client-id")
 	keyring.MockInit()
 	cfg, err := config.Load()
@@ -105,6 +106,31 @@ func TestLookupPAT(t *testing.T) {
 	got, err = Lookup(context.Background(), f, "dev.azure.com", "contoso")
 	require.NoError(t, err)
 	assert.Equal(t, Credential{Token: api.Token{Value: "env-pat"}, Method: MethodPAT, Source: "ADO_TOKEN"}, got)
+}
+
+// An extension with token consent gets an Entra token as ADO_TOKEN plus ADO_TOKEN_TYPE=bearer.
+func TestLookupEnvTokenType(t *testing.T) {
+	tests := []struct {
+		env, typ string
+		want     Credential
+	}{
+		{"ADO_TOKEN", "bearer", Credential{Token: api.Token{Value: "tok", Bearer: true}, Method: MethodEntra, Source: "ADO_TOKEN"}},
+		{"ADO_TOKEN", "Bearer", Credential{Token: api.Token{Value: "tok", Bearer: true}, Method: MethodEntra, Source: "ADO_TOKEN"}},
+		{"ADO_TOKEN", "", Credential{Token: api.Token{Value: "tok"}, Method: MethodPAT, Source: "ADO_TOKEN"}},
+		{"ADO_TOKEN", "pat", Credential{Token: api.Token{Value: "tok"}, Method: MethodPAT, Source: "ADO_TOKEN"}},
+		// The type describes ADO_TOKEN only; AZURE_DEVOPS_EXT_PAT is always a PAT.
+		{"AZURE_DEVOPS_EXT_PAT", "bearer", Credential{Token: api.Token{Value: "tok"}, Method: MethodPAT, Source: "AZURE_DEVOPS_EXT_PAT"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.env+"="+tt.typ, func(t *testing.T) {
+			f, _ := newFactory(t, &httpmock.Registry{})
+			t.Setenv(tt.env, "tok")
+			t.Setenv("ADO_TOKEN_TYPE", tt.typ)
+			got, err := Lookup(context.Background(), f, "dev.azure.com", "contoso")
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestLookupNotLoggedIn(t *testing.T) {

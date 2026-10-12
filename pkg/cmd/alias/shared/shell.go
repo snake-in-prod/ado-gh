@@ -70,19 +70,8 @@ func (r shellRunner) defaultShell() (string, error) {
 	if r.goos != "windows" {
 		return "sh", nil
 	}
-	if p, err := r.lookPath("sh"); err == nil {
-		return p, nil
-	}
-	if git, err := r.lookPath("git"); err == nil {
-		gitDir := filepath.Dir(git)
-		for _, sh := range []string{
-			filepath.Join(gitDir, "..", "bin", "sh.exe"),                           // Git for Windows
-			filepath.Join(gitDir, "..", "apps", "git", "current", "bin", "sh.exe"), // scoop shim
-		} {
-			if _, err := r.stat(sh); err == nil {
-				return sh, nil
-			}
-		}
+	if sh, ok := FindSh(r.lookPath, r.stat); ok {
+		return sh, nil
 	}
 	for _, ps := range []string{"pwsh", "powershell"} {
 		if p, err := r.lookPath(ps); err == nil {
@@ -90,6 +79,26 @@ func (r shellRunner) defaultShell() (string, error) {
 		}
 	}
 	return "", errors.New("unable to locate sh, pwsh or powershell to run the shell alias; install Git for Windows or set alias_shell")
+}
+
+// FindSh finds sh on Windows like gh's findsh: on PATH, else next to Git for Windows or its
+// scoop shim. lookPath and stat are exec.LookPath and os.Stat outside tests.
+func FindSh(lookPath func(string) (string, error), stat func(string) (os.FileInfo, error)) (string, bool) {
+	if p, err := lookPath("sh"); err == nil {
+		return p, true
+	}
+	if git, err := lookPath("git"); err == nil {
+		gitDir := filepath.Dir(git)
+		for _, sh := range []string{
+			filepath.Join(gitDir, "..", "bin", "sh.exe"),                           // Git for Windows
+			filepath.Join(gitDir, "..", "apps", "git", "current", "bin", "sh.exe"), // scoop shim
+		} {
+			if _, err := stat(sh); err == nil {
+				return sh, true
+			}
+		}
+	}
+	return "", false
 }
 
 // isPowerShell reports whether the program shell names is pwsh or Windows PowerShell.

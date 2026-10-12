@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
@@ -85,6 +86,10 @@ func Lookup(ctx context.Context, f *cmdutil.Factory, host, org string) (Credenti
 	}
 	errOut := f.IOStreams.ErrOut
 	if tok, src := (&auth.Store{Config: cfg, ErrOut: errOut}).Token(host, org); tok != "" {
+		if src == "ADO_TOKEN" && strings.EqualFold(os.Getenv("ADO_TOKEN_TYPE"), "bearer") {
+			// An Entra token handed to an extension (o3).
+			return Credential{Token: api.Token{Value: tok, Bearer: true}, Method: MethodEntra, Source: src}, nil
+		}
 		return Credential{Token: api.Token{Value: tok}, Method: MethodPAT, Source: src}, nil
 	}
 	if cfg.Get(host, auth.HomeAccountIDKey) == "" {

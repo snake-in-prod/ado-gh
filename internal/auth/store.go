@@ -17,7 +17,9 @@ const (
 	SourceConfig  = "config"
 )
 
-var envTokens = []string{"ADO_TOKEN", "AZURE_DEVOPS_EXT_PAT"}
+// EnvTokens are the env variables Token reads a PAT from, in order. ADO_TOKEN is an Entra ID
+// access token instead when ADO_TOKEN_TYPE is "bearer" (set for extensions with token consent).
+var EnvTokens = []string{"ADO_TOKEN", "AZURE_DEVOPS_EXT_PAT"}
 
 // Config is the subset of internal/config.Config the store needs.
 type Config interface {
@@ -54,7 +56,7 @@ func tokenKey(org string) string {
 // SourceKeyring or SourceConfig. Lookup: env, then the org key, then the host
 // key; for each key the keyring before the config file. Returns "", "" if none.
 func (s *Store) Token(host, org string) (token, source string) {
-	for _, env := range envTokens {
+	for _, env := range EnvTokens {
 		if v := os.Getenv(env); v != "" {
 			return v, env
 		}

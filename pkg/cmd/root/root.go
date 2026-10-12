@@ -4,6 +4,10 @@ package root
 import (
 	"fmt"
 	"maps"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"unicode"
@@ -15,6 +19,7 @@ import (
 	boardCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/board"
 	browseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/browse"
 	configCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/config"
+	extensionCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/extension"
 	pipelineCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline"
 	prCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pr"
 	releaseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/release"
@@ -22,6 +27,7 @@ import (
 	sprintCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/sprint"
 	workitemCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/workitem"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
+	"github.com/snake-in-prod/ado-gh/pkg/extension"
 	"github.com/spf13/cobra"
 )
 
@@ -51,9 +57,106 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
+	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), extensionCmd.NewCmdExtension(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
 	addAliasCommands(cmd, f)
+	addExtensionCommands(cmd, f)
+
+	// PATH extensions are listed only in root help and completion: scanning PATH is slow
+	// (WSL /mnt/c entries), so a normal run looks up just the name it was given.
+	help := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		if c == cmd {
+			addPathExtensions(cmd, f)
+		}
+		help(c, args)
+	})
+	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		var comps []cobra.Completion
+		if len(args) == 0 {
+			for _, name := range addPathExtensions(cmd, f) {
+				if strings.HasPrefix(name, toComplete) {
+					comps = append(comps, cobra.CompletionWithDesc(name, "Extension "+name))
+				}
+			}
+		}
+		return comps, cobra.ShellCompDirectiveNoFileComp
+	}
 	return cmd
+}
+
+// AddPathExtension registers ado-<name> from PATH unless a built-in, alias or installed extension
+// takes the name, the last step of the dispatch order. It reports whether it did.
+func AddPathExtension(root *cobra.Command, f *cmdutil.Factory, name string) bool {
+	if c, _, err := root.Find([]string{name}); (err == nil && c != root) || name == "help" || extension.ValidateName(name) != nil {
+		return false
+	}
+	path, err := exec.LookPath(extension.Prefix + name) // refuses the current directory (ErrDot)
+	if err != nil {
+		return false
+	}
+	addExtension(root, name, func(args []string) error {
+		return extension.RunPath(f, name, path, args)
+	})
+	return true
+}
+
+// addPathExtensions scans PATH and registers every ado-<name> executable AddPathExtension
+// accepts, returning their names.
+func addPathExtensions(root *cobra.Command, f *cmdutil.Factory) []string {
+	var added []string
+	seen := map[string]bool{}
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		entries, _ := os.ReadDir(dir)
+		for _, e := range entries {
+			name, ok := strings.CutPrefix(e.Name(), extension.Prefix)
+			if runtime.GOOS == "windows" {
+				name = strings.TrimSuffix(name, filepath.Ext(name)) // LookPath adds PATHEXT back
+			}
+			if !ok || seen[name] {
+				continue
+			}
+			seen[name] = true
+			if AddPathExtension(root, f, name) {
+				added = append(added, name)
+			}
+		}
+	}
+	return added
+}
+
+// addExtension adds an extension command, and the extension group with the first one: cobra
+// panics on a GroupID without its group, and an unused group would print an empty heading.
+func addExtension(root *cobra.Command, name string, run func(args []string) error) {
+	if !root.ContainsGroup(aliasShared.ExtensionGroupID) {
+		root.AddGroup(&cobra.Group{ID: aliasShared.ExtensionGroupID, Title: "Extension commands:"})
+	}
+	root.AddCommand(&cobra.Command{
+		Use:                name,
+		Short:              "Extension " + name,
+		GroupID:            aliasShared.ExtensionGroupID,
+		DisableFlagParsing: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			return run(args)
+		},
+	})
+}
+
+// addExtensionCommands registers the installed extensions after the built-ins and aliases, so a
+// name taken by either is skipped: built-in > alias > installed extension. Duplicate cobra
+// names would resolve nondeterministically.
+func addExtensionCommands(root *cobra.Command, f *cmdutil.Factory) {
+	exts, err := extension.List(extension.Dir())
+	if err != nil {
+		return // `ado extension list` reports it
+	}
+	for _, ext := range exts {
+		if c, _, err := root.Find([]string{ext.Name}); (err == nil && c != root) || ext.Name == "help" {
+			continue
+		}
+		addExtension(root, ext.Name, func(args []string) error {
+			return extension.Run(f, ext, args)
+		})
+	}
 }
 
 // addAliasCommands registers the user's aliases as commands after the built-ins, so a name

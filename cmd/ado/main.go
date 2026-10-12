@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/snake-in-prod/ado-gh/api"
+	aliasShared "github.com/snake-in-prod/ado-gh/pkg/cmd/alias/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/root"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -26,7 +27,9 @@ func main() {
 var newCmdRoot = root.NewCmdRoot
 
 func run(args []string, ios *iostreams.IOStreams) cmdutil.ExitCode {
-	rootCmd := newCmdRoot(newFactory(ios))
+	f := newFactory(ios)
+	rootCmd := newCmdRoot(f)
+	args = pathExtensionArgs(rootCmd, f, args)
 	rootCmd.SetArgs(dispatchArgs(rootCmd, args))
 	cmd, err := rootCmd.ExecuteC()
 	return cmdutil.HandleError(ios.ErrOut, err, cmd.UsageString())
@@ -48,6 +51,25 @@ func dispatchArgs(root *cobra.Command, args []string) []string {
 		return args // cobra reports it
 	}
 	return args[n:]
+}
+
+// pathExtensionArgs registers ado-<name> from PATH when the command name in args is no built-in,
+// alias or installed extension. Only that one name is looked up, so a normal run never scans
+// PATH. `help <ext>` becomes `<ext> --help`, so the extension prints its own help.
+func pathExtensionArgs(rootCmd *cobra.Command, f *cmdutil.Factory, args []string) []string {
+	n := globalFlagsLen(args)
+	if n >= len(args) {
+		return args
+	}
+	if args[n] != "help" || len(args) != n+2 {
+		root.AddPathExtension(rootCmd, f, args[n])
+		return args
+	}
+	root.AddPathExtension(rootCmd, f, args[n+1])
+	if c, _, err := rootCmd.Find(args[n+1:]); err == nil && c.GroupID == aliasShared.ExtensionGroupID {
+		return append(args[:n:n], args[n+1], "--help")
+	}
+	return args
 }
 
 // globalFlagsLen returns how many leading args are --debug and -R/--repo flags with values.

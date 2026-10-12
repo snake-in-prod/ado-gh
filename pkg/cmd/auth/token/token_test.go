@@ -10,6 +10,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
+	"github.com/snake-in-prod/ado-gh/pkg/extension"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/stretchr/testify/assert"
@@ -75,4 +76,31 @@ func TestTokenErrors(t *testing.T) {
 	var authErr *cmdutil.AuthError
 	require.ErrorAs(t, err, &authErr, "not logged in exits 4")
 	assert.Empty(t, out)
+}
+
+func TestTokenExtensionSpeedBump(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("ADO_TOKEN", "env-pat")
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	root := extension.Dir()
+	require.NoError(t, extension.WriteRecord(root, "nope", &extension.Record{Kind: extension.KindScript}))
+	require.NoError(t, extension.WriteRecord(root, "yes", &extension.Record{Kind: extension.KindScript, TokenConsent: true}))
+
+	for _, name := range []string{"nope", "missing", "../yes"} {
+		t.Setenv("ADO_EXTENSION_NAME", name)
+		out, _, err := run(t, adocontext.Repo{}, "--org", "contoso")
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), "token consent", name)
+		assert.Empty(t, out, name)
+	}
+
+	t.Setenv("ADO_EXTENSION_NAME", "yes")
+	out, _, err := run(t, adocontext.Repo{}, "--org", "contoso")
+	require.NoError(t, err)
+	assert.Equal(t, "env-pat\n", out, "allowed with consent")
+
+	t.Setenv("ADO_EXTENSION_NAME", "")
+	out, _, err = run(t, adocontext.Repo{}, "--org", "contoso")
+	require.NoError(t, err)
+	assert.Equal(t, "env-pat\n", out, "unaffected outside extensions")
 }

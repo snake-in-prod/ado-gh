@@ -26,6 +26,9 @@ type Config interface {
 // Factory provides lazily built dependencies to commands. Tests replace fields.
 type Factory struct {
 	AppVersion string
+	// Executable is the path of the running ado (os.Executable, else "ado"), handed to
+	// extensions as ADO_EXECUTABLE.
+	Executable string
 	// Debug is set by ADO_DEBUG and the --debug flag.
 	Debug     bool
 	IOStreams *iostreams.IOStreams
@@ -55,8 +58,13 @@ func (f *Factory) BaseProject() (adocontext.Repo, error) {
 
 // NewFactory returns the production Factory for the given version and streams.
 func NewFactory(appVersion string, ios *iostreams.IOStreams) *Factory {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "ado"
+	}
 	f := &Factory{
 		AppVersion: appVersion,
+		Executable: exe,
 		Debug:      envTrue(os.Getenv("ADO_DEBUG")),
 		IOStreams:  ios,
 		Config: sync.OnceValues(func() (Config, error) {

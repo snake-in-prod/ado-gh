@@ -2,13 +2,17 @@ package root
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
+	"github.com/snake-in-prod/ado-gh/pkg/extension"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/spf13/cobra"
 )
@@ -178,6 +182,9 @@ var noWebCmds = map[string]string{
 	"ado alias list":          "local config, no page",
 	"ado alias delete":        "local config, no page",
 	"ado alias import":        "local config, no page",
+	"ado extension list":      "local install state, no page",
+	"ado extension remove":    "local files, no page",
+	"ado extension exec":      "runs a local executable",
 }
 
 // TestWebFlagAudit fails for commands missing from both lists and for stale entries.
@@ -230,11 +237,12 @@ func TestCompletion(t *testing.T) {
 	}
 }
 
-// seedAliases points ADO_CONFIG_DIR at a fresh dir, so the user's own aliases never leak in,
-// and saves aliases there.
+// seedAliases points ADO_CONFIG_DIR and XDG_DATA_HOME at fresh dirs, so the user's own aliases
+// and extensions never leak in, and saves aliases there.
 func seedAliases(t *testing.T, aliases map[string]string) {
 	t.Helper()
 	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	if len(aliases) == 0 {
 		return
 	}
@@ -333,5 +341,162 @@ func TestShellAliasDispatch(t *testing.T) {
 	_, out, err := runWithAliases(t, map[string]string{"greet": `!echo "hi $1" "$2"`}, "greet", "a b", "--debug")
 	if err != nil || out != "hi a b --debug\n" {
 		t.Errorf("out = %q, err = %v", out, err)
+	}
+}
+
+// runWithExtensions runs ado with aliases and script extensions printing "ext <name> <args>".
+func runWithExtensions(t *testing.T, aliases map[string]string, exts []string, args ...string) (*cobra.Command, string, error) {
+	t.Helper()
+	t.Setenv("ADO_DEBUG", "")
+	seedAliases(t, aliases)
+	for _, name := range exts {
+		dir := filepath.Join(extension.Dir(), "ado-"+name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		script := "#!/bin/sh\necho \"ext " + name + " $*\"\n"
+		if err := os.WriteFile(filepath.Join(dir, "ado-"+name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ios, _, out, _ := iostreams.Test()
+	cmd := NewCmdRoot(cmdutil.NewFactory("1.2.3", ios))
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return cmd, out.String(), err
+}
+
+// Installed extensions are registered after built-ins and aliases: a taken name is skipped.
+func TestExtensionCommands(t *testing.T) {
+	root, out, err := runWithExtensions(t, map[string]string{"shadow": "completion bash"},
+		[]string{"hello", "pr", "wi", "shadow", "help"}, "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := map[string]string{}
+	for _, c := range root.Commands() {
+		if c.GroupID == "extension" || c.GroupID == "alias" {
+			groups[c.Name()] = c.GroupID
+			if !c.DisableFlagParsing {
+				t.Errorf("%s parses flags", c.Name())
+			}
+		}
+	}
+	if want := map[string]string{"hello": "extension", "shadow": "alias"}; fmt.Sprint(groups) != fmt.Sprint(want) {
+		t.Errorf("commands = %v, want %v", groups, want)
+	}
+	if !strings.Contains(out, "Extension commands:\n  hello") {
+		t.Errorf("help:\n%s", out)
+	}
+}
+
+func TestNoExtensionGroupWithoutExtensions(t *testing.T) {
+	// Only shadowed extensions: no group, and no cobra panic.
+	_, out, err := runWithExtensions(t, nil, []string{"pr"}, "--help")
+	if err != nil || strings.Contains(out, "Extension commands") {
+		t.Errorf("err = %v, out:\n%s", err, out)
+	}
+}
+
+func TestExtensionDispatch(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil || runtime.GOOS == "windows" {
+		t.Skip("needs sh")
+	}
+	_, out, err := runWithExtensions(t, nil, []string{"hello"}, "hello", "a", "--debug")
+	if err != nil || out != "ext hello a --debug\n" {
+		t.Errorf("out = %q, err = %v", out, err)
+	}
+}
+
+// pathExtensionDir puts a fresh dir holding executables ado-onpath and ado-pr (shadowed by the
+// built-in) plus a non-executable ado-noexec alone on PATH.
+func pathExtensionDir(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	exe := ""
+	if runtime.GOOS == "windows" {
+		exe = ".exe" // LookPath checks only the extension there
+	}
+	for file, mode := range map[string]os.FileMode{"ado-onpath" + exe: 0o755, "ado-pr" + exe: 0o755, "ado-noexec": 0o644, "other": 0o755} {
+		if err := os.WriteFile(filepath.Join(dir, file), []byte("#!/bin/sh\n"), mode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir)
+}
+
+func TestHelpListsPathExtensions(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"help"}} {
+		pathExtensionDir(t)
+		_, out, err := runWithExtensions(t, nil, []string{"hello"}, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, section, _ := strings.Cut(out, "Extension commands:\n")
+		section, _, _ = strings.Cut(section, "\n\n")
+		if !strings.Contains(section, "hello") || !strings.Contains(section, "onpath") || strings.Contains(section, "noexec") || strings.Contains(section, "pr ") {
+			t.Errorf("%v: extension section:\n%s", args, section)
+		}
+	}
+}
+
+// A normal run never scans PATH: only help and completion register PATH extensions.
+func TestNormalRunSkipsPathScan(t *testing.T) {
+	pathExtensionDir(t)
+	root, _, err := runWithExtensions(t, nil, nil, "completion", "bash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, _, err := root.Find([]string{"onpath"}); err == nil && c != root {
+		t.Error("PATH extension registered on a normal run")
+	}
+}
+
+func TestCompletionListsExtensions(t *testing.T) {
+	pathExtensionDir(t)
+	_, out, err := runWithExtensions(t, map[string]string{"co": "completion"}, []string{"hello"}, "__complete", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"hello\tExtension hello", "onpath\tExtension onpath", "co\t", "pr\t"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("completion missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Count(out, "pr\t") != 1 || strings.Contains(out, "noexec") {
+		t.Errorf("shadowed or non-executable extension completed:\n%s", out)
+	}
+
+	pathExtensionDir(t)
+	_, out, err = runWithExtensions(t, nil, []string{"hello"}, "__complete", "on")
+	if err != nil || !strings.Contains(out, "onpath\t") || strings.Contains(out, "hello") {
+		t.Errorf("prefix not applied: err = %v\n%s", err, out)
+	}
+	pathExtensionDir(t)
+	_, out, err = runWithExtensions(t, nil, nil, "__complete", "nope", "")
+	if err != nil || strings.Contains(out, "onpath") {
+		t.Errorf("extensions completed as a second arg: err = %v\n%s", err, out)
+	}
+}
+
+// `ado extension exec` runs the installed extension even when an alias shadows its name, with
+// global flags before the command parsed by ado and everything after the name passed through.
+func TestExtensionExecBypassesAlias(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil || runtime.GOOS == "windows" {
+		t.Skip("needs sh")
+	}
+	aliases := map[string]string{"hello": "completion bash"}
+	_, out, err := runWithExtensions(t, aliases, []string{"hello"}, "hello")
+	if err != nil || !strings.Contains(out, "bash completion") {
+		t.Fatalf("alias did not win: out = %.80q, err = %v", out, err)
+	}
+	for _, args := range [][]string{
+		{"extension", "exec", "hello", "a", "--debug"},
+		{"-R", "o/p/r", "ext", "exec", "hello", "a", "--debug"},
+	} {
+		_, out, err = runWithExtensions(t, aliases, []string{"hello"}, args...)
+		if err != nil || out != "ext hello a --debug\n" {
+			t.Errorf("%v: out = %q, err = %v", args, out, err)
+		}
 	}
 }

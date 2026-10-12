@@ -48,6 +48,13 @@ func TestBaseRepoFromGit(t *testing.T) {
 	assert.False(t, f.BaseRepoFromGit(), "-R")
 }
 
+func TestNewFactoryExecutable(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+	exe, err := os.Executable()
+	require.NoError(t, err)
+	assert.Equal(t, exe, NewFactory("1.0.0", ios).Executable)
+}
+
 func TestNewFactoryDebugFromEnv(t *testing.T) {
 	for v, want := range map[string]bool{"": false, "0": false, "false": false, "1": true, "true": true, "api": true} {
 		t.Setenv("ADO_DEBUG", v)

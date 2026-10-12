@@ -55,6 +55,11 @@ archives:
       - manpages/*
       - completions/*
 
+# -rc and other SemVer prerelease tags become GitHub prereleases, so releases/latest
+# (install scripts, the update notifier) only ever points at a stable release.
+release:
+  prerelease: auto
+
 checksum:
   name_template: checksums.txt
   algorithm: sha256

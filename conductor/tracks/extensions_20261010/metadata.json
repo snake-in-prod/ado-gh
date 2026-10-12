@@ -1,8 +1,8 @@
 {
   "track_id": "extensions_20261010",
   "type": "feature",
-  "status": "new",
+  "status": "completed",
   "created_at": "2026-10-10T17:09:12Z",
-  "updated_at": "2026-10-10T17:09:12Z",
+  "updated_at": "2026-10-12T18:30:00Z",
   "description": "Add user aliases and an extension system matching gh: ado alias set/list/delete/import ($1 placeholders, --shell via sh/PowerShell, no shadowing built-ins, stored in config.yml) and ado extension install/list/upgrade/remove/exec/create/search/browse (GitHub, Azure DevOps or local sources; script, GitHub Release and Azure Artifacts binaries; checksums, pinning, allowlist, token consent); ado-<name> dispatch with context env vars; author contract docs"
 }

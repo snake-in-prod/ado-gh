@@ -218,26 +218,23 @@ A phase is complete when:
 
 ## Release Workflow
 
-### Pre-Release Checklist
-- [ ] All tests passing on linux/macos/windows CI
-- [ ] Coverage >90%
-- [ ] No linting errors
-- [ ] CHANGELOG updated (breaking changes called out)
+The full procedure is in [`docs/releasing.md`](../docs/releasing.md) (one-time setup, versioning, notes, monitoring, winget, prerelease, hotfix and rollback). Short checklist:
 
-### Release Steps
-1. Merge feature branch to main
-2. Tag release with SemVer version (`vX.Y.Z`)
-3. Push tag; GoReleaser (GitHub Actions) builds and publishes binaries, Homebrew, Scoop, winget
-4. Smoke-test a published binary (`ado --version`, `ado auth status`)
+- [ ] CI green on `main` (linux/macos/windows tests, lint, snapshot, reproducibility, docs, install scripts)
+- [ ] Release-prep PR `chore(release): prepare vX.Y.Z` merged: `CHANGELOG.md` regenerated with git-cliff, breaking changes called out
+- [ ] Commit subjects since the last tag read as user-facing notes (no "address … review findings")
+- [ ] Annotated tag `vX.Y.Z` (or `vX.Y.Z-rc.N`) on a commit of `main`, pushed one tag at a time; tags are never moved or deleted
+- [ ] Release workflow green: signed checksums (cosign + GPG), SBOMs, attestations, notes; docs deployed (stable only)
+- [ ] Smoke workflow green on all 6 platforms (and the channel jobs for stable releases)
+- [ ] winget pull request followed until merged
 
 ## Emergency Procedures
 
 ### Critical Bug in a Release
-1. Create hotfix branch from the release tag
-2. Write failing test for bug
-3. Implement minimal fix
-4. Release a patch version
-5. Document in plan.md
+1. Write a failing test for the bug on a branch from `main`
+2. Implement the minimal fix and merge it to `main` (the release guard only accepts tags on `main`)
+3. Release a patch version tagged from `main` (see the hotfix flow in `docs/releasing.md`)
+4. Document in plan.md
 
 ### Leaked Credential
 1. Revoke the token/PAT immediately

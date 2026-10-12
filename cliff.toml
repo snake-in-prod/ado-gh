@@ -63,3 +63,10 @@ commit_parsers = [
   # a warning; filter_unconventional = false routes non-conventional subjects here.
   { message = ".*", skip = true },
 ]
+
+# `git cliff --bumped-version`: before 1.0 a breaking change bumps the minor
+# version; going to 1.0.0 is a deliberate decision.
+[bump]
+breaking_always_bump_major = false
+# Must match tag_pattern: the first release is v0.1.0.
+initial_tag = "v0.1.0"

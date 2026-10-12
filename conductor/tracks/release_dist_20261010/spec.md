@@ -87,8 +87,8 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 - Linted in CI (shellcheck, PSScriptAnalyzer).
 
 ### FR9: Smoke tests (`.github/workflows/smoke.yml`)
-- Runs after release and by manual dispatch (`version` input).
-- **Binary matrix:** ubuntu x64/arm64, macos arm64/x64, windows x64/arm64. Each job:
+- Called by the release workflow as a reusable workflow (`workflow_call`), and by manual dispatch (`version` input).
+- **Binary matrix:** pinned runners `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-26` (darwin/arm64), `macos-15-intel` (darwin/amd64, dropped when GitHub retires Intel runners), `windows-2025`, `windows-11-arm`. Each job:
   - Downloads the release archive.
   - Verifies checksum, cosign bundle (`--certificate-identity` = release workflow, issuer = GitHub OIDC), GPG signature and `gh attestation verify`.
   - Asserts `ado --version` matches the tag and commit, `ado --help` exits 0, and `ado auth status` without credentials exits 4 with the login hint.

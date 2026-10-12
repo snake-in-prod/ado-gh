@@ -94,21 +94,21 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] CI: shellcheck in the lint job; PSScriptAnalyzer settings with `PSUseCompatibleSyntax` 5.1, fail on any result; Pester in CI only (locally only the sh harness runs)
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Release Workflow and Install Scripts' (Protocol in workflow.md)
 
-## Phase 5: Smoke Tests, README, Release Checklist, First Release
+## Phase 5: Smoke Tests, README, Release Checklist, First Release [checkpoint: bb50f60]
 
-- [ ] Task: `.github/workflows/smoke.yml`
-    - [ ] Triggers: `workflow_call` + `workflow_dispatch(version)`; update spec FR9 accordingly
-    - [ ] Binary matrix pinned to `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-26` (darwin/arm64), `macos-15-intel` (darwin/amd64, drop the row when GitHub retires Intel runners), `windows-2025`, `windows-11-arm`: download, verify checksum, cosign (SHA-pinned cosign-installer, exact identity), GPG (check or install gpg on Windows), attestation (`GH_TOKEN: ${{ github.token }}`, plus `--bundle` from the release asset); `--version` matches tag+commit, `--help`, unauthenticated `auth status` exits 4, optional authenticated checks with `SMOKE_ADO_TOKEN`
-    - [ ] Channel jobs (stable only, x64 only, no winget, no Linuxbrew): brew on macOS `--cask --yes snake-in-prod/tap/ado` plus quarantine-gone assertion, failing on any Homebrew deprecation warning; Scoop via plain `irm get.scoop.sh | iex` and install in one step (or GITHUB_PATH); deb via `gh release download -p '*_linux_amd64.deb'` + `apt-get install ./`; rpm in a pinned Fedora container from the real asset name; install.sh; install.ps1 (env-var form with `-NoModifyPath`); `go install` with setup-go `cache: false`, no checkout, exact tag with 3× retry, default GOPROXY, version-only assertion
-    - [ ] actionlint passes
-- [ ] Task: README install section
-    - [ ] New Install section after the intro (Build moves to Development), drop "Nothing is released yet"; every channel install/upgrade/uninstall (`brew install --cask snake-in-prod/tap/ado`, Scoop, `winget install SnakeInProd.Ado`, deb/rpm, install.sh, install.ps1 with both `-Version`/`-BinDir` scriptblock and env-var forms, `go install`), completions, docs site link
-    - [ ] Verification: cosign ≥ 3.1.3 with both exact identity and anchored regex, `gh attestation verify --bundle` (no login) and the logged-in form (gh ≥ 2.93.0), GPG fingerprint, macOS quarantine note and security note for the xattr hook
-    - [ ] README summarises auth and getting started with links to the docs pages; rewrite `docs/...` and `LICENSE` links where text moved into docs
-- [ ] Task: Release checklist
-    - [ ] Write `docs/releasing.md` per spec: git-cliff prep PR, push one tag at a time, winget PR check, CLA, Defender false positives and `@wingetbot run`, Intel macOS runner retirement (fall 2027), `[bump] breaking_always_bump_major = false` if `--bumped-version` is mentioned, user-facing fix subjects (no "address … review findings" commits)
-    - [ ] Shrink `conductor/workflow.md` Release Workflow to a pointer to `docs/releasing.md` plus a short checklist; replace "CHANGELOG updated" with the git-cliff prep PR; reword the hotfix flow: merge hotfixes to main first and tag from main
+- [x] Task: `.github/workflows/smoke.yml` `bb50f60`
+    - [x] Triggers: `workflow_call` + `workflow_dispatch(version)` (spec FR9 updated by the main session)
+    - [x] Binary matrix pinned to `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-26` (darwin/arm64), `macos-15-intel` (darwin/amd64, drop the row when GitHub retires Intel runners), `windows-2025`, `windows-11-arm`: download, verify checksum, cosign (SHA-pinned cosign-installer, exact identity), GPG (check or install gpg on Windows), attestation (`GH_TOKEN: ${{ github.token }}`, plus `--bundle` from the release asset); `--version` matches tag+commit, `--help`, unauthenticated `auth status` exits 4, optional authenticated checks with `SMOKE_ADO_TOKEN`
+    - [x] Channel jobs (stable only, x64 only, no winget, no Linuxbrew): brew on macOS `--cask --yes snake-in-prod/tap/ado` plus quarantine-gone assertion, failing on any Homebrew deprecation warning; Scoop via plain `irm get.scoop.sh | iex` and install in one step (or GITHUB_PATH); deb via `gh release download -p '*_linux_amd64.deb'` + `apt-get install ./`; rpm in a pinned Fedora container from the real asset name; install.sh; install.ps1 (env-var form with `-NoModifyPath`); `go install` with setup-go `cache: false`, no checkout, exact tag with 3× retry, default GOPROXY, version-only assertion
+    - [x] actionlint passes
+- [x] Task: README install section `bb50f60`
+    - [x] New Install section after the intro (Build moves to Development), drop "Nothing is released yet"; every channel install/upgrade/uninstall (`brew install --cask snake-in-prod/tap/ado`, Scoop, `winget install SnakeInProd.Ado`, deb/rpm, install.sh, install.ps1 with both `-Version`/`-BinDir` scriptblock and env-var forms, `go install`), completions, docs site link
+    - [x] Verification: cosign ≥ 3.1.3 with both exact identity and anchored regex, `gh attestation verify --bundle` (no login) and the logged-in form (gh ≥ 2.93.0), GPG fingerprint, macOS quarantine note and security note for the xattr hook
+    - [x] README summarises auth and getting started with links to the docs pages; rewrite `docs/...` and `LICENSE` links where text moved into docs
+- [x] Task: Release checklist `bb50f60`
+    - [x] Write `docs/releasing.md` per spec: git-cliff prep PR, push one tag at a time, winget PR check, CLA, Defender false positives and `@wingetbot run`, Intel macOS runner retirement (fall 2027), `[bump] breaking_always_bump_major = false` if `--bumped-version` is mentioned, user-facing fix subjects (no "address … review findings" commits)
+    - [x] (main session) Shrink `conductor/workflow.md` Release Workflow to a pointer to `docs/releasing.md` plus a short checklist; replace "CHANGELOG updated" with the git-cliff prep PR; reword the hotfix flow: merge hotfixes to main first and tag from main
 - [ ] Task: Dry-run release
-    - [ ] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
-    - [ ] Fix issues found; record outcome in plan
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)
+    - [x] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
+    - [x] Fix issues found; record outcome in plan
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)

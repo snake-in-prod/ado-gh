@@ -1,7 +1,8 @@
 name: Smoke
 
-# Called from release.yml after a release, or run by hand for a published tag.
-# Stub: the binary and channel matrices land in Phase 5.
+# Called from release.yml after a release (GITHUB_TOKEN-created releases trigger
+# no workflows), or run by hand for a published tag. The binary matrix runs for
+# every tag; channel jobs only for stable tags (rc tags publish no manifests).
 on:
   workflow_call:
     inputs:
@@ -21,11 +22,379 @@ on:
 
 permissions: {}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  stub:
+  prepare:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      short: ${{ steps.tag.outputs.short }}
+      version_line: ${{ steps.tag.outputs.version_line }}
+      stable: ${{ steps.tag.outputs.stable }}
     steps:
-      - name: Smoke tests not implemented yet
+      # The expected `ado --version` comes from the tag's commit: release builds
+      # stamp the full commit and its UTC commit date.
+      - id: tag
         env:
-          VERSION: ${{ inputs.version }}
-        run: echo "::notice::smoke tests for $VERSION are not implemented yet"
+          GH_TOKEN: ${{ github.token }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          tag=v${INPUT#v}
+          if ! [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::invalid release tag: $INPUT"
+            exit 1
+          fi
+          out=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq '.sha + " " + .commit.committer.date')
+          read -r commit date <<<"$out"
+          stable=true
+          [[ $tag != *-* ]] || stable=false
+          {
+            echo "tag=$tag"
+            echo "version=${tag#v}"
+            echo "short=${commit:0:7}"
+            echo "version_line=ado version ${tag#v} (${date%%T*})"
+            echo "stable=$stable"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  binary:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, os: linux, arch: amd64, ext: tar.gz, bin: ado }
+          - { runner: ubuntu-24.04-arm, os: linux, arch: arm64, ext: tar.gz, bin: ado }
+          - { runner: macos-26, os: darwin, arch: arm64, ext: tar.gz, bin: ado }
+          # Drop this row when GitHub retires Intel macOS runners (fall 2027).
+          - { runner: macos-15-intel, os: darwin, arch: amd64, ext: tar.gz, bin: ado }
+          - { runner: windows-2025, os: windows, arch: amd64, ext: zip, bin: ado.exe }
+          - { runner: windows-11-arm, os: windows, arch: arm64, ext: zip, bin: ado.exe }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      attestations: read
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      ASSET: ado_${{ needs.prepare.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.${{ matrix.ext }}
+      BIN: ./${{ matrix.bin }}
+      # Primary key; the CI signs with subkey 9236 1482 2D64 5B37 06B7 56E7 F621 5CEA 43F8 A59C.
+      GPG_FPR: E8CC041BD0BEBDC13ADB967EEC1EF53E7EF8CA48
+    steps:
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: runner.os != 'Windows' || runner.arch != 'ARM64'
+        with:
+          cosign-release: v3.1.3
+      # cosign-installer and cosign ship no windows/arm64 build: run the x64 one under emulation.
+      - name: Install cosign v3.1.3 (windows/arm64)
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        run: |
+          mkdir -p "$RUNNER_TEMP/cosign"
+          cd "$RUNNER_TEMP/cosign"
+          curl -fsSL -o cosign.exe https://github.com/sigstore/cosign/releases/download/v3.1.3/cosign-windows-amd64.exe
+          echo "9fe59be0eca1271873ce019061335eb1ac419b7059202e797828467ddabe33be  cosign.exe" | sha256sum -c -
+          cygpath -w "$PWD" >>"$GITHUB_PATH"
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "$ASSET" \
+            -p checksums.txt -p checksums.txt.sigstore.json -p checksums.txt.sig -p attestations.jsonl
+
+      - name: Verify cosign bundle of checksums.txt
+        run: |
+          cosign verify-blob --bundle checksums.txt.sigstore.json \
+            --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            checksums.txt
+
+      # Git for Windows ships gpg; the macOS images list GnuPG but install it if a label drops it.
+      - name: Verify GPG signature of checksums.txt
+        run: |
+          if ! command -v gpg >/dev/null; then
+            if [[ $RUNNER_OS == macOS ]]; then
+              brew install gnupg
+            else
+              echo "::error::gpg not found on $RUNNER_OS"
+              exit 1
+            fi
+          fi
+          home=$(mktemp -d)
+          curl -fsSL "https://keys.openpgp.org/vks/v1/by-fingerprint/$GPG_FPR" | gpg --homedir "$home" --batch --import
+          gpg --homedir "$home" --batch --status-fd 1 --verify checksums.txt.sig checksums.txt | tee gpg.status
+          # VALIDSIG's last field is the primary key fingerprint.
+          if ! grep -Eq "^\[GNUPG:\] VALIDSIG .* $GPG_FPR\$" gpg.status; then
+            echo "::error::checksums.txt.sig is not a valid signature by $GPG_FPR"
+            exit 1
+          fi
+
+      - name: Verify archive checksum
+        run: |
+          awk -v f="$ASSET" '$2 == f' checksums.txt >asset.sha256
+          if [ ! -s asset.sha256 ]; then
+            echo "::error::$ASSET is not listed in checksums.txt"
+            exit 1
+          fi
+          if command -v sha256sum >/dev/null; then
+            sha256sum -c asset.sha256
+          else
+            shasum -a 256 -c asset.sha256
+          fi
+
+      - name: Verify attestations (GitHub API)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in "$ASSET" checksums.txt; do
+            gh attestation verify "$f" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
+          done
+
+      # No GH_TOKEN: --bundle needs no gh login, as the README promises.
+      - name: Verify attestations (release bundle)
+        run: |
+          for f in "$ASSET" checksums.txt; do
+            gh attestation verify "$f" --bundle attestations.jsonl --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
+          done
+
+      - name: Extract
+        run: |
+          if [[ $ASSET == *.zip ]]; then
+            unzip -o "$ASSET" ado.exe
+          else
+            tar -xzf "$ASSET" ado
+          fi
+
+      - name: ado --version, --help, auth status
+        env:
+          WANT: ${{ needs.prepare.outputs.version_line }}
+          SHORT: ${{ needs.prepare.outputs.short }}
+          ADO_CONFIG_DIR: ${{ runner.temp }}/ado-config
+        run: |
+          "$BIN" --version | tee version.txt
+          line1=$(sed -n 1p version.txt)
+          line2=$(sed -n 2p version.txt)
+          if [ "$line1" != "$WANT" ]; then
+            echo "::error::--version printed '$line1', want '$WANT'"
+            exit 1
+          fi
+          # "commit <short> · …"; a dirty build would print "<short>-dirty".
+          if [[ $line2 != "commit $SHORT "* ]]; then
+            echo "::error::--version printed '$line2', want commit $SHORT"
+            exit 1
+          fi
+
+          "$BIN" --help >/dev/null
+
+          code=0
+          "$BIN" auth status --org ado-smoke 2>auth.err || code=$?
+          cat auth.err
+          if [ "$code" != 4 ]; then
+            echo "::error::auth status without credentials exited $code, want 4"
+            exit 1
+          fi
+          if ! grep -q '^run: ado auth login' auth.err; then
+            echo "::error::auth status printed no login hint"
+            exit 1
+          fi
+
+      - name: Authenticated checks
+        env:
+          ADO_TOKEN: ${{ secrets.SMOKE_ADO_TOKEN }}
+          # ORG/PROJECT/REPO of a test repository the token can read.
+          ADO_REPO: ${{ vars.SMOKE_ADO_REPO }}
+          ADO_CONFIG_DIR: ${{ runner.temp }}/ado-config
+        run: |
+          if [ -z "$ADO_TOKEN" ]; then
+            echo "::notice::SMOKE_ADO_TOKEN is not set: authenticated checks skipped"
+            exit 0
+          fi
+          if [ -z "$ADO_REPO" ]; then
+            echo "::error::SMOKE_ADO_TOKEN is set but the SMOKE_ADO_REPO variable (ORG/PROJECT/REPO) is not"
+            exit 1
+          fi
+          "$BIN" api _apis/projects >/dev/null
+          "$BIN" pr list -R "$ADO_REPO"
+
+  # Channel jobs: stable tags only, x64 only. winget is checked by hand
+  # (moderation queue); no Linuxbrew channel.
+  brew:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: macos-15-intel
+    permissions: {}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      WANT: ${{ needs.prepare.outputs.version_line }}
+    steps:
+      - name: brew install --cask
+        run: |
+          brew install --cask --yes snake-in-prod/tap/ado 2>&1 | tee "$RUNNER_TEMP/brew.log"
+          # Homebrew turns deprecations into disables: catch them early.
+          if grep -i deprecat "$RUNNER_TEMP/brew.log"; then
+            echo "::error::Homebrew printed a deprecation warning for the cask"
+            exit 1
+          fi
+      - name: Check version and quarantine
+        run: |
+          got=$(ado --version | sed -n 1p)
+          if [ "$got" != "$WANT" ]; then
+            echo "::error::ado --version printed '$got', want '$WANT'"
+            exit 1
+          fi
+          # The cask's postflight hook must have removed the quarantine attribute.
+          bin="$(brew --caskroom)/ado/$VERSION/ado"
+          if xattr -p com.apple.quarantine "$bin" 2>/dev/null; then
+            echo "::error::$bin still has com.apple.quarantine"
+            exit 1
+          fi
+
+  scoop:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: windows-2025
+    permissions: {}
+    env:
+      WANT: ${{ needs.prepare.outputs.version_line }}
+    steps:
+      # Scoop's installer allows admin when CI is set. Its shims are only on this
+      # session's PATH, so install and check in one step.
+      - name: scoop install
+        shell: pwsh
+        run: |
+          irm get.scoop.sh | iex
+          scoop bucket add snake-in-prod https://github.com/snake-in-prod/scoop-bucket
+          scoop install snake-in-prod/ado
+          $got = @(ado --version)[0]
+          if ($LASTEXITCODE -ne 0 -or $got -ne $env:WANT) { throw "ado --version printed '$got', want '$env:WANT'" }
+
+  deb:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      WANT: ${{ needs.prepare.outputs.version_line }}
+    steps:
+      - name: apt-get install the .deb
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p '*_linux_amd64.deb'
+          sudo apt-get install -y ./ado_*_linux_amd64.deb
+          got=$(/usr/bin/ado --version | sed -n 1p)
+          if [ "$got" != "$WANT" ]; then
+            echo "::error::ado --version printed '$got', want '$WANT'"
+            exit 1
+          fi
+
+  rpm:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    permissions: {}
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      WANT: ${{ needs.prepare.outputs.version_line }}
+    steps:
+      - name: dnf install the .rpm
+        run: |
+          # nfpms.file_name_template in .goreleaser.yaml.
+          dnf install -y "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/ado_${VERSION}_linux_amd64.rpm"
+          got=$(/usr/bin/ado --version | sed -n 1p)
+          if [ "$got" != "$WANT" ]; then
+            echo "::error::ado --version printed '$got', want '$WANT'"
+            exit 1
+          fi
+
+  # The install scripts come from the tag, not the docs site: docs.yml deploys
+  # them in parallel with this workflow.
+  install-sh:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: ubuntu-24.04
+    permissions: {}
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      WANT: ${{ needs.prepare.outputs.version_line }}
+    steps:
+      # With cosign on PATH the script also verifies the cosign bundle.
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: install.sh
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/scripts/install.sh" | sh -s -- --version "$VERSION"
+          got=$("$HOME/.local/bin/ado" --version | sed -n 1p)
+          if [ "$got" != "$WANT" ]; then
+            echo "::error::ado --version printed '$got', want '$WANT'"
+            exit 1
+          fi
+
+  # Windows PowerShell 5.1, the default for `irm | iex`. Version and directory
+  # via the env-var form; -NoModifyPath needs the scriptblock form.
+  install-ps1:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: windows-2025
+    permissions: {}
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      WANT: ${{ needs.prepare.outputs.version_line }}
+      ADO_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: install.ps1
+        shell: powershell
+        env:
+          ADO_INSTALL_DIR: ${{ runner.temp }}\ado
+        run: |
+          $url = "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:TAG/scripts/install.ps1"
+          & ([scriptblock]::Create((irm $url -UseBasicParsing))) -NoModifyPath
+          $got = @(& "$env:ADO_INSTALL_DIR\ado.exe" --version)[0]
+          if ($LASTEXITCODE -ne 0 -or $got -ne $env:WANT) { throw "ado --version printed '$got', want '$env:WANT'" }
+
+  go-install:
+    needs: prepare
+    if: needs.prepare.outputs.stable == 'true'
+    runs-on: ubuntu-24.04
+    permissions: {}
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      # No checkout, no cache: build exactly what users get from the module proxy.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - name: go install
+        run: |
+          # A fresh tag can take a minute to reach the proxy; an early miss is cached for a while.
+          for i in 1 2 3; do
+            go install "github.com/snake-in-prod/ado-gh/cmd/ado@$TAG" && break
+            if [ "$i" = 3 ]; then
+              exit 1
+            fi
+            sleep 60
+          done
+          # Module builds carry the version only: no commit, no date.
+          got=$("$(go env GOPATH)/bin/ado" --version | sed -n 1p)
+          if [ "$got" != "ado version $VERSION" ]; then
+            echo "::error::ado --version printed '$got', want 'ado version $VERSION'"
+            exit 1
+          fi

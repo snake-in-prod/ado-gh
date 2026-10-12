@@ -1,148 +1,302 @@
 # ado
 
 `ado` is a command-line tool for Azure DevOps, modeled on the GitHub CLI (`gh`).
-It brings pull requests, repositories and other Azure DevOps concepts to the terminal.
+It brings pull requests, repositories, work items, pipelines and other Azure
+DevOps concepts to the terminal.
 
-> Status: early development. Nothing is released yet.
+Documentation: <https://snake-in-prod.github.io/ado-gh/>
 
-## Build
+> Status: early development. Commands and flags may change before 1.0.
+
+## Install
+
+`ado` is a single binary for Windows, macOS and Linux on amd64 and arm64.
+Releases live at <https://github.com/snake-in-prod/ado-gh/releases>; the
+examples use version `1.2.3`, replace it with the release you want.
+
+| Channel | Install | Upgrade | Uninstall |
+| --- | --- | --- | --- |
+| Homebrew (macOS) | `brew install --cask snake-in-prod/tap/ado` | `brew upgrade --cask ado` | `brew uninstall --cask ado` |
+| Scoop (Windows) | [Scoop](#scoop-windows) | `scoop update ado` | `scoop uninstall ado` |
+| winget (Windows) | `winget install SnakeInProd.Ado` | `winget upgrade --id SnakeInProd.Ado` | `winget uninstall --id SnakeInProd.Ado` |
+| `.deb` / `.rpm` (Linux) | [Linux packages](#linux-packages) | install the newer package | `sudo apt remove ado` / `sudo dnf remove ado` |
+| `install.sh` (Linux, macOS) | [Install script](#install-script-linux-macos) | run it again | `rm ~/.local/bin/ado` |
+| `install.ps1` (Windows) | [PowerShell script](#powershell-script-windows) | run it again | [PowerShell script](#powershell-script-windows) |
+| `go install` | [Go](#go) | run it again | `rm "$(go env GOPATH)/bin/ado"` |
+
+`ado` checks GitHub for a newer release once a day and prints the upgrade
+command for the way you installed it. Set `ADO_NO_UPDATE_NOTIFIER=1` to turn
+that off.
+
+### Homebrew (macOS)
+
+```sh
+brew install --cask snake-in-prod/tap/ado
+```
+
+The cask installs the man page and bash, zsh, fish and PowerShell completions.
+Prereleases (`-rc.N`) are not published to Homebrew, Scoop or winget.
+
+`ado` is not signed or notarized by Apple. Homebrew quarantines every cask
+download and macOS would refuse to run the binary ("cannot be opened" or "is
+damaged"), so the cask runs `xattr -dr com.apple.quarantine` on `ado` after
+installing it.
+
+**Security note:** that hook turns off the Gatekeeper check for `ado` (and only
+`ado`). You trust the tap and the GitHub release instead; [verify the
+download](#verifying-downloads) for proof of where it came from. Apple may
+disable this bypass in a future macOS. If macOS still blocks `ado`, run:
+
+```sh
+xattr -dr com.apple.quarantine "$(brew --caskroom)/ado"
+```
+
+A tarball downloaded with a browser is quarantined too: run
+`xattr -d com.apple.quarantine ado` after extracting it. `curl` and
+`install.sh` don't set the attribute.
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add snake-in-prod https://github.com/snake-in-prod/scoop-bucket
+scoop install snake-in-prod/ado
+```
+
+### winget (Windows)
+
+```powershell
+winget install SnakeInProd.Ado
+```
+
+New versions reach winget after Microsoft reviews the `winget-pkgs` pull
+request, which can take a few days. Scoop, the PowerShell script and the zip on
+the release page have them on release day.
+
+### Linux packages
+
+Download the `.deb` or `.rpm` for your architecture (`amd64` or `arm64`) from
+the release and install it. It puts `ado` in `/usr/bin`, with the man page and
+bash, zsh and fish completions.
+
+```sh
+VERSION=1.2.3
+ARCH=amd64
+# Debian, Ubuntu
+curl -fLO "https://github.com/snake-in-prod/ado-gh/releases/download/v$VERSION/ado_${VERSION}_linux_$ARCH.deb"
+sudo apt install "./ado_${VERSION}_linux_$ARCH.deb"
+# Fedora, RHEL
+curl -fLO "https://github.com/snake-in-prod/ado-gh/releases/download/v$VERSION/ado_${VERSION}_linux_$ARCH.rpm"
+sudo dnf install "./ado_${VERSION}_linux_$ARCH.rpm"
+```
+
+### Install script (Linux, macOS)
+
+```sh
+curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh
+```
+
+It installs the latest release to `~/.local/bin` without sudo, checks the
+archive against `checksums.txt` and, when `cosign` is installed, checks
+`checksums.txt` against its signature. Pick a version or directory with:
+
+```sh
+curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh -s -- --version 1.2.3 --bin-dir /usr/local/bin
+```
+
+Run it again to upgrade. To uninstall, delete `ado` from `~/.local/bin` (or the
+`--bin-dir` you chose).
+
+### PowerShell script (Windows)
+
+```powershell
+irm https://snake-in-prod.github.io/ado-gh/install.ps1 | iex
+```
+
+It installs the latest release to `%LocalAppData%\Programs\ado`, adds that
+directory to your user `PATH` and verifies the download like `install.sh`.
+`irm | iex` can't pass parameters, so pick a version or directory with
+environment variables:
+
+```powershell
+$env:ADO_VERSION = '1.2.3'; $env:ADO_INSTALL_DIR = 'C:\tools\ado'
+irm https://snake-in-prod.github.io/ado-gh/install.ps1 | iex
+```
+
+or with the scriptblock form, which also takes `-NoModifyPath` to leave `PATH`
+alone:
+
+```powershell
+& ([scriptblock]::Create((irm https://snake-in-prod.github.io/ado-gh/install.ps1))) -Version 1.2.3 -BinDir C:\tools\ado -NoModifyPath
+```
+
+Run it again to upgrade. To uninstall, delete the directory and remove it from
+your user `PATH` (Settings > System > About > Advanced system settings >
+Environment Variables):
+
+```powershell
+Remove-Item -Recurse "$env:LOCALAPPDATA\Programs\ado"
+```
+
+### Go
+
+With Go 1.25.8 or later:
+
+```sh
+go install github.com/snake-in-prod/ado-gh/cmd/ado@latest
+```
+
+Run it again to upgrade. The binary lands in `$(go env GOPATH)/bin` (or
+`GOBIN`) without a man page or completions; see
+[Shell completions](#shell-completions).
+
+### Manual download
+
+Each release has `ado_<version>_<os>_<arch>.tar.gz` archives (`.zip` on
+Windows) with the binary, `LICENSE`, `README.md`, the man page in `manpages/`
+and completion scripts in `completions/`. Put `ado` (`ado.exe`) on your `PATH`.
+
+### Shell completions
+
+Homebrew, `.deb` and `.rpm` install completions for you. Otherwise generate
+them with `ado completion <shell>`:
+
+```sh
+# bash (needs the bash-completion package)
+mkdir -p ~/.local/share/bash-completion/completions
+ado completion bash > ~/.local/share/bash-completion/completions/ado
+# zsh: also add `fpath=(~/.zfunc $fpath)` before `compinit` in ~/.zshrc
+mkdir -p ~/.zfunc
+ado completion zsh > ~/.zfunc/_ado
+# fish
+ado completion fish > ~/.config/fish/completions/ado.fish
+```
+
+```powershell
+# PowerShell: load them in every session
+Add-Content $PROFILE 'ado completion powershell | Out-String | Invoke-Expression'
+```
+
+### Verifying downloads
+
+Each release has `checksums.txt` (SHA-256 of every archive and package), signed
+two ways: a keyless [cosign](https://github.com/sigstore/cosign) bundle,
+`checksums.txt.sigstore.json`, made by the release workflow, and a GPG
+signature, `checksums.txt.sig`. GitHub build provenance covers every archive,
+package and `checksums.txt`; its bundle is the `attestations.jsonl` asset.
+
+Download what you need:
+
+```sh
+VERSION=1.2.3
+FILE=ado_${VERSION}_linux_amd64.tar.gz
+for f in "$FILE" checksums.txt checksums.txt.sigstore.json checksums.txt.sig attestations.jsonl; do
+  curl -fsSLO "https://github.com/snake-in-prod/ado-gh/releases/download/v$VERSION/$f"
+done
+```
+
+**cosign** (3.1.3 or later: older versions have a verification bypass). Pin the
+exact tag:
+
+```sh
+cosign verify-blob \
+  --certificate-identity "https://github.com/snake-in-prod/ado-gh/.github/workflows/release.yml@refs/tags/v$VERSION" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --bundle checksums.txt.sigstore.json checksums.txt
+```
+
+or accept any release tag with an anchored regular expression:
+
+```sh
+cosign verify-blob \
+  --certificate-identity-regexp '^https://github\.com/snake-in-prod/ado-gh/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --bundle checksums.txt.sigstore.json checksums.txt
+```
+
+**GPG.** The release key, `ado release signing <f.dziewiatowski@gmail.com>`, is
+on [keys.openpgp.org](https://keys.openpgp.org). Its primary key fingerprint is
+
+```text
+E8CC 041B D0BE BDC1 3ADB  967E EC1E F53E 7EF8 CA48
+```
+
+and releases are signed with its subkey
+`9236 1482 2D64 5B37 06B7  56E7 F621 5CEA 43F8 A59C`.
+
+```sh
+gpg --keyserver hkps://keys.openpgp.org --recv-keys E8CC041BD0BEBDC13ADB967EEC1EF53E7EF8CA48
+gpg --verify checksums.txt.sig checksums.txt
+```
+
+Expect `Good signature` and the primary key fingerprint above.
+
+**Checksum.** Once `checksums.txt` checks out, check your download against it:
+
+```sh
+sha256sum --check --ignore-missing checksums.txt       # Linux
+shasum -a 256 --check --ignore-missing checksums.txt   # macOS
+```
+
+```powershell
+$want = ((Select-String -Path checksums.txt -SimpleMatch 'ado_1.2.3_windows_amd64.zip').Line -split '\s+')[0]
+(Get-FileHash ado_1.2.3_windows_amd64.zip -Algorithm SHA256).Hash -eq $want
+```
+
+**Build provenance** with the [GitHub CLI](https://cli.github.com) 2.93.0 or
+later (older versions send your token to third-party mirrors). Without logging
+in, use the bundle from the release:
+
+```sh
+gh attestation verify "$FILE" --repo snake-in-prod/ado-gh --bundle attestations.jsonl
+```
+
+Logged in (`gh auth login`), gh fetches the attestation from GitHub instead:
+
+```sh
+gh attestation verify "$FILE" --repo snake-in-prod/ado-gh
+```
+
+## Authentication
+
+`ado auth login` signs in with an organization-scoped personal access token
+(PAT) or with Microsoft Entra ID (browser or device code flow).
+
+```sh
+ado auth login --with-token < pat.txt   # PAT
+ado auth login                          # interactive: PAT or Entra ID
+ado auth status                         # who you are; exit 4 if not logged in
+```
+
+See [Authentication](https://snake-in-prod.github.io/ado-gh/auth/) for the PAT
+scopes, Entra ID consent and registering your own Entra app.
+
+## Getting started
+
+Inside a clone of an Azure DevOps repository, `ado` takes the organization,
+project and repository from the git remote. Elsewhere, pass
+`-R ORG/PROJECT/REPO` (or `-R ORG/PROJECT` for project-level commands).
+
+```sh
+ado wi list -a @me --iteration @current
+ado run list -b main --result failed
+ado pipeline run deploy -b main -p env=prod --watch
+ado api _apis/projects --jq '.value[].name'
+```
+
+See [Getting started](https://snake-in-prod.github.io/ado-gh/getting-started/)
+for work items, sprints, boards, pipelines, releases and the REST API,
+[Differences from `gh`](https://snake-in-prod.github.io/ado-gh/gh-differences/),
+and the [command reference](https://snake-in-prod.github.io/ado-gh/reference/).
+
+## Development
+
+Build from source:
 
 ```sh
 go build -o bin/ado ./cmd/ado
 ```
 
-## Authentication
-
-`ado auth login` signs in with a personal access token (PAT) or Microsoft Entra ID.
-
-```sh
-ado auth status   # user, method, token source (masked token); exit 4 if not logged in
-ado auth token    # print the raw token
-ado auth logout   # remove the stored PAT and the Entra ID account and token cache
-```
-
-They act on `--org`, else the current git remote, else `ADO_ORG`.
-
-### Personal access token
-
-Create an **organization-scoped** PAT (global PATs stop working on 2026-12-01) with these scopes:
-
-- **Code (Read & write)**
-- **Identity (Read)** (needed to resolve reviewers, authors and assignees)
-- **Work Items (Read & write)** (work items, queries, sprints and boards)
-- **Project and Team (Read)** (teams, sprints and boards)
-- **Build (Read)** to list, view, watch and download runs; **Build (Read & execute)**
-  to run, cancel, rerun, enable and disable pipelines and to approve runs
-- **Pipeline Resources (Use)** to approve or reject runs, if you'd rather not grant
-  Build (Read & execute)
-- **Release (Read)** to list, view, watch and read releases; **Release (Read, write &
-  execute)** to create, deploy and cancel them; **Release (Read, write, execute &
-  manage)** to approve or reject them
-
-Work Items (Read & write) is expected to cover `ado workitem delete --permanent`
-too: the permanent delete was checked with an Entra ID login, not a PAT. If it
-fails with a PAT, add **Work Items (Full)**.
-
-```sh
-ado auth login --with-token < pat.txt
-```
-
-### Microsoft Entra ID
-
-Entra login uses ado's multi-tenant public-client app (client ID
-`41d205f0-a5e5-4a1f-813a-46eec13d0249`). Use your own app registration instead with
-the environment variable or the config key (the variable wins):
-
-```sh
-export ADO_ENTRA_CLIENT_ID=<client-id>
-# or
-ado config set entra_client_id <client-id>
-```
-
-The first sign-in in a tenant asks you to consent to ado reading Azure DevOps as you.
-If your tenant only lets users consent to apps from verified publishers, you'll see
-"Need admin approval": ask a tenant admin to grant consent once for everyone at
-`https://login.microsoftonline.com/<tenant-id>/adminconsent?client_id=41d205f0-a5e5-4a1f-813a-46eec13d0249`,
-or use your own app registration or a PAT.
-
-Orgs backed by personal Microsoft accounts (MSA) can't use Entra login; use a PAT.
-
-```sh
-ado auth login                        # choose "Microsoft Entra ID": opens your browser
-ado auth login --org contoso --device # device code flow
-```
-
-The browser flow is the default. ado falls back to the device code flow over SSH,
-on Linux without a display, or when no browser can be opened. Without `--org` or a
-git remote, ado lists your organizations to pick from. Tokens are cached in an
-AES-GCM-encrypted `msal_cache.bin` in the config directory, with its key in the
-system credential store; without a credential store the cache is a plain-text
-`msal_cache.json` (mode 0600) and ado warns once.
-
-#### Registering your own Entra app
-
-1. In the [Microsoft Entra admin center](https://entra.microsoft.com), go to
-   **App registrations > New registration**.
-2. Name: `ado`. Supported account types: **Accounts in any organizational directory**
-   (multi-tenant).
-3. Redirect URI: platform **Mobile and desktop applications**, URI `http://localhost`.
-4. Under **Authentication**, set **Allow public client flows** to **Yes**
-   (needed for device-code login).
-5. Under **API permissions > Add a permission > Azure DevOps**, add the delegated
-   permission **user_impersonation**.
-6. Copy the **Application (client) ID** from **Overview** and use it through
-   `ADO_ENTRA_CLIENT_ID` / `entra_client_id`.
-
-## Work items, sprints and boards
-
-```sh
-ado issue create --type bug -t "Crash on save" -a @me --iteration @current
-ado wi list -a @me --iteration @current
-ado wi close 123 -c "Fixed in !45"
-ado wi query "Shared Queries/Team/Active Bugs" --json id,title
-ado sprint view
-ado board
-```
-
-`ado workitem` has the aliases `wi` and `issue`. These commands need a project,
-not a repository, so outside a clone use `-R ORG/PROJECT`. Team-scoped commands
-(`--iteration @current`, `sprint`, `board`) use `--team`, else the `team` config
-key, else the project's default team:
-
-```sh
-ado config set team "Web Team" --project fabrikam/Fiber
-```
-
-See [docs/gh-differences.md](docs/gh-differences.md) for how they differ from
-`gh issue`.
-
-## Pipelines and releases
-
-```sh
-ado run list -b main --result failed
-ado pipeline run deploy -b main -p env=prod --watch
-ado run view 812 --log-failed
-ado pipeline approve 812 -c "ship it"
-ado pipeline download 812 -n drop -D out
-ado release deploy 45 --environment Prod
-```
-
-`ado pipeline` (alias `run`) covers YAML and classic build pipelines; `ado release`
-covers Classic Release pipelines. See [docs/gh-differences.md](docs/gh-differences.md)
-for how they differ from `gh run` and `gh workflow`.
-
-## REST API
-
-```sh
-ado api _apis/projects --jq '.value[].name'
-ado api '{project}/_apis/git/repositories/{repo}/pullrequests?$top=100' --paginate
-```
-
-Paths are relative to the organization URL; `{org}`, `{project}` and `{repo}` come
-from the current repository. `--paginate` follows continuation tokens (and `$skip`
-when you pass `$top`) and merges `value` arrays into one result. See `ado api --help`.
-
-## Development
+Checks:
 
 ```sh
 gofmt -l . && go vet ./... && golangci-lint run && go test ./... -race -cover
@@ -159,4 +313,4 @@ mkdocs build --strict
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/snake-in-prod/ado-gh/blob/main/LICENSE)

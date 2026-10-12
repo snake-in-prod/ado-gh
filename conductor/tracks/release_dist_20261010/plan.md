@@ -26,21 +26,21 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement and wire into `run()` in `cmd/ado/main.go` (covers errors, aliases and extensions): start before `ExecuteC` with a 2 s `context.WithTimeout` and buffered channel, read `f.Debug` after `ExecuteC`, print after `HandleError` only on success
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Build Metadata, ado version, Update Notifier' (Protocol in workflow.md)
 
-## Phase 2: Reference Docs and Docs Site
+## Phase 2: Reference Docs and Docs Site [checkpoint: cb7aabc]
 
-- [ ] Task: `ado help reference`
-    - [ ] Write tests: stdout is one gh-style Markdown document (custom walker, raw always, also on a TTY) covering every visible command; hidden commands, aliases and extensions excluded; `--dir <path>` writes one page per command plus `reference/index.md`; `--man <dir>` writes section-1 pages with a fixed `GenManHeader` (`.TH` date = Phase 1 build commit date, fixed Source and Manual); two runs byte-identical incl. with `ADO_DEBUG` set (no autogen tag, fixed `--debug` DefValue); `help reference` always wins over an `ado-reference` PATH or installed extension (an extension named `reference` stays allowed); "Unknown help topic" kept
-    - [ ] Implement: custom help via `SetHelpCommand` with a `reference` child, group `additional`; custom walker for stdout, `cobra/doc` for `--dir`/`--man`; `DisableAutoGenTag` on every command; fix the `help <name>` rewrite in `pathExtensionArgs` (`cmd/ado/main.go:64-71`); `go mod tidy`
-- [ ] Task: Docs site skeleton
-    - [ ] `mkdocs.yml` (plugin-free; `validation:` block with anchors and unrecognized_links warn, absolute_links relative_to_docs; `not_in_nav: reference/*`; nav: install, getting started, auth, gh differences, extensions, releasing, Reference → `reference/index.md`); `docs/requirements.txt` with two exact pins `mkdocs==1.6.1`, `mkdocs-material==9.7.7`
-    - [ ] Create `docs/index.md`, `docs/install.md`, `docs/getting-started.md`, `docs/auth.md` and a `docs/releasing.md` stub; move auth and getting-started content out of README into the docs pages (README keeps a summary and link, Phase 5); keep `docs/extensions.md` in place
-    - [ ] Gitignore `docs/reference/` and `/site/`; document generating the reference before a local `mkdocs build --strict`
-- [ ] Task: Docs workflows
-    - [ ] PR CI: build `ado`, generate reference, `mkdocs build --strict` with `NO_MKDOCS_2_WARNING=true`
-    - [ ] `docs.yml`: `workflow_call` (called from release.yml for stable tags) plus `workflow_dispatch`; build job (generate, build, copy install scripts to site root) and deploy job on SHA-pinned upload-pages-artifact v5.0.0 and deploy-pages v5.0.1; `pages: write` + `id-token: write` on deploy only; `github-pages` environment inside docs.yml; concurrency group
-    - [ ] Update spec FR4: docs deploy is a reusable workflow called from release.yml plus manual dispatch, not `release: published` (GITHUB_TOKEN-created releases don't trigger workflows)
-    - [ ] actionlint passes
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Reference Docs and Docs Site' (Protocol in workflow.md)
+- [x] Task: `ado help reference` `cb7aabc`
+    - [x] Write tests: stdout is one gh-style Markdown document (custom walker, raw always, also on a TTY) covering every visible command; hidden commands, aliases and extensions excluded; `--dir <path>` writes one page per command plus `reference/index.md`; `--man <dir>` writes section-1 pages with a fixed `GenManHeader` (`.TH` date = Phase 1 build commit date, fixed Source and Manual); two runs byte-identical incl. with `ADO_DEBUG` set (no autogen tag, fixed `--debug` DefValue); `help reference` always wins over an `ado-reference` PATH or installed extension (an extension named `reference` stays allowed); "Unknown help topic" kept
+    - [x] Implement: custom help via `SetHelpCommand` with a `reference` child, group `additional`; custom walker for stdout, `cobra/doc` for `--dir`/`--man`; `DisableAutoGenTag` on every command; fix the `help <name>` rewrite in `pathExtensionArgs` (`cmd/ado/main.go:64-71`); `go mod tidy`
+- [x] Task: Docs site skeleton `cb7aabc`
+    - [x] `mkdocs.yml` (plugin-free; `validation:` block with anchors and unrecognized_links warn, absolute_links relative_to_docs; `not_in_nav: reference/*`; nav: install, getting started, auth, gh differences, extensions, releasing, Reference → `reference/index.md`); `docs/requirements.txt` with two exact pins `mkdocs==1.6.1`, `mkdocs-material==9.7.7`
+    - [x] Create `docs/index.md`, `docs/install.md`, `docs/getting-started.md`, `docs/auth.md` and a `docs/releasing.md` stub; move auth and getting-started content out of README into the docs pages (README keeps a summary and link, Phase 5); keep `docs/extensions.md` in place
+    - [x] Gitignore `docs/reference/` and `/site/`; document generating the reference before a local `mkdocs build --strict`
+- [x] Task: Docs workflows `cb7aabc`
+    - [x] PR CI: build `ado`, generate reference, `mkdocs build --strict` with `NO_MKDOCS_2_WARNING=true`
+    - [x] `docs.yml`: `workflow_call` (called from release.yml for stable tags) plus `workflow_dispatch`; build job (generate, build, copy install scripts to site root) and deploy job on SHA-pinned upload-pages-artifact v5.0.0 and deploy-pages v5.0.1; `pages: write` + `id-token: write` on deploy only; `github-pages` environment inside docs.yml; concurrency group
+    - [x] Update spec FR4: docs deploy is a reusable workflow called from release.yml plus manual dispatch, not `release: published` (GITHUB_TOKEN-created releases don't trigger workflows)
+    - [x] actionlint passes
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Reference Docs and Docs Site' (Protocol in workflow.md)
 
 ## Phase 3: GoReleaser and Changelog
 

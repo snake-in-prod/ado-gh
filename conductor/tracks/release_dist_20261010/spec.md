@@ -44,7 +44,7 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 
 ### FR4: Docs site
 - MkDocs Material site from `docs/`: install, getting started, auth, gh differences, extensions, releasing/verification, and the generated `reference/`. Python deps pinned in `docs/requirements.txt`.
-- `docs.yml` workflow: on each published stable release (and manual dispatch) it builds `ado`, runs `ado help reference --dir docs/reference`, runs `mkdocs build --strict`, and deploys to GitHub Pages. Generated reference pages are gitignored. `install.sh` / `install.ps1` are copied to the site root for stable URLs.
+- `docs.yml` workflow: a reusable workflow called by the release workflow for stable tags (`workflow_call`), plus manual dispatch. A release created with `GITHUB_TOKEN` doesn't trigger `release: published`, so the release workflow calls it directly. It builds `ado`, runs `ado help reference --dir docs/reference`, runs `mkdocs build --strict`, and deploys to GitHub Pages. Generated reference pages are gitignored. `install.sh` / `install.ps1` are copied to the site root for stable URLs.
 - PR CI runs `mkdocs build --strict` (broken links fail the build).
 
 ### FR5: GoReleaser (`.goreleaser.yaml`, v2)

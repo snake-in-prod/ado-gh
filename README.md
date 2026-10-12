@@ -148,6 +148,15 @@ when you pass `$top`) and merges `value` arrays into one result. See `ado api --
 gofmt -l . && go vet ./... && golangci-lint run && go test ./... -race -cover
 ```
 
+The docs site lives in `docs/` (MkDocs, see `mkdocs.yml`). The command reference
+is generated and gitignored, so generate it before a strict build:
+
+```sh
+go run ./cmd/ado help reference --dir docs/reference
+pip install -r docs/requirements.txt   # in a virtualenv
+mkdocs build --strict
+```
+
 ## License
 
 [MIT](LICENSE)

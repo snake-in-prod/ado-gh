@@ -20,6 +20,7 @@ import (
 	browseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/browse"
 	configCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/config"
 	extensionCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/extension"
+	helpCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/help"
 	pipelineCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline"
 	prCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/pr"
 	releaseCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/release"
@@ -50,6 +51,7 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		return cmdutil.FlagErrorWrap(err)
 	})
 	cmd.PersistentFlags().BoolVar(&f.Debug, "debug", f.Debug, "Log HTTP requests to stderr (also ADO_DEBUG=1)")
+	cmd.PersistentFlags().Lookup("debug").DefValue = "false" // ADO_DEBUG must not change help or generated docs
 	cmd.PersistentFlags().StringVarP(&f.RepoOverride, "repo", "R", "",
 		"Select another repository using the [ORG/]PROJECT/REPO format (also ADO_REPO)")
 
@@ -57,19 +59,20 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "core", Title: "Core commands:"},
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
-	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), extensionCmd.NewCmdExtension(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), versionCmd.NewCmdVersion(f), workitemCmd.NewCmdWorkItem(f))
+	help := helpCmd.NewCmdHelp(f)
+	cmd.SetHelpCommand(help)
+	cmd.AddCommand(help, newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), extensionCmd.NewCmdExtension(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), versionCmd.NewCmdVersion(f), workitemCmd.NewCmdWorkItem(f))
 	addAliasCommands(cmd, f)
 	addExtensionCommands(cmd, f)
 
 	// PATH extensions are listed only in root help and completion: scanning PATH is slow
 	// (WSL /mnt/c entries), so a normal run looks up just the name it was given.
-	help := cmd.HelpFunc()
+	helpFunc := cmd.HelpFunc()
 	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
 		if c == cmd {
 			addPathExtensions(cmd, f)
 		}
-		help(c, args)
+		helpFunc(c, args)
 	})
 	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
 		var comps []cobra.Completion

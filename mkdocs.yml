@@ -1,0 +1,31 @@
+# Build locally (the reference pages are generated and gitignored):
+#   go run ./cmd/ado help reference --dir docs/reference
+#   pip install -r docs/requirements.txt
+#   mkdocs build --strict
+site_name: ado
+site_description: A command-line tool for Azure DevOps, modeled on the GitHub CLI
+site_url: https://snake-in-prod.github.io/ado-gh/
+repo_url: https://github.com/snake-in-prod/ado-gh
+repo_name: snake-in-prod/ado-gh
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+
+validation:
+  anchors: warn
+  unrecognized_links: warn
+  absolute_links: relative_to_docs
+
+not_in_nav: |
+  reference/*
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Getting started: getting-started.md
+  - Authentication: auth.md
+  - Differences from gh: gh-differences.md
+  - Extensions: extensions.md
+  - Releasing: releasing.md
+  - Reference: reference/index.md

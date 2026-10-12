@@ -13,3 +13,7 @@ coverage.*
 .idea/
 .vscode/
 .DS_Store
+
+# Docs site: reference pages come from `ado help reference --dir docs/reference`
+/docs/reference/
+/site/

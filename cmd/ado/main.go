@@ -68,7 +68,8 @@ func dispatchArgs(root *cobra.Command, args []string) []string {
 
 // pathExtensionArgs registers ado-<name> from PATH when the command name in args is no built-in,
 // alias or installed extension. Only that one name is looked up, so a normal run never scans
-// PATH. `help <ext>` becomes `<ext> --help`, so the extension prints its own help.
+// PATH. `help <ext>` becomes `<ext> --help`, so the extension prints its own help, unless
+// <ext> is a topic of the help command itself.
 func pathExtensionArgs(rootCmd *cobra.Command, f *cmdutil.Factory, args []string) []string {
 	n := globalFlagsLen(args)
 	if n >= len(args) {
@@ -77,6 +78,9 @@ func pathExtensionArgs(rootCmd *cobra.Command, f *cmdutil.Factory, args []string
 	if args[n] != "help" || len(args) != n+2 {
 		root.AddPathExtension(rootCmd, f, args[n])
 		return args
+	}
+	if c, _, err := rootCmd.Find(args[n:]); err == nil && c.Name() != "help" {
+		return args // the help command's own topics, such as `help reference`, beat extensions
 	}
 	root.AddPathExtension(rootCmd, f, args[n+1])
 	if c, _, err := rootCmd.Find(args[n+1:]); err == nil && c.GroupID == aliasShared.ExtensionGroupID {

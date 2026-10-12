@@ -131,6 +131,8 @@ var webCmds = map[string]bool{
 var noWebCmds = map[string]string{
 	"ado api":                 "raw REST access, no single page",
 	"ado completion":          "prints shell scripts, no page",
+	"ado help":                "prints help text, no page",
+	"ado help reference":      "prints or writes the command reference, no page",
 	"ado version":             "prints build metadata and the release URL",
 	"ado auth login":          "local credentials, no page",
 	"ado auth logout":         "local credentials, no page",
@@ -508,4 +510,77 @@ func TestExtensionExecBypassesAlias(t *testing.T) {
 			t.Errorf("%v: out = %q, err = %v", args, out, err)
 		}
 	}
+}
+
+// referenceOutput runs `ado help reference <args>` with ADO_DEBUG=debug, aliases, an installed
+// and a PATH extension, and returns stdout plus every file written into the --dir/--man dir.
+func referenceOutput(t *testing.T, debug string, args ...string) string {
+	t.Helper()
+	pathExtensionDir(t)
+	seedAliases(t, map[string]string{"myal": "pr list"})
+	dir := filepath.Join(extension.Dir(), "ado-hello")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ado-hello"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ADO_DEBUG", debug)
+	t.Setenv("SOURCE_DATE_EPOCH", "") // the man date comes from the build, never the env
+	out := t.TempDir()
+	ios, _, stdout, _ := iostreams.Test()
+	cmd := NewCmdRoot(cmdutil.NewFactory("1.2.3", ios))
+	if len(args) > 0 {
+		args = append(args, out) // --dir or --man
+	}
+	cmd.SetArgs(append([]string{"help", "reference"}, args...))
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	b.WriteString(stdout.String())
+	entries, _ := os.ReadDir(out)
+	for _, e := range entries {
+		data, _ := os.ReadFile(filepath.Join(out, e.Name()))
+		fmt.Fprintf(&b, "== %s\n%s", e.Name(), data)
+	}
+	return b.String()
+}
+
+// Output is byte-identical across runs, ADO_DEBUG included, and leaves out aliases and
+// extensions.
+func TestHelpReferenceDeterministic(t *testing.T) {
+	for _, args := range [][]string{nil, {"--dir"}, {"--man"}} {
+		first := referenceOutput(t, "", args...)
+		if second := referenceOutput(t, "1", args...); second != first {
+			t.Errorf("%v: runs differ", args)
+		}
+		for _, bad := range []string{"ado myal", "ado-myal", "ado_myal", "`ado hello`", "ado-hello.1", "ado_hello.md", "onpath", "Auto generated", "ado help", "ado-help", "ado_help"} {
+			if strings.Contains(first, bad) {
+				t.Errorf("%v: output contains %q", args, bad)
+			}
+		}
+		if len(first) < 1000 {
+			t.Errorf("%v: output too short:\n%s", args, first)
+		}
+	}
+}
+
+// Stdout covers every visible command of the real tree.
+func TestHelpReferenceCoversCommands(t *testing.T) {
+	out := referenceOutput(t, "")
+	ios, _, _, _ := iostreams.Test()
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			if !s.IsAvailableCommand() || s.Name() == "help" || s.GroupID == "alias" || s.GroupID == "extension" {
+				continue
+			}
+			if !strings.Contains(out, "`"+s.CommandPath()) {
+				t.Errorf("reference misses %s", s.CommandPath())
+			}
+			walk(s)
+		}
+	}
+	walk(NewCmdRoot(cmdutil.NewFactory("1.2.3", ios)))
 }

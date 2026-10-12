@@ -224,6 +224,31 @@ func TestRunHelpExtension(t *testing.T) {
 	}
 }
 
+// `help reference` always prints the reference, even with an installed or PATH extension named
+// reference; `ado reference` still runs the extension.
+func TestRunHelpReferenceBeatsExtension(t *testing.T) {
+	for _, installed := range []bool{true, false} {
+		pathDir := isolate(t)
+		t.Setenv("ADO_FAKE_HELLO", "echo")
+		if installed {
+			pathDir = filepath.Join(os.Getenv("XDG_DATA_HOME"), "ado", "extensions", "ado-reference")
+		}
+		fakeExtension(t, pathDir, "reference")
+		for args, want := range map[string]string{"help reference": "# ado reference\n", "reference": `name="reference"`} {
+			ios, _, out, errOut := iostreams.Test()
+			if got := run(strings.Fields(args), ios); got != cmdutil.ExitOK {
+				t.Fatalf("installed=%v %s: code = %d, stderr = %q", installed, args, got, errOut)
+			}
+			if !strings.Contains(out.String(), want) {
+				t.Errorf("installed=%v %s: out = %.200q, want %q", installed, args, out, want)
+			}
+			if args == "help reference" && strings.Contains(out.String(), "name=") {
+				t.Errorf("installed=%v: extension ran", installed)
+			}
+		}
+	}
+}
+
 // The unknown-command fallback looks up only the name given, never every ado-* on PATH.
 func TestRunPathLookupOnlyGivenName(t *testing.T) {
 	pathDir := isolate(t)

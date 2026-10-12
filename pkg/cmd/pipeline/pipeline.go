@@ -2,7 +2,10 @@
 package pipeline
 
 import (
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/approve"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/cancel"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/download"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/enable"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/logs"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/rerun"
@@ -22,7 +25,12 @@ func NewCmdPipeline(f *cmdutil.Factory) *cobra.Command {
 		GroupID: "core",
 	}
 	cmd.AddCommand(
+		approve.NewCmdApprove(f),
+		approve.NewCmdReject(f),
 		cancel.NewCmdCancel(f),
+		enable.NewCmdDisable(f),
+		download.NewCmdDownload(f),
+		enable.NewCmdEnable(f),
 		list.NewCmdList(f),
 		logs.NewCmdLogs(f),
 		rerun.NewCmdRerun(f),

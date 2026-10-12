@@ -72,7 +72,7 @@ func runRerun(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	if id == 0 {
-		if id, err = selectRun(ctx, f, c, project); err != nil {
+		if id, err = shared.SelectRepoRun(ctx, f, c, project); err != nil {
 			return err
 		}
 	}
@@ -223,20 +223,4 @@ func isYAML(d *build.BuildDefinition) bool {
 	p, _ := d.Process.(map[string]any)
 	t, _ := p["type"].(float64)
 	return t == 2
-}
-
-// selectRun asks which recent run to use: one of the current repository's pipeline on the
-// current branch when the clone has one, otherwise one of the project's.
-func selectRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, project adocontext.Repo) (int, error) {
-	var args build.GetBuildsArgs
-	if f.IOStreams.CanPrompt() && project.Name != "" && f.BaseRepoFromGit() {
-		if def, err := shared.DefaultDefinition(ctx, f, c, project.Name); err == nil {
-			args.Definitions = &[]int{prshared.Deref(def.Id)}
-			if branch, err := f.GitClient.CurrentBranch(ctx); err == nil {
-				ref := "refs/heads/" + branch
-				args.BranchName = &ref
-			}
-		}
-	}
-	return shared.SelectRun(ctx, f, c, args)
 }

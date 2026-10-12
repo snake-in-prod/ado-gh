@@ -152,6 +152,22 @@ func SelectRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, a
 	return prshared.Deref(runs[i].Id), nil
 }
 
+// SelectRepoRun is SelectRun over the recent runs of the current repository's pipeline on the
+// current branch when the clone has one, otherwise over the project's.
+func SelectRepoRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, project adocontext.Repo) (int, error) {
+	var args build.GetBuildsArgs
+	if f.IOStreams.CanPrompt() && project.Name != "" && f.BaseRepoFromGit() {
+		if def, err := DefaultDefinition(ctx, f, c, project.Name); err == nil {
+			args.Definitions = &[]int{prshared.Deref(def.Id)}
+			if branch, err := f.GitClient.CurrentBranch(ctx); err == nil {
+				ref := "refs/heads/" + branch
+				args.BranchName = &ref
+			}
+		}
+	}
+	return SelectRun(ctx, f, c, args)
+}
+
 // parseBuildURL returns the definition and run IDs a pipeline or run URL names (0 when absent)
 // and its project. Query keys match ignoring case and other parameters are ignored.
 func parseBuildURL(ref string) (def, run int, project adocontext.Repo, ok bool) {

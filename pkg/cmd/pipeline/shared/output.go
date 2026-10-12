@@ -1,7 +1,8 @@
 package shared
 
 import (
-	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,14 +42,11 @@ func isReservedName(name string) bool {
 }
 
 // CreateFile opens the file at the slash-separated path name under root for writing with the
-// extra flag (os.O_TRUNC or os.O_EXCL), creating it and its parent directories. name must be
-// local (fs.ValidPath, no "\", representable on this OS), and os.Root refuses symlinks leading
-// out of root, so nothing is ever written outside it.
+// extra flag (os.O_TRUNC or os.O_EXCL), creating it and its parent directories. name must pass
+// LocalPath, and os.Root refuses symlinks leading out of root, so nothing is ever written
+// outside it.
 func CreateFile(root *os.Root, name string, flag int) (*os.File, error) {
-	if strings.Contains(name, `\`) {
-		return nil, errors.New(`invalid path: contains "\"`)
-	}
-	rel, err := filepath.Localize(name)
+	rel, err := LocalPath(name)
 	if err != nil {
 		return nil, err
 	}
@@ -56,4 +54,19 @@ func CreateFile(root *os.Root, name string, flag int) (*os.File, error) {
 		return nil, err
 	}
 	return root.OpenFile(rel, os.O_WRONLY|os.O_CREATE|flag, 0o644)
+}
+
+// LocalPath returns the slash-separated relative path name in OS form, or an error unless it is
+// local and portable: fs.ValidPath (no "..", ".", empty or leading "/"), no "\", and no element
+// with ":" or a Windows device name, so an archive behaves the same on every OS.
+func LocalPath(name string) (string, error) {
+	if strings.Contains(name, `\`) || !fs.ValidPath(name) {
+		return "", fmt.Errorf("invalid path %q", name)
+	}
+	for _, el := range strings.Split(name, "/") {
+		if strings.Contains(el, ":") || isReservedName(el) {
+			return "", fmt.Errorf("invalid path %q", name)
+		}
+	}
+	return filepath.Localize(name)
 }

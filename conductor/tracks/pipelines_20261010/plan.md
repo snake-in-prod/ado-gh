@@ -59,21 +59,21 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Implement `logs`; classify in `TestWebFlagAudit`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: list, view, logs' (Protocol in workflow.md)
 
-## Phase 3: `run`, `watch`, `cancel`, `rerun`
+## Phase 3: `run`, `watch`, `cancel`, `rerun` [checkpoint: 77dfd0e]
 
-- [x] Task: Watch loop (shared) `129f77c`
+- [x] Task: Watch loop (shared) `77dfd0e`
     - [x] Write tests (`testing/synctest` bubble, `time.Ticker`): TTY redraw per interval with spinner and waiting line, non-TTY transition lines + final summary, completed run → immediate summary, Ctrl-C (context cancel) → exit 2, exit code per result; only the timeline is polled per tick and the build is fetched once at the end
     - [x] Implement (reused by `release watch`); spinner is a tiny frame index; no throttle code (the transport handles Retry-After/X-RateLimit)
-- [x] Task: `ado pipeline watch` `f43dffe`
+- [x] Task: `ado pipeline watch` `77dfd0e`
     - [x] Write tests: no-arg TTY prompt over in-progress runs, `-i` interval, `--exit-status` no-op
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline run` `c743c0d`
+- [x] Task: `ado pipeline run` `77dfd0e`
     - [x] Write tests: `queueStatus` pre-check from the definition GET (disabled → error, paused → warning, then queue), YAML via Pipelines API (branch, commit as `resources.repositories.self`, template parameters), classic via Build queue (branch, commit, variables as a JSON-encoded `map[string]string`), `-p` rejected for classic, no `-b` → branch from `definition.repository.defaultBranch` (fallback: the Git repo's default branch) sent explicitly, non-settable variable error surfaced (`PipelineValidationException` fixture, 400 assumed), `ValidationResults` details shown, prints URL (`_build/results?buildId=`, not `Run.url`) + watch hint, `--watch` exit codes, `-w`
     - [x] Implement `run`; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline cancel` `bfb5d15`
+- [x] Task: `ado pipeline cancel` `77dfd0e`
     - [x] Write tests: GET first; completed → exit 1 without PATCH; already `cancelling` → message and exit 0 without PATCH; PATCH `cancelling`, TTY confirm/decline → exit 2, `-y`, non-TTY without `--yes` refuses
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline rerun` `e120451`
+- [x] Task: `ado pipeline rerun` `77dfd0e`
     - [x] Write tests: full rerun from one Build GET (`templateParameters` + decoded `parameters`, `sourceBranch`, `sourceVersion`) to `RunPipeline` (YAML) or Build queue (classic), prints new URL; `--failed` only once the run is completed, otherwise error "run is still in progress"; YAML `--failed` retries `failed` and `canceled` stages via `UpdateStage` with stageRefName = `identifier`, a failed stage depending on another failed stage, no failed or canceled stages → error; classic `--failed` sends `UpdateBuild` with `retry=true`; server error via `mapErr`
     - [x] Implement; classify in `TestWebFlagAudit`
 - [x] Task: Conductor - User Manual Verification 'Phase 3: run, watch, cancel, rerun' (Protocol in workflow.md)
@@ -81,17 +81,17 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 4: `download`, `approve`/`reject`, `enable`/`disable`
 
-- [ ] Task: `ado pipeline download`
-    - [ ] Write tests: `-n` / `-p` selection; `resource.downloadUrl` fetched with the authenticated client, streamed to a temp file, then `zip.OpenReader`, no `Client.Timeout`; case-insensitive type match; pipeline and container artifacts extracted as in gh: a single `-n` directly into `<dir>`, several (or `-p`, or none) into `<dir>/<artifact>`; one top-level folder equal to the artifact name stripped; file-share (`FilePath` or nil type with id 0) skipped showing the UNC path, other types skipped with a warning; shared extraction helper (artifact name validated, `\` rejected, `fs.ValidPath` + `filepath.Localize`, `os.OpenRoot`, symlink/non-regular entries skipped, bytes capped per entry); zip-slip entries rejected (`../x`, `/abs`, `a\..\b`, `C:x`, `NUL`, symlink); existing `<dir>/<artifact>` errors without `--clobber`, and `--clobber` removes it and re-extracts into a fresh directory; single `-n` into `<dir>`: existing files that would be overwritten error without `--clobber` and are overwritten with it (`<dir>` itself is never removed); never `$expand=signedContent`, signed URLs never printed or in JSON
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline approve` / `reject`
-    - [ ] Write tests: timeline → `QueryApprovals(ids, $expand=steps)` → pending; single pending approval acted on with comment, several → TTY select / `--stage` / `--all` (one PATCH) / non-TTY error, none pending → exit 1; `inSequence` steps `uninitiated`; approve with `minRequiredApprovers > 1` not yet met → exit 0 with "Approved (1 of 2 required); still waiting"; not approver: PATCH sent and a 4xx wrapped with the approver names from `steps[].assignedApprover`; 401/403 scope hint per operation (`vso.build` for query, `vso.build_execute`/`vso.pipelineresources_use` for update)
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline enable` / `disable`
-    - [ ] Write tests: raw-map GET + PUT with revision changing only `queueStatus`, one asserted api-version; enable turns paused or disabled into enabled, disable turns anything into disabled, no pause support; already in state (exact value) → exit 0; revision conflict (409 fixture) → GET and PUT retried once automatically, then fail with the conflict message
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: download, approve/reject, enable/disable' (Protocol in workflow.md)
-    - [ ] Confirm live: artifact zip layout and whether download redirects, definition conflict body, secret variables surviving the enable/disable PUT, approval `id` vs `identifier`
+- [x] Task: `ado pipeline download` `34ec960`
+    - [x] Write tests: `-n` / `-p` selection; `resource.downloadUrl` fetched with the authenticated client, streamed to a temp file, then `zip.OpenReader`, no `Client.Timeout`; case-insensitive type match; pipeline and container artifacts extracted as in gh: a single `-n` directly into `<dir>`, several (or `-p`, or none) into `<dir>/<artifact>`; one top-level folder equal to the artifact name stripped; file-share (`FilePath` or nil type with id 0) skipped showing the UNC path, other types skipped with a warning; shared extraction helper (artifact name validated, `\` rejected, `fs.ValidPath` + `filepath.Localize`, `os.OpenRoot`, symlink/non-regular entries skipped, bytes capped per entry); zip-slip entries rejected (`../x`, `/abs`, `a\..\b`, `C:x`, `NUL`, symlink); existing `<dir>/<artifact>` errors without `--clobber`, and `--clobber` removes it and re-extracts into a fresh directory; single `-n` into `<dir>`: existing files that would be overwritten error without `--clobber` and are overwritten with it (`<dir>` itself is never removed); never `$expand=signedContent`, signed URLs never printed or in JSON
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline approve` / `reject` `5277a7c`
+    - [x] Write tests: timeline → `QueryApprovals(ids, $expand=steps)` → pending; single pending approval acted on with comment, several → TTY select / `--stage` / `--all` (one PATCH) / non-TTY error, none pending → exit 1; `inSequence` steps `uninitiated`; approve with `minRequiredApprovers > 1` not yet met → exit 0 with "Approved (1 of 2 required); still waiting"; not approver: PATCH sent and a 4xx wrapped with the approver names from `steps[].assignedApprover`; 401/403 scope hint per operation (`vso.build` for query, `vso.build_execute`/`vso.pipelineresources_use` for update)
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline enable` / `disable` `bd51a7b`
+    - [x] Write tests: raw-map GET + PUT with revision changing only `queueStatus`, one asserted api-version; enable turns paused or disabled into enabled, disable turns anything into disabled, no pause support; already in state (exact value) → exit 0; revision conflict (409 fixture) → GET and PUT retried once automatically, then fail with the conflict message
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: Conductor - User Manual Verification 'Phase 4: download, approve/reject, enable/disable' (Protocol in workflow.md)
+    - [x] Confirm live: artifact zip layout and whether download redirects, definition conflict body, secret variables surviving the enable/disable PUT, approval `id` vs `identifier`
 
 ## Phase 5: `ado release` (Read)
 

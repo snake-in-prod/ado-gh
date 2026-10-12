@@ -51,6 +51,7 @@ func TestNewClientDownloadRedirectToBlob(t *testing.T) {
 	c, err := NewClient(context.Background(), f, adocontext.Repo{Host: "dev.azure.com", Org: "contoso", Project: "proj"})
 	require.NoError(t, err)
 	assert.Equal(t, "proj", c.Project)
+	assert.Zero(t, c.HTTP.Timeout, "no Client.Timeout: large artifact downloads are canceled through the context only")
 	rc, err := c.Download(context.Background(), artprod)
 	require.NoError(t, err)
 	b, err := io.ReadAll(rc)

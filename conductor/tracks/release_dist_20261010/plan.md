@@ -42,31 +42,31 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] actionlint passes
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Reference Docs and Docs Site' (Protocol in workflow.md)
 
-## Phase 3: GoReleaser and Changelog
+## Phase 3: GoReleaser and Changelog [checkpoint: d2227f7]
 
-- [ ] Task: Pin the Go toolchain
-    - [ ] Add `toolchain go1.27.2` to `go.mod` (keep `go 1.25.8` minimum); setup-go `go-version-file: go.mod` and `GOTOOLCHAIN=local` in snapshot, reproducibility and release jobs
-- [ ] Task: `.goreleaser.yaml` builds and archives
-    - [ ] `version: 2`; 6 targets, `CGO_ENABLED=0`, `-trimpath`, ldflags `-s -w -X …/internal/build.Version={{.Version}} …Commit={{.FullCommit}} …Date={{.CommitDate}}`, `mod_timestamp: "{{ .CommitTimestamp }}"`; `gomod.proxy` off; before-hooks generate manpages and completions; gitignore `/manpages/` and `/completions/`; archives with LICENSE/README/man/completions; `report_sizes: true`
-    - [ ] Verify: `goreleaser check`, `goreleaser release --snapshot --clean --skip=sign`, archive contents listed, `ado version` from a snapshot binary not dirty
-- [ ] Task: Checksums, SBOM, signing config
-    - [ ] `checksums.txt`; `sboms: [{artifacts: archive}]` (syft SPDX per archive); two `signs` entries on `artifacts: checksum`: id `cosign` (`sign-blob --bundle=${signature} ${artifact} --yes`, signature `${artifact}.sigstore.json`) and id `gpg` (`-u {{ .Env.GPG_FINGERPRINT }} --output ${signature} --detach-sign ${artifact}`, key fed via `signs.stdin` from the temporary GNUPGHOME setup)
-    - [ ] Verify snapshot with `--skip=sign` produces SBOMs (snapshot does not skip signing by itself)
-- [ ] Task: Packages and package managers
-    - [ ] Homebrew cask token `ado` in `snake-in-prod/homebrew-tap`: `binaries`, `manpages`, static bash/zsh/fish completions plus `generate_completions_from_executable` for pwsh, `hooks.post.install` xattr quarantine removal in `if OS.mac?` plus `caveats`, `skip_upload: auto`; no Linuxbrew channel
-    - [ ] Scoop (`snake-in-prod/scoop-bucket`, empty `directory`, zip, `skip_upload: auto`); winget `package_identifier: SnakeInProd.Ado` with `publisher`, `license`, `short_description`, `commit_msg_template`, fork `repository` `snake-in-prod/winget-pkgs`, `pull_request.base: microsoft/winget-pkgs@master`, `pull_request.token` from `WINGET_PR_PAT`, `skip_upload: auto`
-    - [ ] nFPM deb/rpm with man/completions contents and an explicit `file_name_template` (no `~`)
-    - [ ] Verify snapshot emits deb/rpm, cask, Scoop and winget manifests; `dpkg -c` / `rpm -qlp` contents check
-- [ ] Task: Reproducibility check
-    - [ ] CI job: second snapshot build of the same commit in a `git worktree` at another path with an empty GOCACHE; select all 6 binaries via `dist/artifacts.json`; diff sha256 lists; on mismatch diff version output/strings (not `go version -m`)
-- [ ] Task: Changelog with git-cliff
-    - [ ] `cliff.toml`: groups per spec, `docs(conductor)` scope rule, rc `ignore_tags` with stable-only `tag_pattern`, newline-safe preprocessor, `protect_breaking_commits`; ungrouped types (refactor, build, revert) dropped silently; generate `CHANGELOG.md`; prep commit convention `chore(release): prepare vX.Y.Z`; notes-for-tag command documented (stable `--current`, rc `--unreleased --tag "$TAG"`, version heading dropped from notes.md)
-    - [ ] Verify against sample history (feat, fix, `!` breaking, excluded types, rc after a stable tag)
-    - [ ] Update spec FR5: pass only `--release-notes`, never `changelog.disable`; notes body (no heading) matches the CHANGELOG.md section
-- [ ] Task: PR CI snapshot job
-    - [ ] `goreleaser check` + `goreleaser release --snapshot --clean --skip=sign` (GoReleaser v2.18.3, syft installed); assert cask, Scoop and winget manifests exist in `dist/`
-    - [ ] Pin and bump ci.yml actions to SHAs (checkout v7.0.1, setup-go v7.0.0, golangci-lint-action v9.3.0); actionlint passes
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: GoReleaser and Changelog' (Protocol in workflow.md)
+- [x] Task: Pin the Go toolchain `d2227f7`
+    - [x] Add `toolchain go1.27.2` to `go.mod` (keep `go 1.25.8` minimum); setup-go `go-version-file: go.mod` and `GOTOOLCHAIN=local` in snapshot, reproducibility and release jobs
+- [x] Task: `.goreleaser.yaml` builds and archives `d2227f7`
+    - [x] `version: 2`; 6 targets, `CGO_ENABLED=0`, `-trimpath`, ldflags `-s -w -X …/internal/build.Version={{.Version}} …Commit={{.FullCommit}} …Date={{.CommitDate}}`, `mod_timestamp: "{{ .CommitTimestamp }}"`; `gomod.proxy` off; before-hooks generate manpages and completions; gitignore `/manpages/` and `/completions/`; archives with LICENSE/README/man/completions; `report_sizes: true`
+    - [x] Verify: `goreleaser check`, `goreleaser release --snapshot --clean --skip=sign`, archive contents listed, `ado version` from a snapshot binary not dirty
+- [x] Task: Checksums, SBOM, signing config `d2227f7`
+    - [x] `checksums.txt`; `sboms: [{artifacts: archive}]` (syft SPDX per archive); two `signs` entries on `artifacts: checksum`: id `cosign` (`sign-blob --bundle=${signature} ${artifact} --yes`, signature `${artifact}.sigstore.json`) and id `gpg` (`-u {{ .Env.GPG_FINGERPRINT }} --output ${signature} --detach-sign ${artifact}`, key fed via `signs.stdin` from the temporary GNUPGHOME setup)
+    - [x] Verify snapshot with `--skip=sign` produces SBOMs (snapshot does not skip signing by itself)
+- [x] Task: Packages and package managers `d2227f7`
+    - [x] Homebrew cask token `ado` in `snake-in-prod/homebrew-tap`: `binaries`, `manpages`, static bash/zsh/fish completions plus `generate_completions_from_executable` for pwsh, `hooks.post.install` xattr quarantine removal in `if OS.mac?` plus `caveats`, `skip_upload: auto`; no Linuxbrew channel
+    - [x] Scoop (`snake-in-prod/scoop-bucket`, empty `directory`, zip, `skip_upload: auto`); winget `package_identifier: SnakeInProd.Ado` with `publisher`, `license`, `short_description`, `commit_msg_template`, fork `repository` `snake-in-prod/winget-pkgs`, `pull_request.base: microsoft/winget-pkgs@master`, `pull_request.token` from `WINGET_PR_PAT`, `skip_upload: auto`
+    - [x] nFPM deb/rpm with man/completions contents and an explicit `file_name_template` (no `~`)
+    - [x] Verify snapshot emits deb/rpm, cask, Scoop and winget manifests; `dpkg -c` / `rpm -qlp` contents check
+- [x] Task: Reproducibility check `d2227f7`
+    - [x] CI job: second snapshot build of the same commit in a `git worktree` at another path with an empty GOCACHE; select all 6 binaries via `dist/artifacts.json`; diff sha256 lists; on mismatch diff version output/strings (not `go version -m`)
+- [x] Task: Changelog with git-cliff `d2227f7`
+    - [x] `cliff.toml`: groups per spec, `docs(conductor)` scope rule, rc `ignore_tags` with stable-only `tag_pattern`, newline-safe preprocessor, `protect_breaking_commits`; ungrouped types (refactor, build, revert) dropped silently; generate `CHANGELOG.md`; prep commit convention `chore(release): prepare vX.Y.Z`; notes-for-tag command documented (stable `--current`, rc `--unreleased --tag "$TAG"`, version heading dropped from notes.md)
+    - [x] Verify against sample history (feat, fix, `!` breaking, excluded types, rc after a stable tag)
+    - [x] Update spec FR5 (main session): pass only `--release-notes`, never `changelog.disable`; notes body (no heading) matches the CHANGELOG.md section
+- [x] Task: PR CI snapshot job `d2227f7`
+    - [x] `goreleaser check` + `goreleaser release --snapshot --clean --skip=sign` (GoReleaser v2.18.3, syft installed); assert cask, Scoop and winget manifests exist in `dist/`
+    - [x] Pin and bump ci.yml actions to SHAs (checkout v7.0.1, setup-go v7.0.0, golangci-lint-action v9.3.0); actionlint passes
+- [x] Task: Conductor - User Manual Verification 'Phase 3: GoReleaser and Changelog' (Protocol in workflow.md)
 
 ## Phase 4: Release Workflow and Install Scripts
 

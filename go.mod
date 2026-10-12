@@ -2,6 +2,8 @@ module github.com/snake-in-prod/ado-gh
 
 go 1.25.8
 
+toolchain go1.27.2
+
 require (
 	charm.land/huh/v2 v2.0.3
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1

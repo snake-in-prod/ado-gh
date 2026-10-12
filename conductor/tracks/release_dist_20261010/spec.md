@@ -57,7 +57,7 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 - **Scoop:** `scoops` → `<owner>/scoop-bucket`.
 - **winget:** `winget` → PR to `microsoft/winget-pkgs` from `<owner>/winget-pkgs` (package `<Owner>.Ado`).
 - **Prereleases:** `prerelease: auto`. Prerelease tags (`-rc.N`) publish to GitHub Releases only (no tap/bucket/winget).
-- **Release notes:** from git-cliff (FR6), passed to GoReleaser (its own changelog disabled).
+- **Release notes:** from git-cliff (FR6), passed to GoReleaser with `--release-notes` only (never `changelog.disable`, which would empty them). The notes are the body of the version's CHANGELOG.md section, without the version heading, so the two always match.
 - PR CI runs `goreleaser check` and `goreleaser release --snapshot --clean` so config breakage shows up before release.
 
 ### FR6: Changelog from Conventional Commits

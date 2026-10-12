@@ -17,3 +17,7 @@ coverage.*
 # Docs site: reference pages come from `ado help reference --dir docs/reference`
 /docs/reference/
 /site/
+
+# GoReleaser before-hooks output (dist/ is ignored above)
+/manpages/
+/completions/

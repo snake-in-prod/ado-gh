@@ -1,0 +1,211 @@
+# GoReleaser v2.18.3 config. Local check:
+#   goreleaser check && goreleaser release --snapshot --clean --skip=sign
+version: 2
+
+project_name: ado
+
+report_sizes: true
+
+before:
+  hooks:
+    # Manpages and completions come from the cobra tree of the binary itself.
+    - rm -rf manpages completions
+    # go run stamps no vcs info: pass the commit date for the manpage .TH header.
+    - go run -ldflags "-X github.com/snake-in-prod/ado-gh/internal/build.Date={{.CommitDate}}" ./cmd/ado help reference --man manpages
+    - mkdir -p completions
+    - sh -c 'go run ./cmd/ado completion bash > completions/ado.bash'
+    - sh -c 'go run ./cmd/ado completion zsh > completions/ado.zsh'
+    - sh -c 'go run ./cmd/ado completion fish > completions/ado.fish'
+    - sh -c 'go run ./cmd/ado completion powershell > completions/ado.ps1'
+
+gomod:
+  proxy: false
+
+builds:
+  - id: ado
+    main: ./cmd/ado
+    binary: ado
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/snake-in-prod/ado-gh/internal/build.Version={{.Version}}
+      - -X github.com/snake-in-prod/ado-gh/internal/build.Commit={{.FullCommit}}
+      - -X github.com/snake-in-prod/ado-gh/internal/build.Date={{.CommitDate}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: ado
+    ids: [ado]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - manpages/*
+      - completions/*
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# SPDX SBOM per archive (syft must be on PATH, also for snapshots).
+sboms:
+  - artifacts: archive
+
+# Snapshots still sign: use --skip=sign locally and in PR CI.
+signs:
+  # Keyless, produces checksums.txt.sigstore.json.
+  - id: cosign
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: [sign-blob, "--bundle=${signature}", "${artifact}", "--yes"]
+  # The release job imports the signing subkey into a temporary GNUPGHOME;
+  # the passphrase arrives on stdin (loopback pinentry). Produces checksums.txt.sig.
+  - id: gpg
+    cmd: gpg
+    artifacts: checksum
+    signature: "${artifact}.sig"
+    stdin: "{{ .Env.GPG_PASSPHRASE }}"
+    args:
+      - --batch
+      - --pinentry-mode=loopback
+      - --passphrase-fd=0
+      - -u
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - --output
+      - "${signature}"
+      - --detach-sign
+      - "${artifact}"
+
+# deb/rpm. Explicit name: nFPM's conventional names turn -rc.N into ~rc.N.
+nfpms:
+  - id: ado
+    ids: [ado]
+    package_name: ado
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [deb, rpm]
+    vendor: snake-in-prod
+    homepage: https://github.com/snake-in-prod/ado-gh
+    maintainer: snake-in-prod <snake-in-prod@users.noreply.github.com>
+    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI.
+    license: MIT
+    section: utils
+    bindir: /usr/bin
+    mtime: "{{ .CommitDate }}"
+    contents:
+      - src: ./manpages/*.1
+        dst: /usr/share/man/man1/
+        file_info:
+          mode: 0644
+      - src: ./completions/ado.bash
+        dst: /usr/share/bash-completion/completions/ado
+        file_info:
+          mode: 0644
+      - src: ./completions/ado.fish
+        dst: /usr/share/fish/vendor_completions.d/ado.fish
+        file_info:
+          mode: 0644
+      - src: ./completions/ado.zsh
+        dst: /usr/share/zsh/vendor-completions/_ado
+        packager: deb
+        file_info:
+          mode: 0644
+      - src: ./completions/ado.zsh
+        dst: /usr/share/zsh/site-functions/_ado
+        packager: rpm
+        file_info:
+          mode: 0644
+
+# Prerelease tags (-rc.N) skip every package-manager upload (skip_upload: auto);
+# the manifests are still written to dist/.
+homebrew_casks:
+  - name: ado
+    ids: [ado]
+    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    homepage: https://github.com/snake-in-prod/ado-gh
+    license: MIT
+    skip_upload: auto
+    repository:
+      owner: snake-in-prod
+      name: homebrew-tap
+      token: "{{ .Env.PACKAGES_PAT }}"
+    binaries: [ado]
+    manpages: ["manpages/*.1"]
+    completions:
+      bash: completions/ado.bash
+      zsh: completions/ado.zsh
+      fish: completions/ado.fish
+    # `ado completion` has no pwsh alias, so pass the argument explicitly.
+    generate_completions_from_executable:
+      executable: ado
+      args: [completion, powershell]
+      shell_parameter_format: none
+      shells: [pwsh]
+    # Binaries are not notarized: drop the quarantine bit Homebrew adds.
+    # GoReleaser is pinned to v2.18.3; v2.19 replaces hooks.*.install with install_steps.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/ado"]
+          end
+    caveats: |
+      ado is not notarized by Apple. The cask removes the quarantine attribute on install.
+      If macOS still blocks ado, run:
+        xattr -dr com.apple.quarantine "$(brew --caskroom)/ado"
+
+scoops:
+  - name: ado
+    ids: [ado]
+    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    homepage: https://github.com/snake-in-prod/ado-gh
+    license: MIT
+    skip_upload: auto
+    # Empty: `scoop bucket list` only counts manifests in the bucket root.
+    directory: ""
+    repository:
+      owner: snake-in-prod
+      name: scoop-bucket
+      token: "{{ .Env.PACKAGES_PAT }}"
+
+# Pushes to the snake-in-prod/winget-pkgs fork (PACKAGES_PAT) and opens a PR to
+# microsoft/winget-pkgs. A fine-grained PAT can't open that PR: WINGET_PR_PAT is a
+# classic public_repo token.
+winget:
+  - name: ado
+    ids: [ado]
+    package_identifier: SnakeInProd.Ado
+    publisher: snake-in-prod
+    publisher_url: https://github.com/snake-in-prod
+    short_description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    homepage: https://github.com/snake-in-prod/ado-gh
+    license: MIT
+    license_url: https://github.com/snake-in-prod/ado-gh/blob/main/LICENSE
+    release_notes_url: "https://github.com/snake-in-prod/ado-gh/releases/tag/{{ .Tag }}"
+    tags: [azure-devops, cli]
+    skip_upload: auto
+    # The commit message is also the PR title. winget-pkgs wants "New package" for the
+    # first submission; switch to "New version: {{ .PackageIdentifier }} {{ .Version }}"
+    # once SnakeInProd.Ado is accepted.
+    commit_msg_template: "New package: {{ .PackageIdentifier }} version {{ .Version }}"
+    repository:
+      owner: snake-in-prod
+      name: winget-pkgs
+      branch: "ado-{{ .Version }}"
+      token: "{{ .Env.PACKAGES_PAT }}"
+      pull_request:
+        enabled: true
+        token: "{{ .Env.WINGET_PR_PAT }}"
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master

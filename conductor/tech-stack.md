@@ -51,7 +51,8 @@
 
 ## Build, Release & CI
 - **GitHub Actions**: lint + test matrix (linux/macos/windows). Actions pinned by commit SHA.
-- **Go toolchain** go1.27.2 for release builds, pinned with a `toolchain` line in `go.mod` (minimum stays `go 1.25.8`); release and reproducibility jobs use `setup-go` `go-version-file: go.mod` and `GOTOOLCHAIN=local`.
+- **Go toolchain** go1.27.2 for release builds, pinned with a `toolchain` line in `go.mod` (minimum stays `go 1.25.8`); release, snapshot, reproducibility and docs jobs read that version from the `toolchain` line and pass it to `setup-go` `go-version`, with `GOTOOLCHAIN=local`.
+  - *2026-10-13:* `setup-go` `go-version-file: go.mod` reads the `go` line (1.25.8), not `toolchain`; the first rc failed on it, so the workflows parse the `toolchain` line instead.
 - **GoReleaser** v2.18.3 (OSS, exact pin, upgraded deliberately): cross-compiled binaries (windows/darwin/linux × amd64/arm64), checksums, SBOMs, nFPM deb/rpm, GitHub Releases, Homebrew cask (`snake-in-prod/homebrew-tap`), Scoop bucket (`snake-in-prod/scoop-bucket`), winget (`SnakeInProd.Ado`, PR from `snake-in-prod/winget-pkgs`).
 - Version, commit and commit date injected via `-ldflags` into `internal/build`; `go install` builds fall back to `debug.ReadBuildInfo`.
 - **Signing and provenance:** cosign v3.1.3 (via `sigstore/cosign-installer` v4.1.2) keyless `sign-blob` bundle on `checksums.txt`; GPG detached signature from a CI signing subkey (plain `gpg --batch`, temporary `GNUPGHOME`); `actions/attest` v4.2.2 build provenance, bundle uploaded as a release asset.

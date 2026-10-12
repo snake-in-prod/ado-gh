@@ -248,18 +248,98 @@ func TestReleaseWatchPollsUntilWatchedEnvironmentsComplete(t *testing.T) {
 }
 
 func TestReleaseWatchWaitsForAFirstDeployment(t *testing.T) {
-	e := newRelWatchEnv(t, false)
-	var err error
 	notStarted := relWatchEnvState{"notStarted", "", ""}
-	synctest.Test(t, func(t *testing.T) {
-		e.stubReleases(t,
-			relWatchBody(t, map[string]relWatchEnvState{"QA": notStarted, "Prod": notStarted}),
-			relWatchBody(t, map[string]relWatchEnvState{"QA": notStarted, "Prod": notStarted}))
-		// A watch ends once a watched environment has been deployed, not before.
-		err = e.run(t, "3", "--environment", "QA")
+	idleBody := func(t *testing.T) []byte {
+		return relWatchBody(t, map[string]relWatchEnvState{"QA": notStarted, "Prod": notStarted})
+	}
+
+	t.Run("a deployment starting within the grace polls is watched", func(t *testing.T) {
+		e := newRelWatchEnv(t, false)
+		var err error
+		synctest.Test(t, func(t *testing.T) {
+			e.stubReleases(t, idleBody(t), idleBody(t),
+				relWatchBody(t, map[string]relWatchEnvState{"Prod": notStarted}),
+				relWatchBody(t, map[string]relWatchEnvState{"QA": relWatchQADone, "Prod": notStarted}))
+			err = e.run(t, "3", "--environment", "QA")
+		})
+		require.NoError(t, err)
+		e.reg.Verify(t)
+		assert.Len(t, e.polls, 4)
+		assert.Contains(t, e.out.String(), "✓ QA: succeeded\n")
+		assert.NotContains(t, e.errOut.String(), "no deployment started")
 	})
-	require.Error(t, err, "the stubs run out while QA is still not deployed")
-	assert.Len(t, e.polls, 2)
+
+	t.Run("gives up when nothing starts", func(t *testing.T) {
+		e := newRelWatchEnv(t, false)
+		var err error
+		synctest.Test(t, func(t *testing.T) {
+			e.stubReleases(t, idleBody(t), idleBody(t), idleBody(t))
+			err = e.run(t, "3", "--environment", "QA")
+		})
+		require.ErrorIs(t, err, cmdutil.SilentError)
+		e.reg.Verify(t)
+		assert.Len(t, e.polls, 3)
+		assert.Equal(t, "no deployment started; deploy one with: ado release deploy 3 --environment QA\n", e.errOut.String())
+		assert.NotContains(t, e.out.String(), "View this release", "no summary for a release never deployed")
+	})
+
+	t.Run("hint names a placeholder without --environment", func(t *testing.T) {
+		e := newRelWatchEnv(t, false)
+		var err error
+		allIdle := map[string]relWatchEnvState{"Dev": notStarted, "QA": notStarted, "Prod": notStarted}
+		synctest.Test(t, func(t *testing.T) {
+			e.stubReleases(t, relWatchBody(t, allIdle), relWatchBody(t, allIdle), relWatchBody(t, allIdle))
+			err = e.run(t, "3")
+		})
+		require.ErrorIs(t, err, cmdutil.SilentError)
+		assert.Equal(t, "no deployment started; deploy one with: ado release deploy 3 --environment <name>\n", e.errOut.String())
+	})
+}
+
+// relWatchPendingBody is relWatchBody with QA waiting for a manual pre-deployment approval
+// (and an automated one that must not show).
+func relWatchPendingBody(t *testing.T, states map[string]relWatchEnvState) []byte {
+	t.Helper()
+	var r map[string]any
+	require.NoError(t, json.Unmarshal(relWatchBody(t, states), &r))
+	for _, env := range r["environments"].([]any) {
+		env := env.(map[string]any)
+		if env["name"] == "QA" {
+			env["preDeployApprovals"] = []any{
+				map[string]any{"id": 21, "approvalType": "preDeploy", "status": "pending", "isAutomated": false},
+				map[string]any{"id": 22, "approvalType": "preDeploy", "status": "pending", "isAutomated": true},
+			}
+		}
+	}
+	b, err := json.Marshal(r)
+	require.NoError(t, err)
+	return b
+}
+
+func TestReleaseWatchPendingApproval(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		t.Run(map[bool]string{false: "non-TTY", true: "TTY"}[tty], func(t *testing.T) {
+			e := newRelWatchEnv(t, tty)
+			var err error
+			synctest.Test(t, func(t *testing.T) {
+				e.stubReleases(t,
+					relWatchPendingBody(t, map[string]relWatchEnvState{"Prod": relWatchProdSucceeded}),
+					relWatchPendingBody(t, map[string]relWatchEnvState{"Prod": relWatchProdSucceeded}),
+					relWatchBody(t, map[string]relWatchEnvState{"QA": relWatchQADone, "Prod": relWatchProdSucceeded}))
+				err = e.run(t, "3")
+			})
+			require.NoError(t, err)
+			e.reg.Verify(t)
+			out := e.out.String()
+			// The automated approval is left out: one line per redraw on a TTY (two polls
+			// before completion), and one line in all when piped.
+			want := 1
+			if tty {
+				want = 2
+			}
+			assert.Equal(t, want, strings.Count(out, "⏸ QA: approval pending\n"))
+		})
+	}
 }
 
 func TestReleaseWatchTTYHeader(t *testing.T) {

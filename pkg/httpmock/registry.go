@@ -44,7 +44,9 @@ type Responder func(req *http.Request) (*http.Response, error)
 
 // Stub pairs a Matcher with a Responder. Each stub matches at most once.
 type Stub struct {
-	matched   bool
+	matched bool
+	// optional stubs may go unmatched without failing Verify.
+	optional  bool
 	Matcher   Matcher
 	Responder Responder
 }
@@ -71,19 +73,28 @@ func (r *Registry) Register(m Matcher, resp Responder) {
 	r.stubs = append(r.stubs, &Stub{Matcher: m, Responder: resp})
 }
 
+// RegisterOptional adds a stub that Verify doesn't require to be matched, for calls a client
+// may serve from a process-wide cache instead (the SDK's location discovery, when a test runs
+// again in the same process with -count).
+func (r *Registry) RegisterOptional(m Matcher, resp Responder) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.stubs = append(r.stubs, &Stub{optional: true, Matcher: m, Responder: resp})
+}
+
 // Testing is the subset of testing.TB that Verify needs.
 type Testing interface {
 	Errorf(string, ...any)
 	Helper()
 }
 
-// Verify fails t if any registered stub was never matched.
+// Verify fails t if any registered stub, optional ones aside, was never matched.
 func (r *Registry) Verify(t Testing) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	n := 0
 	for _, s := range r.stubs {
-		if !s.matched {
+		if !s.matched && !s.optional {
 			n++
 		}
 	}

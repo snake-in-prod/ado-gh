@@ -109,7 +109,16 @@ func runDownload(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if len(arts) == 0 {
 		return fmt.Errorf("run %d has no artifacts", id)
 	}
-	selected := slices.DeleteFunc(arts, func(a build.BuildArtifact) bool { return !o.selects(prshared.Deref(a.Name)) })
+	var selected []build.BuildArtifact
+	for _, a := range arts {
+		ok, err := o.selects(prshared.Deref(a.Name))
+		if err != nil {
+			return err
+		}
+		if ok {
+			selected = append(selected, a)
+		}
+	}
 	if len(selected) == 0 {
 		return fmt.Errorf("no artifact of run %d matches the given names or patterns", id)
 	}
@@ -118,6 +127,9 @@ func runDownload(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	ios := f.IOStreams
 	single := len(o.names) == 1 && len(o.patterns) == 0
 	var targets []target
+	// dirs maps each target directory, lower-cased, to its artifact: on a case-insensitive file
+	// system "Drop" and "drop" share one, and the second would remove the first's files.
+	dirs := map[string]string{}
 	for _, a := range selected {
 		t, ok := o.plan(ios.ErrOut, a, single)
 		if !ok {
@@ -126,6 +138,10 @@ func runDownload(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		if err := shared.ValidArtifactName(t.name); err != nil {
 			return err
 		}
+		if prev, dup := dirs[strings.ToLower(t.dir)]; dup && !single {
+			return fmt.Errorf("artifacts %s and %s would extract to the same directory on case-insensitive file systems; pick one with --name", prev, t.name)
+		}
+		dirs[strings.ToLower(t.dir)] = t.name
 		if !single && !o.clobber {
 			if _, err := os.Lstat(t.dir); err == nil {
 				return fmt.Errorf("%s already exists; use --clobber to replace it", t.dir)
@@ -147,14 +163,21 @@ func runDownload(ctx context.Context, f *cmdutil.Factory, o *options) error {
 }
 
 // selects reports whether the flags select the artifact name: all artifacts without -n or -p.
-func (o *options) selects(name string) bool {
-	if len(o.names) == 0 && len(o.patterns) == 0 {
-		return true
+// A malformed pattern is an error, never a silent mismatch.
+func (o *options) selects(name string) (bool, error) {
+	if len(o.names) == 0 && len(o.patterns) == 0 || slices.Contains(o.names, name) {
+		return true, nil
 	}
-	return slices.Contains(o.names, name) || slices.ContainsFunc(o.patterns, func(p string) bool {
-		ok, _ := path.Match(p, name)
-		return ok
-	})
+	for _, p := range o.patterns {
+		ok, err := path.Match(p, name)
+		if err != nil {
+			return false, cmdutil.FlagErrorf("invalid pattern %q: %v", p, err)
+		}
+		if ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // plan returns where artifact a goes, or false after a warning when its type can't be

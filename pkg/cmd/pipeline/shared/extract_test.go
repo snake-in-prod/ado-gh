@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -144,9 +145,11 @@ func TestExtractZipCapsEntrySize(t *testing.T) {
 
 	dir := t.TempDir()
 	_, err = ExtractZip(zr, dir, "drop", false)
-	require.Error(t, err)
-	b, _ := os.ReadFile(filepath.Join(dir, "bomb.bin"))
-	assert.LessOrEqual(t, len(b), 3, "at most the declared size plus one byte is written")
+	require.ErrorIs(t, err, zip.ErrFormat, "archive/zip refuses to read past the declared size")
+	assert.ErrorContains(t, err, "bomb.bin: ")
+	b, err := os.ReadFile(filepath.Join(dir, "bomb.bin"))
+	require.NoError(t, err)
+	assert.LessOrEqual(t, len(b), 2, "at most the declared size is written")
 }
 
 func TestExtractZipExistingFiles(t *testing.T) {
@@ -170,5 +173,5 @@ func TestExtractZipBadDir(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "file")
 	require.NoError(t, os.WriteFile(file, nil, 0o644))
 	_, err := ExtractZip(newTestZip(t, zipEntry{name: "a", body: "a"}), file, "drop", false)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, syscall.ENOTDIR, "the target is a file")
 }

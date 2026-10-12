@@ -4,6 +4,7 @@ package approve
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -56,7 +57,8 @@ func newCmd(f *cmdutil.Factory, verb string, status pipelinesapproval.ApprovalSt
 		Long: title + ` the pending approvals of a run's stages.
 
 <run> is a run ID or URL. With one pending approval, ado acts on it. With several, a terminal
-asks which one; otherwise pass --stage or --all (--all sends them in one request).
+asks which one; otherwise pass --stage or --all (--all acts on each in turn and reports
+those the server refused).
 
 The server decides whether you may act: when it refuses, the error names the approvers.
 Other checks (business hours, Azure functions, ...) show in "ado pipeline view" but cannot be
@@ -113,16 +115,19 @@ func runApprove(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 
-	ids := make([]uuid.UUID, len(sel))
-	for i, s := range sel {
-		ids[i] = *s.approval.Id
+	// One request per approval: the server may refuse some (stages the caller can't approve)
+	// while accepting others, so each outcome is reported on its own.
+	var errs []error
+	for _, s := range sel {
+		one := []pending{s}
+		updated, err := c.UpdateApprovals(ctx, []uuid.UUID{*s.approval.Id}, o.status, o.comment)
+		if err != nil {
+			errs = append(errs, shared.ApprovalError(err, fmt.Sprintf("could not %s %s", o.verb, s.label()), updateScopes, approvers(one)))
+			continue
+		}
+		report(f, o, one, updated)
 	}
-	updated, err := c.UpdateApprovals(ctx, ids, o.status, o.comment)
-	if err != nil {
-		return shared.ApprovalError(err, fmt.Sprintf("could not %s %s", o.verb, labels(sel)), updateScopes, approvers(sel))
-	}
-	report(f, o, sel, updated)
-	return nil
+	return errors.Join(errs...)
 }
 
 // pendingApprovals reads run id's timeline for its Checkpoint.Approval records (their identifier

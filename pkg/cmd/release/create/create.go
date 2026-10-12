@@ -12,6 +12,7 @@ import (
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/release"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	pshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/shared"
 	prshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/watch"
@@ -66,11 +67,11 @@ Environments with an automated trigger start deploying once the release is creat
 }
 
 func runCreate(ctx context.Context, f *cmdutil.Factory, o *options) error {
-	arts, err := parsePairs("artifact", "alias=version", true, o.artifacts)
+	arts, err := pshared.ParsePairs("artifact", "alias=version", true, o.artifacts)
 	if err != nil {
 		return err
 	}
-	vars, err := parsePairs("variable", "key=value", false, o.vars)
+	vars, err := pshared.ParsePairs("variable", "key=value", false, o.vars)
 	if err != nil {
 		return err
 	}
@@ -185,18 +186,4 @@ func listOrNone(s []string) string {
 		return "none"
 	}
 	return strings.Join(s, ", ")
-}
-
-// parsePairs parses repeated flag values in format (e.g. "key=value") with a non-empty key, and
-// a non-empty value when needValue; a later key wins.
-func parsePairs(flag, format string, needValue bool, pairs []string) (map[string]string, error) {
-	out := make(map[string]string, len(pairs))
-	for _, p := range pairs {
-		k, v, ok := strings.Cut(p, "=")
-		if !ok || strings.TrimSpace(k) == "" || (needValue && v == "") {
-			return nil, cmdutil.FlagErrorf("invalid --%s %q: expected %s", flag, p, format)
-		}
-		out[k] = v
-	}
-	return out, nil
 }

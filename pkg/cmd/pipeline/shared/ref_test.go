@@ -3,7 +3,9 @@ package shared
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"testing/iotest"
 
@@ -185,7 +187,7 @@ func TestResolvePipelineServerError(t *testing.T) {
 	reg.Register(httpmock.REST(http.MethodGet, "referr/proj/_apis/build/definitions"),
 		httpmock.StatusJSONResponse(http.StatusUnauthorized, map[string]string{"message": "no access"}))
 	_, err := ResolvePipeline(context.Background(), c, PipelineRef{Name: "x"})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "authentication failed for dev.azure.com (HTTP 401)")
 }
 
 const refRunsJSON = `{"count": 2, "value": [
@@ -239,7 +241,7 @@ func TestSelectRunServerError(t *testing.T) {
 		httpmock.StatusJSONResponse(http.StatusInternalServerError, map[string]string{"message": "boom"}))
 	f, _, _ := newRefPromptFactory(true)
 	_, err := SelectRun(context.Background(), f, c, build.GetBuildsArgs{})
-	require.Error(t, err)
+	require.EqualError(t, err, "boom (HTTP 500)")
 }
 
 func TestSelectRunNonTTY(t *testing.T) {
@@ -248,4 +250,34 @@ func TestSelectRunNonTTY(t *testing.T) {
 	var flagErr *cmdutil.FlagError
 	require.ErrorAs(t, err, &flagErr)
 	assert.EqualError(t, err, "<run> argument required when not running interactively")
+}
+
+// TestSelectActiveRunMerges: in-progress and queued runs are offered together, newest queued
+// first, at most selectRunLimit of them.
+func TestSelectActiveRunMerges(t *testing.T) {
+	c, reg := newRefTestClient(t, "refactive")
+	runs := func(status string, ids ...int) string {
+		var vals []string
+		for _, id := range ids {
+			vals = append(vals, fmt.Sprintf(`{"id":%d,"status":%q,"buildNumber":"b%d","queueTime":"2026-10-01T10:%02d:00Z","definition":{"name":"ado-gh"}}`, id, status, id, id))
+		}
+		return fmt.Sprintf(`{"count":%d,"value":[%s]}`, len(ids), strings.Join(vals, ","))
+	}
+	var statuses []string
+	for _, body := range []string{runs("inProgress", 11, 9, 7, 5, 3, 1), runs("notStarted", 12, 10, 8, 6, 4, 2)} {
+		reg.Register(httpmock.REST(http.MethodGet, "refactive/proj/_apis/build/builds"), func(r *http.Request) (*http.Response, error) {
+			statuses = append(statuses, r.URL.Query().Get("statusFilter"))
+			return httpmock.StringResponse(body)(r)
+		})
+	}
+	f, ios, answer := newRefPromptFactory(true)
+	answer("1\n")
+	id, err := SelectActiveRun(context.Background(), f, c)
+	require.NoError(t, err)
+	assert.Equal(t, 12, id, "the newest queued run comes first")
+	assert.Equal(t, []string{"inProgress", "notStarted"}, statuses)
+	out := ios.Out.(interface{ String() string }).String()
+	assert.Equal(t, selectRunLimit, strings.Count(out, " ID "), "capped at the prompt limit")
+	assert.Contains(t, out, "⏸ ado-gh b12 [] ID 12")
+	assert.NotContains(t, out, "ID 2\n", "the oldest runs are cut")
 }

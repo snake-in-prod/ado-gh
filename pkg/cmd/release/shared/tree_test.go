@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -146,4 +148,58 @@ func TestTreeLogOpener(t *testing.T) {
 	logs := pshared.TaskLogs(tr.Nodes, pshared.LogFilter{Failed: true})
 	require.NoError(t, pshared.PrintLogs(context.Background(), &b, tr.LogOpener(c, 3), logs))
 	assert.Equal(t, "Agent job\tRun script\tproj 3 6 7 3\n", b.String())
+}
+
+// TestTreeSameNamedPhasesWriteApart: two deploy phases left at the editor's default name
+// "Agent job", each with job ID 1, get distinct job nodes, so `release logs -o` writes both.
+func TestTreeSameNamedPhasesWriteApart(t *testing.T) {
+	str := func(s string) *string { return &s }
+	num := func(n int) *int { return &n }
+	phase := func(id int) release.ReleaseDeployPhase {
+		status := release.TaskStatusValues.Succeeded
+		return release.ReleaseDeployPhase{Id: num(id), Name: str("Agent job"), DeploymentJobs: &[]release.DeploymentJob{{
+			Job:   &release.ReleaseTask{Id: num(1), Name: str("Agent job"), Status: &status},
+			Tasks: &[]release.ReleaseTask{{Id: num(3), Name: str("Run"), Status: &status, LogUrl: str("https://x/log")}},
+		}}}
+	}
+	envStatus := release.EnvironmentStatusValues.Succeeded
+	r := release.Release{Environments: &[]release.ReleaseEnvironment{{
+		Id: num(5), Name: str("Prod"), Status: &envStatus,
+		DeploySteps: &[]release.DeploymentAttempt{{Attempt: num(1), ReleaseDeployPhases: &[]release.ReleaseDeployPhase{phase(10), phase(11)}}},
+	}}}
+	tree := NewTree(r)
+	jobs := tree.Nodes[0].Children
+	require.Len(t, jobs, 2)
+	assert.NotEqual(t, jobs[0].ID, jobs[1].ID)
+
+	dir := t.TempDir()
+	open := func(_ context.Context, l pshared.TaskLog) (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader(l.JobNode.ID)), nil
+	}
+	require.NoError(t, pshared.WriteLogs(context.Background(), dir, open, pshared.TaskLogs(tree.Nodes, pshared.LogFilter{})))
+	for rel, want := range map[string]string{"Prod/Agent job/01_Run.log": "10.1", "Prod/Agent job_2/01_Run.log": "11.1"} {
+		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+		require.NoError(t, err, rel)
+		assert.Equal(t, want, string(b), rel)
+	}
+}
+
+func TestPendingApprovals(t *testing.T) {
+	envs := []Environment{
+		{Name: "Dev", Approvals: []Approval{
+			{ID: 1, Type: "preDeploy", Status: "approved"},
+			{ID: 2, Type: "postDeploy", Status: "pending", Automated: true},
+		}},
+		{Name: "Prod", Approvals: []Approval{
+			{ID: 3, Type: "preDeploy", Status: "pending"},
+			{ID: 4, Type: "postDeploy", Status: "pending"},
+		}},
+	}
+	got := PendingApprovals(envs)
+	assert.Equal(t, []pshared.Pending{
+		{ID: "release-approval-3", Type: "Checkpoint.Approval", Name: "preDeploy", Stage: "Prod", State: "pending"},
+		{ID: "release-approval-4", Type: "Checkpoint.Approval", Name: "postDeploy", Stage: "Prod", State: "pending"},
+	}, got, "only manual approvals still pending")
+	assert.Equal(t, "approval pending", got[0].Label())
+	assert.Empty(t, PendingApprovals(envs[:1]))
 }

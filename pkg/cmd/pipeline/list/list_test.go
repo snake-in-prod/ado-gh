@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/internal/pipelinefixtures"
@@ -411,4 +412,18 @@ func TestListRunsPipelineURL(t *testing.T) {
 	require.NoError(t, e.run(t, "https://dev.azure.com/"+e.org+"/My%20Proj/_build?definitionId=5"))
 	require.Len(t, e.queries, 1)
 	assert.Equal(t, "5", e.queries[0].Get("definitions"))
+}
+
+// TestKeepDefinitionBadPattern: a malformed --match is an error, never a silent mismatch.
+func TestKeepDefinitionBadPattern(t *testing.T) {
+	name := "deploy-web"
+	d := build.BuildDefinition{Name: &name}
+	ok, err := keepDefinition(&options{all: true, match: "DEPLOY-*"}, d)
+	require.NoError(t, err)
+	assert.True(t, ok, "--match ignores case")
+
+	_, err = keepDefinition(&options{all: true, match: "[deploy"}, d)
+	var fe *cmdutil.FlagError
+	require.ErrorAs(t, err, &fe)
+	assert.EqualError(t, err, `invalid --match pattern "[deploy"`)
 }

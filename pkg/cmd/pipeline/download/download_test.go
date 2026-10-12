@@ -236,6 +236,33 @@ func TestPLDownloadSelection(t *testing.T) {
 	}
 }
 
+// TestPLDownloadCaseOnlyDuplicates: "Drop" and "drop" would share a directory on Windows and
+// macOS, where extracting the second removes the first; that's an error before any download.
+func TestPLDownloadCaseOnlyDuplicates(t *testing.T) {
+	e := newPLDownloadEnv(t, false)
+	e.stubList(
+		artifact(1, "Drop", "Container", "#/1/Drop", e.containerURL("Drop")),
+		artifact(2, "drop", "Container", "#/1/drop", e.containerURL("drop")),
+	)
+	dir := t.TempDir()
+	err := e.run(t, "812", "-D", dir)
+	require.EqualError(t, err, "artifacts Drop and drop would extract to the same directory on case-insensitive file systems; pick one with --name")
+	e.reg.Verify(t)
+	assert.Empty(t, tree(t, dir), "nothing downloaded")
+}
+
+// TestSelectsBadPattern: a malformed pattern is an error, never a silent mismatch.
+func TestSelectsBadPattern(t *testing.T) {
+	o := &options{patterns: []string{"ok*", "[bad"}}
+	ok, err := o.selects("okay")
+	require.NoError(t, err)
+	assert.True(t, ok, "a match before the bad pattern")
+	_, err = o.selects("other")
+	var fe *cmdutil.FlagError
+	require.ErrorAs(t, err, &fe)
+	assert.EqualError(t, err, `invalid pattern "[bad": syntax error in pattern`)
+}
+
 func TestPLDownloadNoMatch(t *testing.T) {
 	e := newPLDownloadEnv(t, false)
 	e.stubList(artifact(1, "drop", "Container", "#/1/drop", e.containerURL("drop")))
@@ -343,7 +370,8 @@ func TestPLDownloadErrors(t *testing.T) {
 
 	e = newPLDownloadEnv(t, false)
 	err = e.run(t, "812", "-D", t.TempDir())
-	assert.Error(t, err, "list fails")
+	assert.ErrorContains(t, err, "no registered HTTP stubs matched GET", "the artifact list request fails")
+	assert.ErrorContains(t, err, "/_apis/build/builds/812/artifacts")
 }
 
 func TestPLDownloadSymlinkEntryWarns(t *testing.T) {

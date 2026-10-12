@@ -30,8 +30,8 @@ type zipItem struct {
 // named artifact (ignoring case), that folder is stripped. All names are checked with LocalPath
 // before anything is written, and writes go through os.Root, so an archive never writes outside
 // dir. Symlinks and other non-regular entries are skipped and returned. Each file is capped at
-// its declared size. Without clobber, a file that already exists errors before anything is
-// written; with it, the file is overwritten. dir itself is never removed.
+// its declared size (see extractFile). Without clobber, a file that already exists errors
+// before anything is written; with it, the file is overwritten. dir itself is never removed.
 func ExtractZip(zr *zip.Reader, dir, artifact string, clobber bool) (skipped []string, err error) {
 	strip := len(zr.File) > 0
 	for _, f := range zr.File {
@@ -50,7 +50,9 @@ func ExtractZip(zr *zip.Reader, dir, artifact string, clobber bool) (skipped []s
 			if name == "" {
 				continue
 			}
-			rel, _ = LocalPath(name) // a suffix of a local path is local
+			if rel, err = LocalPath(name); err != nil {
+				return nil, fmt.Errorf("unsafe path in archive: %q", f.Name)
+			}
 		}
 		if mode := f.Mode(); !mode.IsDir() && !mode.IsRegular() {
 			skipped = append(skipped, f.Name)
@@ -89,7 +91,9 @@ func ExtractZip(zr *zip.Reader, dir, artifact string, clobber bool) (skipped []s
 	return skipped, nil
 }
 
-// extractFile writes it to root with flag, failing if the entry holds more than its declared size.
+// extractFile writes it to root with flag. The entry can't hold more than its declared size:
+// archive/zip's reader fails with zip.ErrFormat past it (and with zip.ErrChecksum on a bad CRC),
+// so a lying header can't fill the disk.
 func extractFile(root *os.Root, it zipItem, flag int) error {
 	rc, err := it.f.Open()
 	if err != nil {
@@ -100,11 +104,7 @@ func extractFile(root *os.Root, it zipItem, flag int) error {
 	if err != nil {
 		return err
 	}
-	size := int64(it.f.UncompressedSize64)
-	n, err := io.Copy(out, io.LimitReader(rc, size+1))
-	if err == nil && n > size {
-		err = errors.New("larger than its declared size")
-	}
+	_, err = io.Copy(out, rc)
 	if err = errors.Join(err, out.Close()); err != nil {
 		return fmt.Errorf("%s: %w", it.f.Name, err)
 	}

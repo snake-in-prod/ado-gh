@@ -13,7 +13,6 @@ import (
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
-	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/shared"
 	prshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	relshared "github.com/snake-in-prod/ado-gh/pkg/cmd/release/shared"
@@ -66,11 +65,10 @@ With --definitions, list the release definitions with their folders and environm
 			if err != nil {
 				return err
 			}
-			hc, err := authshared.HTTPClient(cmd.Context(), f, project.Host, project.Org)
+			c, err := relshared.NewClient(cmd.Context(), f, project)
 			if err != nil {
 				return err
 			}
-			c := api.NewReleaseClient(hc, adocontext.OrgURL(project.Host, project.Org), project.Project)
 			if o.definitions {
 				return runDefinitions(cmd.Context(), f, c, project, o)
 			}
@@ -248,7 +246,7 @@ func toReleaseJSON(project adocontext.Repo, r release.Release) releaseJSON {
 	out := releaseJSON{
 		ID: id, Name: prshared.Deref(r.Name), Status: string(prshared.Deref(r.Status)),
 		CreatedOn: api.TimeOf(r.CreatedOn), Environments: []envJSON{},
-		URL: adocontext.ProjectURL(project) + "/_releaseProgress?_a=release-pipeline-progress&releaseId=" + strconv.Itoa(id),
+		URL: adocontext.ReleaseURL(project, id),
 	}
 	if d := r.ReleaseDefinition; d != nil {
 		out.Definition = &defRefJSON{ID: prshared.Deref(d.Id), Name: prshared.Deref(d.Name), Path: prshared.Deref(d.Path)}

@@ -189,6 +189,54 @@ func TestWriteLogsLayout(t *testing.T) {
 	assert.Len(t, entries, 1, "nothing written beside the output directory")
 }
 
+// TestWriteLogsJobCollisions: jobs sharing a display name, names SafeName maps alike, or names
+// differing only in case each get their own directory, so no log overwrites another; a job
+// keeps its directory across writes (--follow) even when its tree is rebuilt.
+func TestWriteLogsJobCollisions(t *testing.T) {
+	dir := t.TempDir()
+	f := &fakeLogs{text: map[int]string{1: "first", 2: "second", 3: "slash", 4: "under", 5: "upper", 6: "later"}}
+	job := func(id, name string) *Node { return &Node{ID: id, Name: name, Type: "Job"} }
+	logOf := func(j *Node, logID int) TaskLog {
+		l := taskLogOf("Deploy", j.Name, 1, "Run", logID)
+		l.JobNode = j
+		return l
+	}
+	agent1, agent2 := job("j1", "Agent job"), job("j2", "Agent job")
+	slash, under, upper := job("j3", "a/b"), job("j4", "a_b"), job("j5", "AGENT JOB")
+	w := &LogWriter{Dir: dir}
+	require.NoError(t, w.Write(context.Background(), f.open, []TaskLog{
+		logOf(agent1, 1), logOf(agent2, 2), logOf(slash, 3), logOf(under, 4), logOf(upper, 5),
+	}))
+	// A later poll rebuilds the tree: the same job (same record ID) keeps its directory.
+	again := job("j2", "Agent job")
+	later := logOf(again, 6)
+	later.Index = 2
+	require.NoError(t, w.Write(context.Background(), f.open, []TaskLog{later}))
+
+	want := map[string]string{
+		"Deploy/Agent job/01_Run.log":   "first",
+		"Deploy/Agent job_2/01_Run.log": "second",
+		"Deploy/Agent job_2/02_Run.log": "later",
+		"Deploy/a_b/01_Run.log":         "slash",
+		"Deploy/a_b_2/01_Run.log":       "under",
+		"Deploy/AGENT JOB_3/01_Run.log": "upper",
+	}
+	got := map[string]string{}
+	require.NoError(t, filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(dir, p)
+		got[filepath.ToSlash(rel)] = string(b)
+		return err
+	}))
+	assert.Equal(t, want, got, "six logs, six files")
+}
+
 func TestWriteLogsErrors(t *testing.T) {
 	f := &fakeLogs{text: map[int]string{}}
 	dir := t.TempDir()

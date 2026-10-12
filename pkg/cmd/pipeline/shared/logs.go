@@ -21,6 +21,9 @@ type TaskLog struct {
 	// Index is the task's 1-based position in its job, skipped tasks included.
 	Index int
 	Task  *Node
+	// JobNode is the job the task ran in (nil for a task outside any job); it tells apart jobs
+	// that share a name.
+	JobNode *Node
 }
 
 // LogFilter selects task logs. Job and Task match a name (case-insensitive) or record ID.
@@ -44,23 +47,27 @@ func BuildLogOpener(c *api.PipelineClient, buildID int) LogOpener {
 // placeholder agentless tasks report.
 func TaskLogs(nodes []*Node, f LogFilter) []TaskLog {
 	var out []TaskLog
-	var walk func(nodes []*Node, stage, job string, jobMatch bool)
-	walk = func(nodes []*Node, stage, job string, jobMatch bool) {
+	var walk func(nodes []*Node, stage string, job *Node, jobMatch bool)
+	walk = func(nodes []*Node, stage string, job *Node, jobMatch bool) {
 		for i, n := range nodes {
 			switch n.Type {
 			case "Stage":
 				walk(n.Children, n.Name, job, jobMatch)
 			case "Job":
-				walk(n.Children, stage, n.Name, f.Job == "" || matchesNode(n, f.Job))
+				walk(n.Children, stage, n, f.Job == "" || matchesNode(n, f.Job))
 			case "Task":
 				if jobMatch && n.State == "completed" && n.LogID != nil && *n.LogID != 0 &&
 					(f.Task == "" || matchesNode(n, f.Task)) && (!f.Failed || n.Result == "failed") {
-					out = append(out, TaskLog{Stage: stage, Job: job, Index: i + 1, Task: n})
+					l := TaskLog{Stage: stage, Index: i + 1, Task: n, JobNode: job}
+					if job != nil {
+						l.Job = job.Name
+					}
+					out = append(out, l)
 				}
 			}
 		}
 	}
-	walk(nodes, "", "", f.Job == "")
+	walk(nodes, "", nil, f.Job == "")
 	return out
 }
 
@@ -82,23 +89,44 @@ func PrintLogs(ctx context.Context, w io.Writer, open LogOpener, logs []TaskLog)
 	return nil
 }
 
-// WriteLogs writes each log to dir/<stage>/<job>/<NN>_<task>.log (no stage level when the run
-// has none), creating dir and overwriting earlier files. Names go through SafeName and files
-// through CreateFile, so they stay inside dir.
+// WriteLogs writes logs under dir with a new LogWriter.
 func WriteLogs(ctx context.Context, dir string, open LogOpener, logs []TaskLog) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	return (&LogWriter{Dir: dir}).Write(ctx, open, logs)
+}
+
+// LogWriter writes task logs to Dir/<stage>/<job>/<NN>_<task>.log (no stage level when the run
+// has none), creating Dir and overwriting earlier files. Names go through SafeName and files
+// through CreateFile, so they stay inside Dir. Each job gets its own directory: a job whose
+// directory another job already took (same display name, names SafeName maps alike, or names
+// differing only in case) gets a "_2", "_3", ... suffix. Reuse one LogWriter across calls (as
+// --follow does) so a job keeps its directory.
+type LogWriter struct {
+	Dir string
+	// dirs maps each job to its directory; taken holds the directories in use, lower-cased.
+	dirs  map[jobKey]string
+	taken map[string]bool
+}
+
+// jobKey identifies a job across polls: its record ID (a fresh tree has new nodes), else its
+// node, plus its stage and name.
+type jobKey struct {
+	id         string
+	node       *Node
+	stage, job string
+}
+
+// Write writes logs, opening each with open.
+func (w *LogWriter) Write(ctx context.Context, open LogOpener, logs []TaskLog) error {
+	if err := os.MkdirAll(w.Dir, 0o755); err != nil {
 		return err
 	}
-	root, err := os.OpenRoot(dir)
+	root, err := os.OpenRoot(w.Dir)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
 	for _, l := range logs {
-		name := path.Join(SafeName(l.Job), fmt.Sprintf("%02d_%s.log", l.Index, SafeName(l.Task.Name)))
-		if l.Stage != "" {
-			name = path.Join(SafeName(l.Stage), name)
-		}
+		name := path.Join(w.jobDir(l), fmt.Sprintf("%02d_%s.log", l.Index, SafeName(l.Task.Name)))
 		if err := withLog(ctx, open, l, func(r io.Reader) error {
 			f, err := CreateFile(root, name, os.O_TRUNC)
 			if err != nil {
@@ -111,6 +139,34 @@ func WriteLogs(ctx context.Context, dir string, open LogOpener, logs []TaskLog) 
 		}
 	}
 	return nil
+}
+
+// jobDir returns the directory of l's job, assigning the job a free one on first use.
+func (w *LogWriter) jobDir(l TaskLog) string {
+	key := jobKey{stage: l.Stage, job: l.Job}
+	switch {
+	case l.JobNode != nil && l.JobNode.ID != "":
+		key.id = l.JobNode.ID
+	case l.JobNode != nil:
+		key.node = l.JobNode
+	}
+	if d, ok := w.dirs[key]; ok {
+		return d
+	}
+	if w.dirs == nil {
+		w.dirs, w.taken = map[jobKey]string{}, map[string]bool{}
+	}
+	base := SafeName(l.Job)
+	if l.Stage != "" {
+		base = path.Join(SafeName(l.Stage), base)
+	}
+	d := base
+	for n := 2; w.taken[strings.ToLower(d)]; n++ {
+		d = fmt.Sprintf("%s_%d", base, n)
+	}
+	w.taken[strings.ToLower(d)] = true
+	w.dirs[key] = d
+	return d
 }
 
 // withLog opens l's log, hands it to use and closes it, naming the job and task on error.
@@ -131,7 +187,9 @@ func withLog(ctx context.Context, open LogOpener, l TaskLog, use func(io.Reader)
 func prefixLines(w io.Writer, r io.Reader, prefix string) error {
 	br := bufio.NewReader(r)
 	if b, err := br.Peek(3); err == nil && bytes.Equal(b, []byte("\ufeff")) {
-		_, _ = br.Discard(3)
+		if _, err := br.Discard(3); err != nil {
+			return err
+		}
 	}
 	atStart := true
 	for {

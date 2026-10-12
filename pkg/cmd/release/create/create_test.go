@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"testing"
+	"testing/synctest"
 
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/browsertest"
@@ -190,6 +193,37 @@ func TestReleaseCreateWatch(t *testing.T) {
 	assert.Contains(t, e.out.String(), strings.Replace(relCreateURL, "%s", e.org, 1))
 	assert.Contains(t, e.out.String(), "Release-1 ado-live-release · succeeded · ID 1")
 	e.reg.Verify(t)
+}
+
+// TestReleaseCreateWatchNothingStarts: with only manual environments nothing deploys, so
+// --watch gives up after its grace polls with a hint and exit 1 instead of waiting forever.
+func TestReleaseCreateWatchNothingStarts(t *testing.T) {
+	// The watch calls signal.NotifyContext: start the signal goroutines outside the bubble.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Stop(c)
+
+	e := newRelCreateEnv(t, false)
+	e.stubDefinition()
+	e.stubCreate(t)
+	var r map[string]any
+	require.NoError(t, json.Unmarshal(pipelinefixtures.Read(t, "release.json"), &r))
+	for _, env := range r["environments"].([]any) {
+		env := env.(map[string]any)
+		env["status"], env["deploySteps"] = "notStarted", []any{}
+	}
+	for range 3 {
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/proj/_apis/release/releases/1"), httpmock.JSONResponse(r))
+	}
+
+	var err error
+	synctest.Test(t, func(t *testing.T) {
+		err = e.run(t, "1", "--watch")
+	})
+	require.ErrorIs(t, err, cmdutil.SilentError)
+	e.reg.Verify(t)
+	assert.True(t, strings.HasSuffix(e.errOut.String(),
+		"no deployment started; deploy one with: ado release deploy 1 --environment <name>\n"), e.errOut.String())
 }
 
 func TestReleaseCreateErrors(t *testing.T) {

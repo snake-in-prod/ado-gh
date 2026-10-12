@@ -42,8 +42,8 @@ func TestReleaseClient_CreateDiscoveryErrors(t *testing.T) {
 	reg := &httpmock.Registry{} // no stubs: discovery fails
 	c := NewReleaseClient(NewHTTPClient(ClientOptions{Transport: reg}), "https://dev.azure.com/relcreatedisc", "proj")
 	_, err := c.ReleaseDefinition(ctx, 1)
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "no registered HTTP stubs matched OPTIONS https://dev.azure.com/relcreatedisc/_apis")
 	c = NewReleaseClient(NewHTTPClient(ClientOptions{Transport: reg}), "https://dev.azure.com/relcreatedisc2", "proj")
 	_, err = c.CreateRelease(ctx, release.ReleaseStartMetadata{})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "no registered HTTP stubs matched OPTIONS https://dev.azure.com/relcreatedisc2/_apis")
 }

@@ -67,11 +67,11 @@ variables, which the pipeline must allow to be set at queue time.`,
 }
 
 func runRun(ctx context.Context, f *cmdutil.Factory, o *options) error {
-	params, err := parsePairs("parameter", o.params)
+	params, err := shared.ParsePairs("parameter", "key=value", false, o.params)
 	if err != nil {
 		return err
 	}
-	vars, err := parsePairs("variable", o.vars)
+	vars, err := shared.ParsePairs("variable", "key=value", false, o.vars)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func runRun(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	name := prshared.Deref(def.Name)
-	yaml := isYAML(def)
+	yaml := shared.DefinitionType(def.Process) == "yaml"
 	if len(params) > 0 && !yaml {
 		return cmdutil.FlagErrorf("--parameter is supported only for YAML pipelines; pipeline %q is classic, use --variable", name)
 	}
@@ -241,24 +241,4 @@ func printSummary(ios *iostreams.IOStreams, b *build.Build, tl shared.Timeline) 
 	result := string(prshared.Deref(b.Result))
 	mark, color := shared.StatusMark(cs, string(prshared.Deref(b.Status)), result)
 	fmt.Fprintf(ios.Out, "%s Run %s (ID %d) completed: %s\n", color(mark), prshared.Deref(b.BuildNumber), prshared.Deref(b.Id), cmp.Or(result, "none"))
-}
-
-// parsePairs parses repeated key=value flag values; a later key wins.
-func parsePairs(flag string, pairs []string) (map[string]string, error) {
-	out := make(map[string]string, len(pairs))
-	for _, p := range pairs {
-		k, v, ok := strings.Cut(p, "=")
-		if !ok || strings.TrimSpace(k) == "" {
-			return nil, cmdutil.FlagErrorf("invalid --%s %q: expected key=value", flag, p)
-		}
-		out[k] = v
-	}
-	return out, nil
-}
-
-// isYAML reports whether d is a YAML pipeline (process type 2) rather than a classic one.
-func isYAML(d *build.BuildDefinition) bool {
-	p, _ := d.Process.(map[string]any)
-	t, _ := p["type"].(float64)
-	return t == 2
 }

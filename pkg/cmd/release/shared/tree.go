@@ -108,6 +108,8 @@ func (t Tree) jobs(env int, p release.ReleaseDeployPhase) []*pshared.Node {
 	var out []*pshared.Node
 	for _, dj := range djs {
 		n := nodeOf(prshared.Deref(dj.Job), "Job")
+		// Job IDs repeat across deploy phases; the phase makes them unique.
+		n.ID = strconv.Itoa(phaseID) + "." + n.ID
 		if len(djs) == 1 && prshared.Deref(p.Name) != "" {
 			n.Name = prshared.Deref(p.Name)
 		}
@@ -121,6 +123,24 @@ func (t Tree) jobs(env int, p release.ReleaseDeployPhase) []*pshared.Node {
 			n.Children = append(n.Children, tn)
 		}
 		out = append(out, n)
+	}
+	return out
+}
+
+// PendingApprovals returns the manual pre- and post-deployment approvals of envs still pending,
+// as the Waiting lines of a watch.
+func PendingApprovals(envs []Environment) []pshared.Pending {
+	var out []pshared.Pending
+	for _, e := range envs {
+		for _, a := range e.Approvals {
+			if a.Status != string(release.ApprovalStatusValues.Pending) || a.Automated {
+				continue
+			}
+			out = append(out, pshared.Pending{
+				ID: "release-approval-" + strconv.Itoa(a.ID), Type: "Checkpoint.Approval",
+				Name: a.Type, Stage: e.Name, State: "pending",
+			})
+		}
 	}
 	return out
 }

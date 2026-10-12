@@ -299,3 +299,26 @@ func TestGitPRLocations(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistry_OptionalStubs(t *testing.T) {
+	reg := &Registry{}
+	reg.StubLocations("org")
+	reg.RegisterOptional(REST(http.MethodGet, "used"), StringResponse("ok"))
+	reg.Register(REST(http.MethodGet, "required"), StringResponse("ok"))
+	c := &http.Client{Transport: reg}
+	if _, body := do(t, c, http.MethodGet, "https://x/used"); body != "ok" {
+		t.Fatalf("optional stub body = %q", body)
+	}
+
+	ft := &fakeT{}
+	reg.Verify(ft)
+	if len(ft.errs) != 1 || ft.errs[0] != "1 HTTP stubs unmatched" {
+		t.Errorf("errs = %v, want only the required stub reported", ft.errs)
+	}
+	do(t, c, http.MethodGet, "https://x/required")
+	ft = &fakeT{}
+	reg.Verify(ft)
+	if len(ft.errs) != 0 {
+		t.Errorf("unmatched optional discovery stub failed Verify: %v", ft.errs)
+	}
+}

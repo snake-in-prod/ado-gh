@@ -167,11 +167,7 @@ func TestRerunYAML(t *testing.T) {
 				}}},
 			}, body)
 			assert.Equal(t, "https://dev.azure.com/"+e.org+"/proj/_build/results?buildId=900\n", e.out.String())
-			if tty {
-				assert.Equal(t, "✓ Queued run 900 of ado-live\n", e.errOut.String())
-			} else {
-				assert.Empty(t, e.errOut.String())
-			}
+			assert.Equal(t, "✓ Queued run 900 of ado-live\n", e.errOut.String(), "progress goes to stderr, piped or not")
 		})
 	}
 }
@@ -244,11 +240,7 @@ func TestRerunFailedYAML(t *testing.T) {
 			require.NoError(t, e.run(t, "812", "--failed"))
 			assert.Equal(t, map[string]any{"state": "retry", "forceRetryAllJobs": false}, body)
 			assert.Equal(t, "https://dev.azure.com/"+e.org+"/proj/_build/results?buildId=812\n", e.out.String())
-			if tty {
-				assert.Equal(t, "✓ Retrying stage Fail of run 812\n", e.errOut.String())
-			} else {
-				assert.Empty(t, e.errOut.String())
-			}
+			assert.Equal(t, "✓ Retrying stage Fail of run 812\n", e.errOut.String(), "progress goes to stderr, piped or not")
 		})
 	}
 }
@@ -308,7 +300,8 @@ func TestRerunFailedNoFailedStages(t *testing.T) {
 }
 
 func TestRerunFailedStageServerError(t *testing.T) {
-	e := newPLRerunEnv(t, true)
+	// Piped: a script still learns which stages were retried before the failure.
+	e := newPLRerunEnv(t, false)
 	e.stubLocations()
 	e.stubBuild(plRerunBuild("completed", "failed"))
 	e.stubDefinition(t, true)

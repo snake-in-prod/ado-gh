@@ -174,7 +174,7 @@ func TestPLApproveSeveral(t *testing.T) {
 		{name: "non-TTY needs a flag", args: []string{"812"},
 			wantErr: "several approvals are pending (Deploy, Prod); pass --stage or --all", flagErr: true},
 		{name: "stage ignores case", args: []string{"812", "--stage", "prod"}, ids: []string{prodID}},
-		{name: "all in one PATCH", args: []string{"812", "--all"}, ids: []string{deployID, prodID}},
+		{name: "all one PATCH each", args: []string{"812", "--all"}, ids: []string{deployID, prodID}},
 		{name: "TTY select", tty: true, args: []string{"812"}, input: "2\n", ids: []string{prodID}},
 		{name: "unknown stage", args: []string{"812", "--stage", "QA"},
 			wantErr: `no pending approval for stage "QA"; pending: Deploy, Prod`},
@@ -184,8 +184,8 @@ func TestPLApproveSeveral(t *testing.T) {
 			e := newPLApproveEnv(t, tt.tty)
 			e.stubTimeline(plApproveTwoStages)
 			e.stubQuery(two...)
-			if tt.ids != nil {
-				e.stubPatch(plUpdated("approved", tt.ids...))
+			for _, id := range tt.ids {
+				e.stubPatch(plUpdated("approved", id))
 			}
 			e.in.WriteString(tt.input)
 
@@ -200,16 +200,33 @@ func TestPLApproveSeveral(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Len(t, e.patches, 1)
-			var body []map[string]any
-			require.NoError(t, json.Unmarshal([]byte(e.patches[0]), &body))
+			require.Len(t, e.patches, len(tt.ids))
 			var got []string
-			for _, b := range body {
-				got = append(got, b["approvalId"].(string))
+			for _, p := range e.patches {
+				var body []map[string]any
+				require.NoError(t, json.Unmarshal([]byte(p), &body))
+				require.Len(t, body, 1, "one approval per PATCH")
+				got = append(got, body[0]["approvalId"].(string))
 			}
 			assert.Equal(t, tt.ids, got)
 		})
 	}
+}
+
+func TestPLApproveAllPartialFailure(t *testing.T) {
+	// The caller approves Deploy but is not an approver of Prod: Deploy is still approved and
+	// reported, and the error names only Prod's approver.
+	e := newPLApproveEnv(t, false)
+	e.stubTimeline(plApproveTwoStages)
+	e.stubQuery(plApproval(deployID, 1, "Alice"), plApproval(prodID, 1, "Bob"))
+	e.stubPatch(plUpdated("approved", deployID))
+	e.stubPatch(httpmock.StatusJSONResponse(http.StatusBadRequest, map[string]any{"message": "not allowed"}))
+
+	err := e.run(t, false, "812", "--all")
+	e.reg.Verify(t)
+	require.EqualError(t, err, "could not approve Prod: not allowed (HTTP 400); approvers: Bob")
+	assert.Equal(t, "✓ Approved Deploy\n", e.errOut.String())
+	assert.Len(t, e.patches, 2)
 }
 
 func TestPLApproveStageAndAll(t *testing.T) {

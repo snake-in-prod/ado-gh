@@ -134,6 +134,8 @@ func TestPipelineClient_DefinitionsErrors(t *testing.T) {
 	require.ErrorAs(t, err, &he)
 	_, err = c.DefinitionsFull(ctx)
 	require.Error(t, err, "undecodable page")
+	assert.False(t, errors.As(err, &he), "a decode error, not an HTTP one: %v", err)
+	assert.ErrorContains(t, err, "json: cannot unmarshal")
 	_, err = c.Definition(ctx, 1)
 	require.ErrorAs(t, err, &he)
 }
@@ -229,7 +231,8 @@ func TestPipelineClient_SetQueueStatusConflict(t *testing.T) {
 	assert.True(t, IsNotFound(err), "err = %v", err)
 
 	_, err = c.SetQueueStatus(ctx, 4, build.DefinitionQueueStatusValues.Disabled)
-	assert.Error(t, err, "undecodable queueStatus")
+	var te *json.UnmarshalTypeError
+	assert.ErrorAs(t, err, &te, "undecodable queueStatus")
 }
 
 func TestPipelineClient_Builds(t *testing.T) {
@@ -434,7 +437,7 @@ func TestPipelineClient_Approvals(t *testing.T) {
 	assert.Equal(t, pipelinesapproval.ApprovalStatusValues.Pending, *got[0].Status)
 	q := reqs[0].URL.Query()
 	assert.Equal(t, id1.String()+","+id2.String(), q.Get("approvalIds"))
-	assert.Equal(t, "steps,permissions", q.Get("$expand"))
+	assert.Equal(t, "steps", q.Get("$expand"))
 
 	updated, err := c.UpdateApprovals(ctx, []uuid.UUID{id1}, pipelinesapproval.ApprovalStatusValues.Approved, "ship it")
 	require.NoError(t, err)

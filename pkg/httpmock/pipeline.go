@@ -83,6 +83,6 @@ func (r *Registry) StubVSRM(org string) {
 		ID: release.ResourceAreaId.String(), Name: "Release", LocationURL: "https://vsrm.dev.azure.com/" + org + "/",
 	})
 	options := REST(http.MethodOptions, org+"/_apis")
-	r.Register(func(req *http.Request) bool { return req.URL.Host == "vsrm.dev.azure.com" && options(req) },
+	r.RegisterOptional(func(req *http.Request) bool { return req.URL.Host == "vsrm.dev.azure.com" && options(req) },
 		locationsResponse(ReleaseLocations))
 }

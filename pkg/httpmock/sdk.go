@@ -49,9 +49,10 @@ type collection[T any] struct {
 // StubLocations registers the OPTIONS {basePath}/_apis call every SDK client makes before its
 // first request. basePath has no leading slash, e.g. "org", or is "" for a root base URL such as
 // https://{org}.visualstudio.com/. The SDK caches the result per base URL for the whole process,
-// so tests that register this stub must use a base URL of their own.
+// so tests that register this stub must use a base URL of their own; the stub is optional, so a
+// test run again in the same process (-count) finds it cached and still passes Verify.
 func (r *Registry) StubLocations(basePath string, locs ...Location) {
-	r.Register(REST(http.MethodOptions, strings.TrimPrefix(basePath+"/_apis", "/")), locationsResponse(locs))
+	r.RegisterOptional(REST(http.MethodOptions, strings.TrimPrefix(basePath+"/_apis", "/")), locationsResponse(locs))
 }
 
 // locationsResponse answers an OPTIONS {base}/_apis discovery call with locs.

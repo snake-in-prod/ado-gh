@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/release"
@@ -71,7 +72,7 @@ tries each in turn, and when the server refuses them all, the error names the ap
 		},
 	}
 	cmd.Flags().StringVarP(&o.comment, "comment", "c", "", "Comment to record with the decision")
-	cmd.Flags().StringVar(&o.environment, "environment", "", "Act on the approval of the environment `name`")
+	cmd.Flags().StringVar(&o.environment, "environment", "", "Act on the approvals of the environment with this `name` or ID")
 	cmd.Flags().BoolVar(&o.all, "all", false, "Act on every pending approval")
 	return cmd
 }
@@ -79,6 +80,7 @@ tries each in turn, and when the server refuses them all, the error names the ap
 // pending is the pending approval of one environment and type, with one record per approver.
 type pending struct {
 	env, kind string
+	envID     int
 	approvals []release.ReleaseApproval
 }
 
@@ -136,14 +138,14 @@ func pendingApprovals(ctx context.Context, c *api.ReleaseClient, id int) ([]pend
 		if prshared.Deref(a.Status) != status || prshared.Deref(a.IsAutomated) {
 			continue
 		}
-		env := ""
+		env, envID := "", 0
 		if a.ReleaseEnvironment != nil {
-			env = prshared.Deref(a.ReleaseEnvironment.Name)
+			env, envID = prshared.Deref(a.ReleaseEnvironment.Name), prshared.Deref(a.ReleaseEnvironment.Id)
 		}
 		kind := strings.TrimSuffix(string(prshared.Deref(a.ApprovalType)), "Deploy") + "-deployment"
 		i := slices.IndexFunc(out, func(p pending) bool { return p.env == env && p.kind == kind })
 		if i < 0 {
-			out = append(out, pending{env: env, kind: kind})
+			out = append(out, pending{env: env, kind: kind, envID: envID})
 			i = len(out) - 1
 		}
 		out[i].approvals = append(out[i].approvals, a)
@@ -157,7 +159,9 @@ func choose(f *cmdutil.Factory, o *options, all []pending) ([]pending, error) {
 	case o.all:
 		return all, nil
 	case o.environment != "":
-		sel := slices.DeleteFunc(slices.Clone(all), func(p pending) bool { return !strings.EqualFold(p.env, o.environment) })
+		sel := slices.DeleteFunc(slices.Clone(all), func(p pending) bool {
+			return !strings.EqualFold(p.env, o.environment) && (p.envID == 0 || strconv.Itoa(p.envID) != o.environment)
+		})
 		if len(sel) == 0 {
 			return nil, fmt.Errorf("no pending approval for environment %q; pending: %s", o.environment, labels(all))
 		}

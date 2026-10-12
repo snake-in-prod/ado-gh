@@ -2,6 +2,7 @@
 package watch
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -18,6 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// idlePolls is how many polls in a row with nothing deploying or deployed end a watch: enough
+// for an automated trigger to start its deployment.
+const idlePolls = 3
+
 type options struct {
 	ref, environment string
 	interval         int
@@ -31,7 +36,8 @@ func NewCmdWatch(f *cmdutil.Factory) *cobra.Command {
 		Short: "Watch a release until its deployments complete",
 		Long: `Watch the environments of a Classic Release until none is deploying and at least one
 has been deployed, then print a summary. Environments never deployed (e.g. manual
-ones) don't hold the watch; --environment watches only one.
+ones) don't hold the watch; --environment watches only one. When no watched environment
+starts deploying within 3 polls, the watch stops with exit status 1.
 
 <release> is a release ID or URL.
 
@@ -83,6 +89,8 @@ func Release(ctx context.Context, ios *iostreams.IOStreams, c *api.ReleaseClient
 		r    *release.Release
 		envs []shared.Environment
 		err  error
+		// idle counts the polls in a row with no watched environment deploying or deployed.
+		idle int
 	)
 	w := &pshared.Watch{
 		Interval: interval,
@@ -101,22 +109,32 @@ func Release(ctx context.Context, ios *iostreams.IOStreams, c *api.ReleaseClient
 				}
 				envs, nodes = envs[i:i+1], nodes[i:i+1]
 			}
-			return pshared.Timeline{Nodes: nodes}, nil
+			return pshared.Timeline{Nodes: nodes, Pending: shared.PendingApprovals(envs)}, nil
 		},
 		Done: func(pshared.Timeline) bool {
 			deployed := false
 			for _, e := range envs {
 				res, active := outcome(e, stepStatus(*r, e))
 				if active {
+					idle = 0
 					return false
 				}
 				deployed = deployed || res != ""
 			}
-			// ponytail: an environment triggered by another's success may still read notStarted
-			// right after it; require two idle polls if live runs show that gap.
-			return deployed
+			if deployed {
+				return true
+			}
+			// Nothing deploying and nothing deployed: an automated trigger may not have started
+			// yet, so give it a few polls before giving up.
+			idle++
+			return idle >= idlePolls
 		},
 		Summary: func(tl pshared.Timeline) error {
+			if idle >= idlePolls {
+				fmt.Fprintf(ios.ErrOut, "no deployment started; deploy one with: ado release deploy %d --environment %s\n",
+					id, cmp.Or(environment, "<name>"))
+				return cmdutil.SilentError
+			}
 			return printSummary(ios, project, *r, envs, tl)
 		},
 	}

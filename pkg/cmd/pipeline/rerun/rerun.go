@@ -93,13 +93,13 @@ func runRerun(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	yaml := isYAML(def)
+	yaml := shared.DefinitionType(def.Process) == "yaml"
 
 	ios := f.IOStreams
+	// Progress goes to stderr even when piped: after a partial stage retry, scripts must see
+	// which stages are running again.
 	status := func(format string, args ...any) {
-		if ios.IsStdoutTTY() {
-			fmt.Fprintf(ios.ErrOut, "%s %s\n", ios.ColorScheme().Green("✓"), fmt.Sprintf(format, args...))
-		}
+		fmt.Fprintf(ios.ErrOut, "%s %s\n", ios.ColorScheme().Green("✓"), fmt.Sprintf(format, args...))
 	}
 	newID := id
 	switch {
@@ -216,11 +216,4 @@ func retryableStages(records []build.TimelineRecord) []string {
 		out[i] = prshared.Deref(s.Identifier)
 	}
 	return out
-}
-
-// isYAML reports whether d is a YAML pipeline (process type 2) rather than a classic one.
-func isYAML(d *build.BuildDefinition) bool {
-	p, _ := d.Process.(map[string]any)
-	t, _ := p["type"].(float64)
-	return t == 2
 }

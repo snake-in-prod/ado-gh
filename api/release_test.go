@@ -268,7 +268,7 @@ func TestReleaseClient_UpdateApproval(t *testing.T) {
 
 	bad := NewReleaseClient(NewHTTPClient(ClientOptions{Transport: &httpmock.Registry{}}), "https://dev.azure.com/relupdapprdisc", "proj")
 	_, err = bad.UpdateApproval(context.Background(), 4, release.ApprovalStatusValues.Approved, "")
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "no registered HTTP stubs matched OPTIONS https://dev.azure.com/relupdapprdisc/_apis", "discovery fails")
 }
 
 func TestReleaseClient_Logs(t *testing.T) {

@@ -345,21 +345,17 @@ func runDefinitions(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
-	folder := strings.ToLower(shared.NormalizeFolder(o.folder))
-	match := strings.ToLower(o.match)
-	defs = slices.DeleteFunc(defs, func(d build.BuildDefinition) bool {
-		if !o.all && queueStatus(d) != string(build.DefinitionQueueStatusValues.Enabled) {
-			return true
+	kept := defs[:0]
+	for _, d := range defs {
+		ok, err := keepDefinition(o, d)
+		if err != nil {
+			return err
 		}
-		p := strings.ToLower(shared.NormalizeFolder(prshared.Deref(d.Path)))
-		if o.folder != "" && p != folder && !strings.HasPrefix(p, strings.TrimSuffix(folder, `\`)+`\`) {
-			return true
+		if ok {
+			kept = append(kept, d)
 		}
-		if ok, _ := path.Match(match, strings.ToLower(prshared.Deref(d.Name))); o.match != "" && !ok {
-			return true
-		}
-		return false
-	})
+	}
+	defs = kept
 	slices.SortStableFunc(defs, func(a, b build.BuildDefinition) int {
 		return cmp.Or(
 			cmp.Compare(strings.ToLower(prshared.Deref(a.Path)), strings.ToLower(prshared.Deref(b.Path))),
@@ -389,7 +385,7 @@ func runDefinitions(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		tp.AddField(strconv.Itoa(prshared.Deref(d.Id)), tableprinter.WithColor(cs.Cyan))
 		tp.AddField(tableprinter.OneLine(prshared.Deref(d.Name)))
 		tp.AddField(tableprinter.OneLine(prshared.Deref(d.Path)), tableprinter.WithColor(cs.Gray))
-		tp.AddField(defType(d))
+		tp.AddField(shared.DefinitionType(d.Process))
 		var repo string
 		if d.Repository != nil {
 			repo = prshared.Deref(d.Repository.Name)
@@ -411,10 +407,33 @@ func runDefinitions(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	return tp.Render()
 }
 
+// keepDefinition reports whether d passes the --all, --folder and --match filters. A malformed
+// --match pattern is an error, never a silent mismatch.
+func keepDefinition(o *options, d build.BuildDefinition) (bool, error) {
+	if !o.all && queueStatus(d) != string(build.DefinitionQueueStatusValues.Enabled) {
+		return false, nil
+	}
+	if o.folder != "" {
+		folder := strings.ToLower(shared.NormalizeFolder(o.folder))
+		p := strings.ToLower(shared.NormalizeFolder(prshared.Deref(d.Path)))
+		if p != folder && !strings.HasPrefix(p, strings.TrimSuffix(folder, `\`)+`\`) {
+			return false, nil
+		}
+	}
+	if o.match == "" {
+		return true, nil
+	}
+	ok, err := path.Match(strings.ToLower(o.match), strings.ToLower(prshared.Deref(d.Name)))
+	if err != nil {
+		return false, cmdutil.FlagErrorf("invalid --match pattern %q", o.match)
+	}
+	return ok, nil
+}
+
 func toDefJSON(project adocontext.Repo, d build.BuildDefinition) defJSON {
 	id := prshared.Deref(d.Id)
 	out := defJSON{
-		ID: id, Name: prshared.Deref(d.Name), Path: prshared.Deref(d.Path), Type: defType(d),
+		ID: id, Name: prshared.Deref(d.Name), Path: prshared.Deref(d.Path), Type: shared.DefinitionType(d.Process),
 		QueueStatus: queueStatus(d), URL: adocontext.PipelineURL(project, id),
 	}
 	if r := d.Repository; r != nil {
@@ -431,16 +450,4 @@ func toDefJSON(project adocontext.Repo, d build.BuildDefinition) defJSON {
 // queueStatus is d's queue status, enabled when the definition names none.
 func queueStatus(d build.BuildDefinition) string {
 	return string(cmp.Or(prshared.Deref(d.QueueStatus), build.DefinitionQueueStatusValues.Enabled))
-}
-
-// defType is yaml or classic by d's process type (2 or 1), else empty.
-func defType(d build.BuildDefinition) string {
-	p, _ := d.Process.(map[string]any)
-	switch t, _ := p["type"].(float64); t {
-	case 1:
-		return "classic"
-	case 2:
-		return "yaml"
-	}
-	return ""
 }

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
 	"github.com/snake-in-prod/ado-gh/api"
@@ -122,14 +124,44 @@ func ParseRunRef(ref string) (int, adocontext.Repo, error) {
 // which of the newest runs matching args (e.g. a definition and branch, or in-progress runs)
 // to use; otherwise it errors naming the missing argument, before any request.
 func SelectRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, args build.GetBuildsArgs) (int, error) {
+	return selectRuns(ctx, f, c, args)
+}
+
+// SelectActiveRun is SelectRun over the project's runs that have not completed: in progress or
+// still queued (notStarted), newest queued first.
+func SelectActiveRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient) (int, error) {
+	inProgress, notStarted := build.BuildStatusValues.InProgress, build.BuildStatusValues.NotStarted
+	return selectRuns(ctx, f, c, build.GetBuildsArgs{StatusFilter: &inProgress}, build.GetBuildsArgs{StatusFilter: &notStarted})
+}
+
+// selectRuns prompts over the newest selectRunLimit runs matching any of queries, merged newest
+// queued first.
+func selectRuns(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, queries ...build.GetBuildsArgs) (int, error) {
 	if !f.IOStreams.CanPrompt() {
 		return 0, cmdutil.FlagErrorf("<run> argument required when not running interactively")
 	}
-	top := selectRunLimit
-	args.Top = &top
-	runs, _, err := c.Builds(ctx, args)
-	if err != nil {
-		return 0, err
+	var runs []build.Build
+	for _, args := range queries {
+		top := selectRunLimit
+		args.Top = &top
+		page, _, err := c.Builds(ctx, args)
+		if err != nil {
+			return 0, err
+		}
+		runs = append(runs, page...)
+	}
+	if len(queries) > 1 {
+		slices.SortStableFunc(runs, func(a, b build.Build) int {
+			var ta, tb time.Time
+			if t := api.TimeOf(a.QueueTime); t != nil {
+				ta = *t
+			}
+			if t := api.TimeOf(b.QueueTime); t != nil {
+				tb = *t
+			}
+			return tb.Compare(ta)
+		})
+		runs = runs[:min(len(runs), selectRunLimit)]
 	}
 	if len(runs) == 0 {
 		return 0, errors.New("no recent runs found; pass a run ID")
@@ -159,9 +191,11 @@ func SelectRepoRun(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClien
 	if f.IOStreams.CanPrompt() && project.Name != "" && f.BaseRepoFromGit() {
 		if def, err := DefaultDefinition(ctx, f, c, project.Name); err == nil {
 			args.Definitions = &[]int{prshared.Deref(def.Id)}
-			if branch, err := f.GitClient.CurrentBranch(ctx); err == nil {
-				ref := "refs/heads/" + branch
-				args.BranchName = &ref
+			if f.GitClient != nil {
+				if branch, err := f.GitClient.CurrentBranch(ctx); err == nil {
+					ref := "refs/heads/" + branch
+					args.BranchName = &ref
+				}
 			}
 		}
 	}

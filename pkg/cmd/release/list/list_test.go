@@ -189,7 +189,7 @@ func TestReleaseListJSON(t *testing.T) {
 		"environments": []any{
 			map[string]any{"name": "Dev", "status": "succeeded"}, map[string]any{"name": "Prod", "status": "inProgress"},
 		},
-		"url": "https://dev.azure.com/" + e.org + "/My%20Proj/_releaseProgress?_a=release-pipeline-progress&releaseId=1",
+		"url": "https://dev.azure.com/" + e.org + "/My%20Proj/_release?releaseId=1&_a=release-summary", // same URL as release view
 	}}, got)
 }
 

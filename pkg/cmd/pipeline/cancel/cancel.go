@@ -27,7 +27,7 @@ func NewCmdCancel(f *cmdutil.Factory) *cobra.Command {
 		Long: `Cancel a run: its status becomes cancelling until its agents stop.
 
 <run> is a run ID or URL. Without it, you are asked to pick one of the project's
-in-progress runs.
+in-progress or queued runs.
 
 On a terminal, ado asks for confirmation; --yes skips that and is required when not
 running interactively. A completed run cannot be canceled.`,
@@ -68,8 +68,7 @@ func runCancel(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	if id == 0 {
-		status := build.BuildStatusValues.InProgress
-		if id, err = shared.SelectRun(ctx, f, c, build.GetBuildsArgs{StatusFilter: &status}); err != nil {
+		if id, err = shared.SelectActiveRun(ctx, f, c); err != nil {
 			return err
 		}
 	}

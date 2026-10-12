@@ -102,7 +102,7 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	if id == 0 {
-		if id, err = shared.SelectRun(ctx, f, c, selectArgs(ctx, f, c, project)); err != nil {
+		if id, err = shared.SelectRepoRun(ctx, f, c, project); err != nil {
 			return err
 		}
 	}
@@ -143,28 +143,6 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		return err
 	}
 	return shared.ResultExitError(data.Result)
-}
-
-// selectArgs narrows the run prompt to the current repository's pipeline on the current
-// branch when they resolve, else leaves it at the project's runs.
-func selectArgs(ctx context.Context, f *cmdutil.Factory, c *api.PipelineClient, project adocontext.Repo) build.GetBuildsArgs {
-	var args build.GetBuildsArgs
-	// SelectRun fails before any request when it can't prompt.
-	if !f.IOStreams.CanPrompt() || !f.BaseRepoFromGit() || project.Name == "" {
-		return args
-	}
-	def, err := shared.DefaultDefinition(ctx, f, c, project.Name)
-	if err != nil || def.Id == nil {
-		return args
-	}
-	args.Definitions = &[]int{*def.Id}
-	if f.GitClient != nil {
-		if branch, err := f.GitClient.CurrentBranch(ctx); err == nil {
-			ref := "refs/heads/" + branch
-			args.BranchName = &ref
-		}
-	}
-	return args
 }
 
 func printLogs(ctx context.Context, w io.Writer, c *api.PipelineClient, id int, nodes []*shared.Node, o *options) error {

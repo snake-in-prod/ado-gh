@@ -89,6 +89,8 @@ func runLogs(ctx context.Context, f *cmdutil.Factory, o *options) error {
 
 	ios := f.IOStreams
 	open := shared.BuildLogOpener(c, id)
+	// One writer for every batch, so --follow keeps each job in one directory.
+	writer := &shared.LogWriter{Dir: o.output}
 	n := 0
 	emit := func(logs []shared.TaskLog) error {
 		if len(logs) == 0 {
@@ -96,7 +98,7 @@ func runLogs(ctx context.Context, f *cmdutil.Factory, o *options) error {
 		}
 		n += len(logs)
 		if o.output != "" {
-			return shared.WriteLogs(ctx, o.output, open, logs)
+			return writer.Write(ctx, open, logs)
 		}
 		return shared.PrintLogs(ctx, ios.Out, open, logs)
 	}

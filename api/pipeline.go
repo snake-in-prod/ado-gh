@@ -134,7 +134,11 @@ func (c *PipelineClient) setQueueStatus(ctx context.Context, id int, status buil
 	if prev == status {
 		return prev, nil
 	}
-	def["queueStatus"], _ = json.Marshal(status) // a string always marshals
+	raw, err := json.Marshal(status)
+	if err != nil {
+		return prev, err
+	}
+	def["queueStatus"] = raw
 	body, err := json.Marshal(def)
 	if err != nil {
 		return prev, err
@@ -252,11 +256,11 @@ func (c *PipelineClient) RunPipeline(ctx context.Context, pipelineID int, params
 	return run, mapErr(err)
 }
 
-// approvalExpand asks for the approval steps (approvers, comments) and the caller's permissions.
-var approvalExpand = pipelinesapproval.ApprovalDetailsExpandParameter("steps,permissions")
+// approvalExpand asks for the approval steps (approvers, comments).
+var approvalExpand = pipelinesapproval.ApprovalDetailsExpandParameter("steps")
 
 // QueryApprovals fetches the approvals ids (from a run's Checkpoint.Approval timeline records) with
-// their steps and the caller's permissions.
+// their steps.
 func (c *PipelineClient) QueryApprovals(ctx context.Context, ids []uuid.UUID) ([]pipelinesapproval.Approval, error) {
 	got, err := c.Approvals.QueryApprovals(ctx, pipelinesapproval.QueryApprovalsArgs{Project: &c.Project, ApprovalIds: &ids, Expand: &approvalExpand})
 	if err != nil {

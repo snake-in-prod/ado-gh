@@ -174,23 +174,32 @@ func TestPLCancelConfirm(t *testing.T) {
 	})
 }
 
-func TestPLCancelPromptsForInProgressRun(t *testing.T) {
+func TestPLCancelPromptsForActiveRuns(t *testing.T) {
 	e := newPLCancelEnv(t, true)
-	e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/build/builds"), func(r *http.Request) (*http.Response, error) {
-		e.runQueries = append(e.runQueries, r.URL.Query())
-		return httpmock.JSONResponse(map[string]any{"count": 1, "value": []any{map[string]any{
-			"id": 812, "status": "inProgress", "buildNumber": "20261001.1",
-			"sourceBranch": "refs/heads/main", "definition": map[string]any{"id": 1, "name": "ado-gh"},
-		}}})(r)
-	})
+	// In-progress and queued runs both count, merged newest queued first: the queued 813 comes
+	// before the in-progress 812, so the second option is 812.
+	byStatus := map[string]map[string]any{
+		"inProgress": {"id": 812, "status": "inProgress", "buildNumber": "20261001.1", "queueTime": "2026-10-01T10:00:00Z",
+			"sourceBranch": "refs/heads/main", "definition": map[string]any{"id": 1, "name": "ado-gh"}},
+		"notStarted": {"id": 813, "status": "notStarted", "buildNumber": "20261001.2", "queueTime": "2026-10-01T10:05:00Z",
+			"sourceBranch": "refs/heads/main", "definition": map[string]any{"id": 1, "name": "ado-gh"}},
+	}
+	for range 2 {
+		e.reg.Register(httpmock.REST(http.MethodGet, e.org+"/My%20Proj/_apis/build/builds"), func(r *http.Request) (*http.Response, error) {
+			e.runQueries = append(e.runQueries, r.URL.Query())
+			run := byStatus[r.URL.Query().Get("statusFilter")]
+			return httpmock.JSONResponse(map[string]any{"count": 1, "value": []any{run}})(r)
+		})
+	}
 	e.stubGet("inProgress")
 	e.stubPatch(t, "cancelling")
-	e.in.WriteString("1\ny\n")
+	e.in.WriteString("2\ny\n")
 
 	require.NoError(t, e.run(t))
 	e.reg.Verify(t)
-	require.Len(t, e.runQueries, 1)
+	require.Len(t, e.runQueries, 2)
 	assert.Equal(t, "inProgress", e.runQueries[0].Get("statusFilter"))
+	assert.Equal(t, "notStarted", e.runQueries[1].Get("statusFilter"))
 	assert.Equal(t, []string{"GET", "PATCH cancelling"}, e.calls)
 }
 

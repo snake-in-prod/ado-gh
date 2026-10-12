@@ -161,6 +161,7 @@ func TestRelApproveSeveral(t *testing.T) {
 		{name: "non-TTY needs a flag", args: []string{"1"},
 			wantErr: "several approvals are pending (Dev post-deployment, Prod pre-deployment); pass --environment or --all", flagErr: true},
 		{name: "environment ignores case", args: []string{"1", "--environment", "prod"}, ids: []int{4}},
+		{name: "environment by ID", args: []string{"1", "--environment", "2"}, ids: []int{4}},
 		{name: "all", args: []string{"1", "--all"}, ids: []int{13, 4}},
 		{name: "TTY select", tty: true, args: []string{"1"}, input: "2\n", ids: []int{4}},
 		{name: "unknown environment", args: []string{"1", "--environment", "QA"},
@@ -188,7 +189,8 @@ func TestRelApproveSeveral(t *testing.T) {
 			var got []int
 			for _, p := range e.patches {
 				var id int
-				_, _ = fmt.Sscan(p, &id)
+				_, err := fmt.Sscan(p, &id)
+				require.NoError(t, err)
 				got = append(got, id)
 			}
 			assert.Equal(t, tt.ids, got)

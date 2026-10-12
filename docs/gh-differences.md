@@ -670,7 +670,8 @@ skipped.
   stage or job state change.
 - `ado pipeline logs` has no `gh` counterpart. It prints the logs of completed
   tasks (`--job`, `--task`, `--failed` filter them), or writes them to
-  `<dir>/<stage>/<job>/<NN>_<task>.log` with `-o/--output`. Azure DevOps serves
+  `<dir>/<stage>/<job>/<NN>_<task>.log` with `-o/--output` (a job whose
+  directory name another job already uses gets a `_2`, `_3`, ... suffix). Azure DevOps serves
   only the logs of **completed** tasks, so `-f/--follow` prints each task's log
   when the task completes, not line by line.
 - Agentless (server) tasks have no logs.
@@ -705,7 +706,8 @@ skipped.
 
 - `approve` and `reject` act on a run's pending stage approvals; `gh` has
   nothing like them. With several pending, a terminal asks which; otherwise
-  pass `--stage <name>` or `--all`. `-c/--comment` records a comment. When an
+  pass `--stage <name>` or `--all`, which acts on each approval in turn and
+  reports the ones the server refused. `-c/--comment` records a comment. When an
   approval needs more approvers, ado prints "Approved (1 of 2 required); still
   waiting" and exits 0. Whether you may approve is up to the server; when it
   refuses, the error names the approvers. Other checks (business hours, Azure
@@ -739,7 +741,10 @@ counterpart. A release is an ID or URL; a release definition is an ID or name.
 - `watch` exits 0 if every deployed environment succeeded, 1 if any was
   rejected, failed or partially succeeded, and 2 if any was canceled. A failed
   deployment and a rejected approval both leave the environment "rejected";
-  the summary tells them apart.
+  the summary tells them apart. Pending manual approvals show as "approval
+  pending" lines while watching. When no watched environment starts deploying
+  within three polls (e.g. only manual environments), `watch` and
+  `create --watch` stop with exit 1 and suggest `ado release deploy`.
 
 Organizations created since 2023 block **creating** classic build and release
 pipelines until an organization admin turns off "Disable creation of classic

@@ -5,8 +5,9 @@
 - Module path: `github.com/snake-in-prod/ado-gh`; binary name: `ado`.
 
 ## Azure DevOps API
-- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`** pinned at `v7.1.0`: typed clients for Git (repos, PRs), Work Item Tracking, Work (iterations, boards), Build/Pipelines, Core (projects, teams). Work Item Search goes through the `almsearch` host. Clients are built as `<pkg>.ClientImpl` over `azuredevops.NewClientWithOptions(..., WithHTTPClient(shared))` with an empty `AuthorizationString`; auth lives only in ado's RoundTripper (the SDK is mostly dormant and has no transport hook).
+- **`github.com/microsoft/azure-devops-go-api/azuredevops/v7`** pinned at `v7.1.0`: typed clients for Git (repos, PRs), Work Item Tracking, Work (iterations, boards), Build/Pipelines (+ pipeline approvals), Release, Core (projects, teams). Work Item Search goes through the `almsearch` host and Classic Release through `vsrm`, both found via the resource-area lookup. Clients are built as `<pkg>.ClientImpl` over `azuredevops.NewClientWithOptions(..., WithHTTPClient(shared))` with an empty `AuthorizationString`; auth lives only in ado's RoundTripper (the SDK is mostly dormant and has no transport hook).
 - **`net/http`** raw client for `ado api` and for endpoints the SDK lacks. It shares auth, user-agent and debug-logging transport with the SDK.
+- The shared transport strips `Authorization` on cross-host redirects (signed blob URLs for artifacts), and `--debug` logs request URLs without their query string.
 - Every request sends `X-TFS-FedAuthRedirect: Suppress`; 401 and 203 (sign-in page) map to exit code 4.
 - Target: Azure DevOps Services (`dev.azure.com`, `*.visualstudio.com`). Host is configurable to leave room for Azure DevOps Server later.
 

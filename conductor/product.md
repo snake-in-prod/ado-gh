@@ -21,7 +21,8 @@ Today's Azure DevOps terminal tooling (`az devops` extension, raw REST) is verbo
 - **`pr`**: create, list, view, checkout, diff, review/approve/vote, comment, merge/complete, close/abandon, status, reviewers.
 - **`workitem`** (aliases `wi`, `issue`): create, list, view, edit, close, reopen, comment, assign, link, unlink, delete, restore; `query` for WIQL and saved queries; process-aware types and states.
 - **`sprint`** (list, current, view, board) and **`board`** (team Kanban board).
-- **`pipeline`** (alias `run`): list, run/trigger, view, watch, logs, cancel, rerun.
+- **`pipeline`** (alias `run`): list (runs or `-d` definitions), run, view, watch, logs, cancel, rerun (`--failed`), download, approve/reject, enable/disable.
+- **`release`** (Classic Release): list, view, logs, watch, create, deploy, cancel, approve/reject.
 
 ### Cross-cutting
 - **Auth:** `ado auth login|logout|status|token`, using Personal Access Tokens and Microsoft Entra ID (interactive/device-code). Credentials stored in the OS keychain.

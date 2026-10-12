@@ -1,0 +1,70 @@
+{
+ "count": 1,
+ "value": [
+  {
+   "id": 1,
+   "name": "Release-1",
+   "status": "active",
+   "createdOn": "2026-10-12T06:58:10.06Z",
+   "modifiedOn": "2026-10-12T06:58:10.06Z",
+   "modifiedBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "createdBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "createdFor": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "variables": {},
+   "variableGroups": [],
+   "releaseDefinition": {
+    "id": 1,
+    "name": "ado-live-release",
+    "path": "\\ado-live",
+    "projectReference": null,
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+    "_links": {
+     "self": {
+      "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1"
+     },
+     "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?definitionId=1"
+     }
+    }
+   },
+   "releaseDefinitionRevision": 1,
+   "description": "ado live read fixtures",
+   "reason": "manual",
+   "releaseNameFormat": "Release-$(rev:r)",
+   "keepForever": false,
+   "definitionSnapshotRevision": 1,
+   "logsContainerUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/1/logs",
+   "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/1",
+   "_links": {
+    "self": {
+     "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/1"
+    },
+    "web": {
+     "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?releaseId=1&_a=release-summary"
+    }
+   },
+   "tags": [],
+   "triggeringArtifactAlias": null,
+   "projectReference": {
+    "id": "00000000-0000-0000-0000-000000000903",
+    "name": "proj"
+   },
+   "properties": {}
+  }
+ ]
+}

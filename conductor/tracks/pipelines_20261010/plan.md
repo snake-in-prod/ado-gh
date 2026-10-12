@@ -79,15 +79,15 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 3: run, watch, cancel, rerun' (Protocol in workflow.md)
     - [x] Confirm live: downstream behaviour of a 7.1 stage retry, classic `retry=true` behaviour
 
-## Phase 4: `download`, `approve`/`reject`, `enable`/`disable`
+## Phase 4: `download`, `approve`/`reject`, `enable`/`disable` [checkpoint: 339635a]
 
-- [x] Task: `ado pipeline download` `34ec960`
+- [x] Task: `ado pipeline download` `339635a`
     - [x] Write tests: `-n` / `-p` selection; `resource.downloadUrl` fetched with the authenticated client, streamed to a temp file, then `zip.OpenReader`, no `Client.Timeout`; case-insensitive type match; pipeline and container artifacts extracted as in gh: a single `-n` directly into `<dir>`, several (or `-p`, or none) into `<dir>/<artifact>`; one top-level folder equal to the artifact name stripped; file-share (`FilePath` or nil type with id 0) skipped showing the UNC path, other types skipped with a warning; shared extraction helper (artifact name validated, `\` rejected, `fs.ValidPath` + `filepath.Localize`, `os.OpenRoot`, symlink/non-regular entries skipped, bytes capped per entry); zip-slip entries rejected (`../x`, `/abs`, `a\..\b`, `C:x`, `NUL`, symlink); existing `<dir>/<artifact>` errors without `--clobber`, and `--clobber` removes it and re-extracts into a fresh directory; single `-n` into `<dir>`: existing files that would be overwritten error without `--clobber` and are overwritten with it (`<dir>` itself is never removed); never `$expand=signedContent`, signed URLs never printed or in JSON
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline approve` / `reject` `5277a7c`
+- [x] Task: `ado pipeline approve` / `reject` `339635a`
     - [x] Write tests: timeline → `QueryApprovals(ids, $expand=steps)` → pending; single pending approval acted on with comment, several → TTY select / `--stage` / `--all` (one PATCH) / non-TTY error, none pending → exit 1; `inSequence` steps `uninitiated`; approve with `minRequiredApprovers > 1` not yet met → exit 0 with "Approved (1 of 2 required); still waiting"; not approver: PATCH sent and a 4xx wrapped with the approver names from `steps[].assignedApprover`; 401/403 scope hint per operation (`vso.build` for query, `vso.build_execute`/`vso.pipelineresources_use` for update)
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline enable` / `disable` `bd51a7b`
+- [x] Task: `ado pipeline enable` / `disable` `339635a`
     - [x] Write tests: raw-map GET + PUT with revision changing only `queueStatus`, one asserted api-version; enable turns paused or disabled into enabled, disable turns anything into disabled, no pause support; already in state (exact value) → exit 0; revision conflict (409 fixture) → GET and PUT retried once automatically, then fail with the conflict message
     - [x] Implement; classify in `TestWebFlagAudit`
 - [x] Task: Conductor - User Manual Verification 'Phase 4: download, approve/reject, enable/disable' (Protocol in workflow.md)
@@ -95,21 +95,21 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 
 ## Phase 5: `ado release` (Read)
 
-- [ ] Task: Release API layer and fixtures
-    - [ ] Fixtures: release definitions, releases with multiple environments, deploy steps, pending pre/post approvals; ResourceAreas stubbed on the org and Locations on the vsrm base, plus an org without a release area (on-prem fallback)
-    - [ ] Write tests: `api/release.go` builds `release.ClientImpl` via the unexported `areaClient(..., release.ResourceAreaId)`, resolving the `vsrm` host for dev.azure.com and visualstudio.com orgs; wrappers for list/get/logs/approvals; shared pager stores string tokens and `Atoi`s them for releases/approvals
-    - [ ] Implement
-- [ ] Task: `ado release list`
-    - [ ] Write tests: filters (`-u` resolved to an identity for `createdBy`), `-d` definitions, TTY/TSV, JSON fields
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado release view` / `logs`
-    - [ ] Write tests: GET release with `$expand=tasks`, environments + deploy steps tree via shared renderer, approvals section, `--log`, `--log-failed` (`GetTaskLog` with `ReleaseDeployPhase.Id` + `ReleaseTask.Id`), `logs --environment/--failed/-o` (optional `GetLogs` zip for `-o`), JSON, `-w`
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado release watch`
-    - [ ] Write tests: shared watch loop over environments, `--environment` filter, exit codes across watched environments (`rejected`/`partiallySucceeded` → 1, `canceled` → 2); a `rejected` environment exits 1 whether from a failed deployment or an approval rejection, and the output tells them apart via deploy-step `operationStatus` (fixture with the latest deploy step `<failed, phaseFailed>`); fall back to deploy-step `status`/`operationStatus`
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: ado release (Read)' (Protocol in workflow.md)
-    - [ ] Confirm live: `ReleaseDeployPhase.Id` for task logs, environment status for failed deployments, Entra bearer token on vsrm
+- [x] Task: Release API layer and fixtures `11024f1`
+    - [x] Fixtures: release definitions, releases with multiple environments, deploy steps, pending pre/post approvals; ResourceAreas stubbed on the org and Locations on the vsrm base, plus an org without a release area (on-prem fallback)
+    - [x] Write tests: `api/release.go` builds `release.ClientImpl` via the unexported `areaClient(..., release.ResourceAreaId)`, resolving the `vsrm` host for dev.azure.com and visualstudio.com orgs; wrappers for list/get/logs/approvals; shared pager stores string tokens and `Atoi`s them for releases/approvals
+    - [x] Implement
+- [x] Task: `ado release list` `0e9590d`
+    - [x] Write tests: filters (`-u` resolved to an identity for `createdBy`), `-d` definitions, TTY/TSV, JSON fields
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado release view` / `logs` `6ff8e5e`
+    - [x] Write tests: GET release with `$expand=tasks`, environments + deploy steps tree via shared renderer, approvals section, `--log`, `--log-failed` (`GetTaskLog` with `ReleaseDeployPhase.Id` + `ReleaseTask.Id`), `logs --environment/--failed/-o` (optional `GetLogs` zip for `-o`), JSON, `-w`
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado release watch` `fc6d824`
+    - [x] Write tests: shared watch loop over environments, `--environment` filter, exit codes across watched environments (`rejected`/`partiallySucceeded` → 1, `canceled` → 2); a `rejected` environment exits 1 whether from a failed deployment or an approval rejection, and the output tells them apart via deploy-step `operationStatus` (fixture with the latest deploy step `<failed, phaseFailed>`); fall back to deploy-step `status`/`operationStatus`
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: Conductor - User Manual Verification 'Phase 5: ado release (Read)' (Protocol in workflow.md)
+    - [x] Confirm live: `ReleaseDeployPhase.Id` for task logs, environment status for failed deployments, Entra bearer token on vsrm
 
 ## Phase 6: `ado release` (Write), Web, Docs
 

@@ -1,0 +1,259 @@
+{
+ "id": 3,
+ "name": "Release-3",
+ "status": "active",
+ "reason": "manual",
+ "description": "hotfix",
+ "createdOn": "2026-10-12T08:00:00Z",
+ "createdBy": {
+  "displayName": "Test User",
+  "id": "00000000-0000-0000-0000-000000000940"
+ },
+ "releaseDefinition": {
+  "id": 1,
+  "name": "ado-live-release",
+  "path": "\\ado-live"
+ },
+ "environments": [
+  {
+   "id": 5,
+   "releaseId": 3,
+   "name": "Dev",
+   "status": "succeeded",
+   "rank": 1,
+   "preDeployApprovals": [
+    {
+     "id": 11,
+     "approvalType": "preDeploy",
+     "status": "approved",
+     "isAutomated": true,
+     "comments": ""
+    }
+   ],
+   "postDeployApprovals": [
+    {
+     "id": 13,
+     "approvalType": "postDeploy",
+     "status": "approved",
+     "isAutomated": true,
+     "comments": ""
+    }
+   ],
+   "deploySteps": [
+    {
+     "id": 20,
+     "deploymentId": 8,
+     "attempt": 1,
+     "status": "succeeded",
+     "operationStatus": "Approved",
+     "issues": [],
+     "releaseDeployPhases": [
+      {
+       "id": 6,
+       "phaseId": "1",
+       "name": "Agent job",
+       "rank": 1,
+       "phaseType": "agentBasedDeployment",
+       "status": "succeeded",
+       "deploymentJobs": [
+        {
+         "job": {
+          "id": 1,
+          "name": "Agent job 1",
+          "status": "succeeded",
+          "startTime": "2026-10-12T08:00:05Z",
+          "finishTime": "2026-10-12T08:00:15Z",
+          "issues": [],
+          "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/5/deployPhases/6/tasks/1/logs"
+         },
+         "tasks": [
+          {
+           "id": 2,
+           "name": "Initialize job",
+           "status": "succeeded",
+           "startTime": "2026-10-12T08:00:05Z",
+           "finishTime": "2026-10-12T08:00:06Z",
+           "issues": [],
+           "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/5/deployPhases/6/tasks/2/logs"
+          },
+          {
+           "id": 3,
+           "name": "Bash",
+           "status": "succeeded",
+           "startTime": "2026-10-12T08:00:06Z",
+           "finishTime": "2026-10-12T08:00:14Z",
+           "issues": [],
+           "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/5/deployPhases/6/tasks/3/logs"
+          }
+         ]
+        },
+        {
+         "job": {
+          "id": 4,
+          "name": "Agent job 2",
+          "status": "succeeded",
+          "startTime": "2026-10-12T08:00:05Z",
+          "finishTime": "2026-10-12T08:00:20Z",
+          "issues": [],
+          "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/5/deployPhases/6/tasks/4/logs"
+         },
+         "tasks": [
+          {
+           "id": 5,
+           "name": "Initialize job",
+           "status": "succeeded",
+           "startTime": "2026-10-12T08:00:05Z",
+           "finishTime": "2026-10-12T08:00:06Z",
+           "issues": [],
+           "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/5/deployPhases/6/tasks/5/logs"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "releaseId": 3,
+   "name": "QA",
+   "status": "inProgress",
+   "rank": 2,
+   "preDeployApprovals": [],
+   "postDeployApprovals": [],
+   "deploySteps": [
+    {
+     "id": 23,
+     "deploymentId": 9,
+     "attempt": 1,
+     "status": "inProgress",
+     "operationStatus": "PhaseInProgress",
+     "issues": [],
+     "releaseDeployPhases": [
+      {
+       "id": 8,
+       "phaseId": "1",
+       "name": "Agent job",
+       "rank": 1,
+       "phaseType": "agentBasedDeployment",
+       "status": "notStarted",
+       "deploymentJobs": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "releaseId": 3,
+   "name": "Prod",
+   "status": "rejected",
+   "rank": 3,
+   "preDeployApprovals": [
+    {
+     "id": 12,
+     "approvalType": "preDeploy",
+     "status": "approved",
+     "isAutomated": false,
+     "approver": {
+      "displayName": "Test User",
+      "id": "00000000-0000-0000-0000-000000000940"
+     },
+     "comments": "ship it"
+    }
+   ],
+   "postDeployApprovals": [],
+   "deploySteps": [
+    {
+     "id": 21,
+     "deploymentId": 10,
+     "attempt": 1,
+     "status": "failed",
+     "operationStatus": "PhaseFailed",
+     "issues": [],
+     "releaseDeployPhases": []
+    },
+    {
+     "id": 22,
+     "deploymentId": 11,
+     "attempt": 2,
+     "status": "failed",
+     "operationStatus": "PhaseFailed",
+     "issues": [
+      {
+       "issueType": "Error",
+       "message": "Deployment of Prod failed."
+      }
+     ],
+     "releaseDeployPhases": [
+      {
+       "id": 7,
+       "phaseId": "1",
+       "name": "Agent job",
+       "rank": 1,
+       "phaseType": "agentBasedDeployment",
+       "status": "failed",
+       "deploymentJobs": [
+        {
+         "job": {
+          "id": 1,
+          "name": "Agent job",
+          "status": "failed",
+          "startTime": "2026-10-12T08:10:00Z",
+          "finishTime": "2026-10-12T08:10:30Z",
+          "issues": [
+           {
+            "issueType": "Error",
+            "message": "Bash exited with code '1'."
+           }
+          ],
+          "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/6/deployPhases/7/tasks/1/logs"
+         },
+         "tasks": [
+          {
+           "id": 2,
+           "name": "Initialize job",
+           "status": "succeeded",
+           "startTime": "2026-10-12T08:10:00Z",
+           "finishTime": "2026-10-12T08:10:02Z",
+           "issues": [],
+           "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/6/deployPhases/7/tasks/2/logs"
+          },
+          {
+           "id": 3,
+           "name": "Run script",
+           "status": "failed",
+           "startTime": "2026-10-12T08:10:02Z",
+           "finishTime": "2026-10-12T08:10:29Z",
+           "issues": [
+            {
+             "issueType": "Error",
+             "message": "Bash exited with code '1'."
+            }
+           ],
+           "logUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/3/environments/6/deployPhases/7/tasks/3/logs"
+          },
+          {
+           "id": 4,
+           "name": "Publish",
+           "status": "skipped",
+           "issues": [],
+           "logUrl": ""
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "_links": {
+  "web": {
+   "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?releaseId=3&_a=release-summary"
+  }
+ }
+}

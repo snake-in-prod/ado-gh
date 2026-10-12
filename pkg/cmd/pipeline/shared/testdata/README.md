@@ -54,6 +54,26 @@ Captured on 2026-10-12 from a throwaway YAML pipeline (stages Build → Gate (ag
 |---|---|
 | `artifacts.json` | `GET {project}/_apis/build/builds/101/artifacts`: `drop` (`Container`, `data` `#/<containerId>/drop`, `downloadUrl` the build endpoint plus `&%24format=zip`); `webapp` (`PipelineArtifact`, dedup id in `data`, `properties.artifactsize`, `downloadUrl` on `artprodcus3.artifacts.visualstudio.com`); `share` (`FilePath`, UNC `data`, `file://` `downloadUrl`) |
 
+## Classic Release
+
+`GET https://vsrm.dev.azure.com/{org}/{project}/_apis/release/...` (the `vsrm` host comes from the
+org's ResourceAreas). Serve them on the routes in `httpmock.ReleaseLocations` after
+`httpmock.StubVSRM`. Captured on 2026-10-12 from release definition 1 `ado-live-release`
+(`\ado-live`; environments Dev, automatic, and Prod with a manual pre-deployment approval; one
+agentless job running a Delay task; artifact `_ado-live-classic` from build definition 2) and its
+release 1. Scrubbed like the live captures above, with the same GUID map (the project is `...0903`,
+the Delay task `...0914`); the user is `Test User`, avatars and the identity `uniqueName`,
+`descriptor` and `imageUrl` are dropped, the artifact's commit SHA is zero-padded.
+
+| File | Source |
+|---|---|
+| `release_definitions.json` | `GET {project}/_apis/release/definitions`: definition 1 (no `$expand`, so no environments) |
+| `releases.json` | `GET {project}/_apis/release/releases`: release 1 `Release-1`, `active`, without environments |
+| `release.json` | `GET {project}/_apis/release/releases/1?$expand=tasks`: Dev `succeeded` (automated pre/post approvals 1 and 3 approved; one deploy step `succeeded`/`Approved` → deploy phase `id` 1 `Agentless job` → job `Release` → task `Delay` with `id` 0 and an empty `logUrl`, as agentless tasks have no log); Prod `inProgress` waiting on pending manual `preDeploy` approval 4, its deploy step `notDeployed`/`Pending` with no deploy phases |
+| `release_approvals.json` | `GET {project}/_apis/release/approvals` (default `statusFilter=pending`): approval 4 above, with its release, definition and environment references |
+| `release_pending_post.json` | *Hand-edited* from `release.json`: release 2 `Release-2`, Dev `inProgress` after its deploy step succeeded, waiting on pending manual `postDeploy` approval 13; Prod `notStarted` with no approvals or deploy steps. The environment status while a post-deployment approval is pending is *unverified* |
+| `release_failed_task.json` | *Hand-written* (minimal fields): release 3 `Release-3` for the view and logs commands. Dev `succeeded` (automated approvals; deploy phase `id` 6 with two deployment jobs, every task with a `logUrl`); QA `inProgress`, its deploy phase 8 `notStarted` with no deployment jobs yet; Prod `rejected` after a manual pre-deployment approval (12, `ship it`): two deploy steps, the latest (`attempt` 2) `failed`/`PhaseFailed` with a step-level error issue → deploy phase 7 → job `Agent job` → `Initialize job` succeeded, `Run script` failed with an `Error` issue (repeated on the job), `Publish` skipped with no times and an empty `logUrl` |
+
 ## Errors
 
 The HTTP status is not part of the body; serve each file with the status listed.

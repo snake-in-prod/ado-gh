@@ -83,6 +83,11 @@ func RunURL(project Repo, id int) string {
 	return ProjectURL(project) + "/_build/results?buildId=" + strconv.Itoa(id)
 }
 
+// ReleaseURL returns the web URL of Classic Release id in project.
+func ReleaseURL(project Repo, id int) string {
+	return ProjectURL(project) + "/_release?releaseId=" + strconv.Itoa(id) + "&_a=release-summary"
+}
+
 // TaskboardURL returns the web URL of team's taskboard for the iteration at path, e.g.
 // {project}/_sprints/taskboard/{team}/{project}/{rest of the path, escaped as one segment}.
 // ponytail: the URL form is undocumented (from microsoft/vsts-team-calendar); fix here if it moves.

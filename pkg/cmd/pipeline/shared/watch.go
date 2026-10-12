@@ -30,6 +30,10 @@ type Watch struct {
 	// Fetch reads the run once Poll's tree has completed (or is empty) and reports whether
 	// the run itself has completed; until it has, polling goes on.
 	Fetch func(context.Context) (bool, error)
+	// Done, when set, tells from Poll's tree alone whether the run has completed, in place of
+	// the every-root-completed check and Fetch (`release watch` stops on environments never
+	// deployed).
+	Done func(Timeline) bool
 	// Summary prints the completed run and returns the exit error (see ResultExitError).
 	Summary func(Timeline) error
 }
@@ -64,7 +68,9 @@ func (w *Watch) Run(ctx context.Context, ios *iostreams.IOStreams) error {
 		done := false
 		// ponytail: only the timeline says when to read the run, so a completed run whose
 		// records stay open is watched until Ctrl-C; read the run every N ticks if that shows up.
-		if treeDone(tl.Nodes) {
+		if w.Done != nil {
+			done = w.Done(tl)
+		} else if treeDone(tl.Nodes) {
 			if done, err = w.Fetch(ctx); err != nil {
 				return stopped(err)
 			}

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/release"
 )
 
 func decodeList[T any](t *testing.T, name string) []T {
@@ -262,6 +263,58 @@ func TestErrorFixtures(t *testing.T) {
 	results, _ := (*e.CustomProperties)["ValidationResults"].([]any)
 	if len(results) == 0 || results[0].(map[string]any)["message"] == "" {
 		t.Errorf("ValidationResults = %v", results)
+	}
+}
+
+func decodeRelease(t *testing.T, name string) release.Release {
+	t.Helper()
+	var r release.Release
+	if err := json.Unmarshal(Read(t, name), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Environments == nil || len(*r.Environments) != 2 {
+		t.Fatalf("%s: want environments Dev and Prod", name)
+	}
+	return r
+}
+
+// TestReleaseFixtures decodes the Classic Release fixtures into the SDK models and pins what
+// each file exists to cover.
+func TestReleaseFixtures(t *testing.T) {
+	r := decodeRelease(t, "release.json")
+	dev, prod := (*r.Environments)[0], (*r.Environments)[1]
+	if *dev.Status != release.EnvironmentStatusValues.Succeeded || *prod.Status != release.EnvironmentStatusValues.InProgress {
+		t.Errorf("release.json: Dev %s, Prod %s", *dev.Status, *prod.Status)
+	}
+	phase := (*(*dev.DeploySteps)[0].ReleaseDeployPhases)[0]
+	job := (*phase.DeploymentJobs)[0]
+	if phase.Id == nil || job.Tasks == nil || len(*job.Tasks) == 0 || str((*job.Tasks)[0].Name) != "Delay" {
+		t.Errorf("release.json: Dev deploy phase %+v", phase)
+	}
+	if step := (*prod.DeploySteps)[0]; *step.Status != release.DeploymentStatusValues.NotDeployed {
+		t.Errorf("release.json: Prod deploy step %s", *step.Status)
+	}
+	pre := *prod.PreDeployApprovals
+	if len(pre) != 1 || *pre[0].Id != 4 || *pre[0].Status != release.ApprovalStatusValues.Pending || pre[0].Approver == nil {
+		t.Errorf("release.json: Prod preDeployApprovals %+v", pre)
+	}
+
+	p := decodeRelease(t, "release_pending_post.json")
+	post := *(*p.Environments)[0].PostDeployApprovals
+	if *p.Id != 2 || len(post) != 1 || *post[0].ApprovalType != release.ApprovalTypeValues.PostDeploy ||
+		*post[0].Status != release.ApprovalStatusValues.Pending {
+		t.Errorf("release_pending_post.json: Dev postDeployApprovals %+v", post)
+	}
+
+	a := decodeList[release.ReleaseApproval](t, "release_approvals.json")
+	if *a[0].Id != 4 || *a[0].Release.Id != 1 || str(a[0].ReleaseEnvironment.Name) != "Prod" {
+		t.Errorf("release_approvals.json = %+v", a[0])
+	}
+	if rs := decodeList[release.Release](t, "releases.json"); str(rs[0].Name) != "Release-1" {
+		t.Errorf("releases.json = %+v", rs[0])
+	}
+	if d := decodeList[release.ReleaseDefinition](t, "release_definitions.json"); str(d[0].Path) != `\ado-live` {
+		t.Errorf("release_definitions.json = %+v", d[0])
 	}
 }
 

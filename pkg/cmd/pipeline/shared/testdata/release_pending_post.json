@@ -1,0 +1,614 @@
+{
+ "id": 2,
+ "name": "Release-2",
+ "status": "active",
+ "createdOn": "2026-10-12T06:58:10.06Z",
+ "modifiedOn": "2026-10-12T06:58:10.06Z",
+ "modifiedBy": {
+  "displayName": "Test User",
+  "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+  "_links": {},
+  "id": "00000000-0000-0000-0000-000000000940"
+ },
+ "createdBy": {
+  "displayName": "Test User",
+  "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+  "_links": {},
+  "id": "00000000-0000-0000-0000-000000000940"
+ },
+ "createdFor": {
+  "displayName": "Test User",
+  "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+  "_links": {},
+  "id": "00000000-0000-0000-0000-000000000940"
+ },
+ "environments": [
+  {
+   "id": 1,
+   "releaseId": 2,
+   "name": "Dev",
+   "status": "inProgress",
+   "variables": {},
+   "variableGroups": [],
+   "preDeployApprovals": [
+    {
+     "id": 1,
+     "revision": 1,
+     "approvalType": "preDeploy",
+     "createdOn": "2026-10-12T06:58:10.557Z",
+     "modifiedOn": "2026-10-12T06:58:10.563Z",
+     "status": "approved",
+     "comments": "",
+     "isAutomated": true,
+     "isNotificationOn": false,
+     "trialNumber": 1,
+     "attempt": 1,
+     "rank": 1,
+     "release": {
+      "id": 1,
+      "name": "Release-2",
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2",
+      "_links": {}
+     },
+     "releaseDefinition": {
+      "id": 1,
+      "name": "ado-live-release",
+      "path": "\\ado-live",
+      "projectReference": null,
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+      "_links": {}
+     },
+     "releaseEnvironment": {
+      "id": 1,
+      "name": "Dev",
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2/environments/1",
+      "_links": {}
+     },
+     "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/approvals/1"
+    }
+   ],
+   "postDeployApprovals": [
+    {
+     "id": 13,
+     "revision": 1,
+     "approver": {
+      "displayName": "Test User",
+      "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+      "_links": {},
+      "id": "00000000-0000-0000-0000-000000000940"
+     },
+     "approvalType": "postDeploy",
+     "createdOn": "2026-10-12T06:58:14.317Z",
+     "modifiedOn": "2026-10-12T06:58:14.317Z",
+     "status": "pending",
+     "comments": "",
+     "isAutomated": false,
+     "isNotificationOn": false,
+     "trialNumber": 1,
+     "attempt": 1,
+     "rank": 3,
+     "release": {
+      "id": 1,
+      "name": "Release-2",
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2",
+      "_links": {}
+     },
+     "releaseDefinition": {
+      "id": 1,
+      "name": "ado-live-release",
+      "path": "\\ado-live",
+      "projectReference": null,
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+      "_links": {}
+     },
+     "releaseEnvironment": {
+      "id": 1,
+      "name": "Dev",
+      "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2/environments/1",
+      "_links": {}
+     },
+     "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/approvals/13"
+    }
+   ],
+   "preApprovalsSnapshot": {
+    "approvals": [
+     {
+      "rank": 1,
+      "isAutomated": true,
+      "isNotificationOn": false,
+      "id": 0
+     }
+    ],
+    "approvalOptions": {
+     "requiredApproverCount": null,
+     "releaseCreatorCanBeApprover": true,
+     "autoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped": false,
+     "enforceIdentityRevalidation": false,
+     "timeoutInMinutes": 0,
+     "executionOrder": "beforeGates"
+    }
+   },
+   "postApprovalsSnapshot": {
+    "approvals": [
+     {
+      "rank": 1,
+      "isAutomated": true,
+      "isNotificationOn": false,
+      "id": 0
+     }
+    ]
+   },
+   "deploySteps": [
+    {
+     "id": 2,
+     "deploymentId": 1,
+     "attempt": 1,
+     "reason": "automated",
+     "status": "succeeded",
+     "operationStatus": "Approved",
+     "releaseDeployPhases": [
+      {
+       "id": 1,
+       "phaseId": "1",
+       "name": "Agentless job",
+       "rank": 1,
+       "phaseType": "runOnServer",
+       "status": "succeeded",
+       "runPlanId": "00000000-0000-0000-0000-000000000941",
+       "deploymentJobs": [
+        {
+         "job": {
+          "id": 0,
+          "timelineRecordId": "00000000-0000-0000-0000-000000000942",
+          "name": "Release",
+          "dateStarted": "2026-10-12T06:58:11.3733333Z",
+          "dateEnded": "2026-10-12T06:58:13.7633333Z",
+          "startTime": "2026-10-12T06:58:11.3733333Z",
+          "finishTime": "2026-10-12T06:58:13.7633333Z",
+          "status": "succeeded",
+          "rank": 1,
+          "issues": [],
+          "logUrl": ""
+         },
+         "tasks": [
+          {
+           "id": 0,
+           "timelineRecordId": "00000000-0000-0000-0000-000000000943",
+           "name": "Delay",
+           "dateStarted": "2026-10-12T06:58:13.29Z",
+           "dateEnded": "2026-10-12T06:58:13.58Z",
+           "startTime": "2026-10-12T06:58:13.29Z",
+           "finishTime": "2026-10-12T06:58:13.58Z",
+           "status": "succeeded",
+           "rank": null,
+           "issues": [],
+           "task": {
+            "id": "00000000-0000-0000-0000-000000000914",
+            "name": "Delay",
+            "version": "1.280.0"
+           },
+           "logUrl": ""
+          }
+         ]
+        }
+       ],
+       "manualInterventions": [],
+       "startedOn": "2026-10-12T06:58:11.45Z"
+      }
+     ],
+     "requestedBy": {
+      "displayName": "Test User",
+      "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+      "_links": {},
+      "id": "00000000-0000-0000-0000-000000000940"
+     },
+     "requestedFor": {
+      "displayName": "Test User",
+      "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+      "_links": {},
+      "id": "00000000-0000-0000-0000-000000000940"
+     },
+     "queuedOn": "2026-10-12T06:58:10.123Z",
+     "lastModifiedBy": {
+      "displayName": "Microsoft.VisualStudio.Services.ReleaseManagement",
+      "id": "00000000-0000-0000-0000-000000000944"
+     },
+     "lastModifiedOn": "2026-10-12T06:58:14.173Z",
+     "hasStarted": true,
+     "tasks": [],
+     "runPlanId": "00000000-0000-0000-0000-000000000000",
+     "issues": []
+    }
+   ],
+   "rank": 1,
+   "definitionEnvironmentId": 1,
+   "environmentOptions": {
+    "emailNotificationType": "OnlyOnFailure",
+    "emailRecipients": "release.environment.owner;release.creator",
+    "skipArtifactsDownload": false,
+    "timeoutInMinutes": 0,
+    "enableAccessToken": false,
+    "publishDeploymentStatus": false,
+    "badgeEnabled": false,
+    "autoLinkWorkItems": false,
+    "pullRequestDeploymentEnabled": false
+   },
+   "demands": [],
+   "conditions": [
+    {
+     "name": "ReleaseStarted",
+     "conditionType": "event",
+     "value": "",
+     "result": true
+    }
+   ],
+   "createdOn": "2026-10-12T06:58:10.123Z",
+   "modifiedOn": "2026-10-12T06:58:14.16Z",
+   "workflowTasks": [],
+   "deployPhasesSnapshot": [
+    {
+     "deploymentInput": {
+      "parallelExecution": {
+       "parallelExecutionType": "none"
+      },
+      "proofOfPresenceTenants": {},
+      "timeoutInMinutes": 0,
+      "jobCancelTimeoutInMinutes": 1,
+      "condition": "succeeded()",
+      "overrideInputs": {}
+     },
+     "rank": 1,
+     "phaseType": "runOnServer",
+     "name": "Agentless job",
+     "refName": null,
+     "workflowTasks": [
+      {
+       "taskId": "00000000-0000-0000-0000-000000000914",
+       "version": "1.*",
+       "name": "Delay",
+       "refName": "",
+       "enabled": true,
+       "alwaysRun": false,
+       "continueOnError": false,
+       "timeoutInMinutes": 0,
+       "retryCountOnTaskFailure": 0,
+       "definitionType": "task",
+       "overrideInputs": {},
+       "environment": {},
+       "inputs": {
+        "delayForMinutes": "0"
+       }
+      }
+     ]
+    }
+   ],
+   "owner": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "schedules": [],
+   "release": {
+    "id": 2,
+    "name": "Release-2",
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2",
+    "_links": {
+     "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?releaseId=2&_a=release-summary"
+     },
+     "self": {
+      "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2"
+     }
+    }
+   },
+   "releaseDefinition": {
+    "id": 1,
+    "name": "ado-live-release",
+    "path": "\\ado-live",
+    "projectReference": null,
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+    "_links": {
+     "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?definitionId=1"
+     },
+     "self": {
+      "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1"
+     }
+    }
+   },
+   "releaseCreatedBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "triggerReason": "ReleaseStarted",
+   "timeToDeploy": 0.05871666666666667,
+   "preDeploymentGatesSnapshot": {
+    "id": 0,
+    "gatesOptions": null,
+    "gates": []
+   },
+   "postDeploymentGatesSnapshot": {
+    "id": 0,
+    "gatesOptions": null,
+    "gates": []
+   }
+  },
+  {
+   "id": 2,
+   "releaseId": 2,
+   "name": "Prod",
+   "status": "notStarted",
+   "variables": {},
+   "variableGroups": [],
+   "preDeployApprovals": [],
+   "postDeployApprovals": [],
+   "preApprovalsSnapshot": {
+    "approvals": [
+     {
+      "rank": 1,
+      "isAutomated": false,
+      "isNotificationOn": false,
+      "approver": {
+       "displayName": "Test User",
+       "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+       "_links": {},
+       "id": "00000000-0000-0000-0000-000000000940"
+      },
+      "id": 0
+     }
+    ],
+    "approvalOptions": {
+     "requiredApproverCount": null,
+     "releaseCreatorCanBeApprover": true,
+     "autoTriggeredAndPreviousEnvironmentApprovedCanBeSkipped": false,
+     "enforceIdentityRevalidation": false,
+     "timeoutInMinutes": 0,
+     "executionOrder": "beforeGates"
+    }
+   },
+   "postApprovalsSnapshot": {
+    "approvals": [
+     {
+      "rank": 1,
+      "isAutomated": true,
+      "isNotificationOn": false,
+      "id": 0
+     }
+    ]
+   },
+   "deploySteps": [],
+   "rank": 2,
+   "definitionEnvironmentId": 2,
+   "environmentOptions": {
+    "emailNotificationType": "OnlyOnFailure",
+    "emailRecipients": "release.environment.owner;release.creator",
+    "skipArtifactsDownload": false,
+    "timeoutInMinutes": 0,
+    "enableAccessToken": false,
+    "publishDeploymentStatus": false,
+    "badgeEnabled": false,
+    "autoLinkWorkItems": false,
+    "pullRequestDeploymentEnabled": false
+   },
+   "demands": [],
+   "conditions": [
+    {
+     "name": "Dev",
+     "conditionType": "environmentState",
+     "value": "4",
+     "result": true
+    }
+   ],
+   "createdOn": "2026-10-12T06:58:14.223Z",
+   "modifiedOn": "2026-10-12T06:58:14.317Z",
+   "workflowTasks": [],
+   "deployPhasesSnapshot": [
+    {
+     "deploymentInput": {
+      "parallelExecution": {
+       "parallelExecutionType": "none"
+      },
+      "proofOfPresenceTenants": {},
+      "timeoutInMinutes": 0,
+      "jobCancelTimeoutInMinutes": 1,
+      "condition": "succeeded()",
+      "overrideInputs": {}
+     },
+     "rank": 1,
+     "phaseType": "runOnServer",
+     "name": "Agentless job",
+     "refName": null,
+     "workflowTasks": [
+      {
+       "taskId": "00000000-0000-0000-0000-000000000914",
+       "version": "1.*",
+       "name": "Delay",
+       "refName": "",
+       "enabled": true,
+       "alwaysRun": false,
+       "continueOnError": false,
+       "timeoutInMinutes": 0,
+       "retryCountOnTaskFailure": 0,
+       "definitionType": "task",
+       "overrideInputs": {},
+       "environment": {},
+       "inputs": {
+        "delayForMinutes": "0"
+       }
+      }
+     ]
+    }
+   ],
+   "owner": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "schedules": [],
+   "release": {
+    "id": 2,
+    "name": "Release-2",
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2",
+    "_links": {
+     "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?releaseId=2&_a=release-summary"
+     },
+     "self": {
+      "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2"
+     }
+    }
+   },
+   "releaseDefinition": {
+    "id": 1,
+    "name": "ado-live-release",
+    "path": "\\ado-live",
+    "projectReference": null,
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+    "_links": {
+     "web": {
+      "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?definitionId=1"
+     },
+     "self": {
+      "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1"
+     }
+    }
+   },
+   "releaseCreatedBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "triggerReason": "After successful deployment of Dev",
+   "preDeploymentGatesSnapshot": {
+    "id": 0,
+    "gatesOptions": null,
+    "gates": []
+   },
+   "postDeploymentGatesSnapshot": {
+    "id": 0,
+    "gatesOptions": null,
+    "gates": []
+   }
+  }
+ ],
+ "variables": {
+  "greeting": {
+   "value": "hi",
+   "allowOverride": true
+  },
+  "locked": {
+   "value": "x"
+  }
+ },
+ "variableGroups": [],
+ "artifacts": [
+  {
+   "sourceId": "00000000-0000-0000-0000-000000000903:2",
+   "type": "Build",
+   "alias": "_ado-live-classic",
+   "definitionReference": {
+    "branches": {
+     "id": "main",
+     "name": "main"
+    },
+    "buildUri": {
+     "id": "vstfs:///Build/Build/3",
+     "name": null
+    },
+    "definition": {
+     "id": "2",
+     "name": "ado-live-classic"
+    },
+    "IsXamlBuildArtifactType": {
+     "id": "False",
+     "name": null
+    },
+    "project": {
+     "id": "00000000-0000-0000-0000-000000000903",
+     "name": "proj"
+    },
+    "repository.provider": {
+     "id": "TfsGit",
+     "name": null
+    },
+    "repository": {
+     "id": "00000000-0000-0000-0000-000000000945",
+     "name": "ado-live"
+    },
+    "requestedFor": {
+     "id": "Test User",
+     "name": null
+    },
+    "requestedForId": {
+     "id": "00000000-0000-0000-0000-000000000940",
+     "name": null
+    },
+    "sourceVersion": {
+     "id": "0000000000000000000000000000000000000003",
+     "name": null
+    },
+    "version": {
+     "id": "3",
+     "name": "3"
+    },
+    "branch": {
+     "id": "refs/heads/main",
+     "name": "refs/heads/main"
+    },
+    "artifactSourceVersionUrl": {
+     "id": "https://dev.azure.com/org/_permalink/_build/index?collectionId=00000000-0000-0000-0000-000000000946&projectId=00000000-0000-0000-0000-000000000903&buildId=3",
+     "name": ""
+    },
+    "artifactSourceDefinitionUrl": {
+     "id": "https://dev.azure.com/org/_permalink/_build/index?collectionId=00000000-0000-0000-0000-000000000946&projectId=00000000-0000-0000-0000-000000000903&definitionId=2",
+     "name": ""
+    }
+   },
+   "isPrimary": true,
+   "isRetained": false
+  }
+ ],
+ "releaseDefinition": {
+  "id": 1,
+  "name": "ado-live-release",
+  "path": "\\ado-live",
+  "projectReference": null,
+  "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+  "_links": {
+   "self": {
+    "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1"
+   },
+   "web": {
+    "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?definitionId=1"
+   }
+  }
+ },
+ "releaseDefinitionRevision": 1,
+ "description": "ado live read fixtures",
+ "reason": "manual",
+ "releaseNameFormat": "Release-$(rev:r)",
+ "keepForever": false,
+ "definitionSnapshotRevision": 1,
+ "logsContainerUrl": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2/logs",
+ "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2",
+ "_links": {
+  "self": {
+   "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/2"
+  },
+  "web": {
+   "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?releaseId=2&_a=release-summary"
+  }
+ },
+ "tags": [],
+ "triggeringArtifactAlias": null,
+ "projectReference": {
+  "id": "00000000-0000-0000-0000-000000000903",
+  "name": null
+ },
+ "properties": {}
+}

@@ -124,6 +124,7 @@ func TestWebURLs(t *testing.T) {
 		BoardURL(dev, "Web Team", "Microsoft.RequirementCategory"))
 	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_build?definitionId=5", PipelineURL(dev, 5))
 	assert.Equal(t, "https://fab.visualstudio.com/p/_build/results?buildId=812", RunURL(vs, 812))
+	assert.Equal(t, "https://dev.azure.com/my%20org/P%201/_release?releaseId=45&_a=release-summary", ReleaseURL(dev, 45))
 }
 
 func TestSplitOrgURL(t *testing.T) {

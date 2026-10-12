@@ -1,0 +1,43 @@
+{
+ "count": 1,
+ "value": [
+  {
+   "source": "restApi",
+   "revision": 1,
+   "description": null,
+   "createdBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "createdOn": "2026-10-11T22:58:40.497Z",
+   "modifiedBy": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "modifiedOn": "2026-10-11T22:58:40.497Z",
+   "isDeleted": false,
+   "isDisabled": false,
+   "variableGroups": null,
+   "releaseNameFormat": "Release-$(rev:r)",
+   "comment": "",
+   "properties": {},
+   "id": 1,
+   "name": "ado-live-release",
+   "path": "\\ado-live",
+   "projectReference": null,
+   "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+   "_links": {
+    "self": {
+     "href": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1"
+    },
+    "web": {
+     "href": "https://dev.azure.com/org/00000000-0000-0000-0000-000000000903/_release?definitionId=1"
+    }
+   }
+  }
+ ]
+}

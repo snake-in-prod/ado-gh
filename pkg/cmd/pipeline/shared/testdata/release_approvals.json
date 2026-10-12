@@ -1,0 +1,46 @@
+{
+ "count": 1,
+ "value": [
+  {
+   "id": 4,
+   "revision": 1,
+   "approver": {
+    "displayName": "Test User",
+    "url": "https://vssps.dev.azure.com/A00000000-0000-0000-0000-000000000939/_apis/Identities/00000000-0000-0000-0000-000000000940",
+    "_links": {},
+    "id": "00000000-0000-0000-0000-000000000940"
+   },
+   "approvalType": "preDeploy",
+   "createdOn": "2026-10-12T06:58:14.317Z",
+   "modifiedOn": "2026-10-12T06:58:14.317Z",
+   "status": "pending",
+   "comments": "",
+   "isAutomated": false,
+   "isNotificationOn": true,
+   "trialNumber": 1,
+   "attempt": 1,
+   "rank": 1,
+   "release": {
+    "id": 1,
+    "name": "Release-1",
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/1",
+    "_links": {}
+   },
+   "releaseDefinition": {
+    "id": 1,
+    "name": "ado-live-release",
+    "path": "\\ado-live",
+    "projectReference": null,
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/definitions/1",
+    "_links": {}
+   },
+   "releaseEnvironment": {
+    "id": 2,
+    "name": "Prod",
+    "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/releases/1/environments/2",
+    "_links": {}
+   },
+   "url": "https://vsrm.dev.azure.com/org/00000000-0000-0000-0000-000000000903/_apis/Release/approvals/4"
+  }
+ ]
+}

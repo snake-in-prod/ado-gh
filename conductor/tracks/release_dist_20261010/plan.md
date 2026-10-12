@@ -109,6 +109,6 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Write `docs/releasing.md` per spec: git-cliff prep PR, push one tag at a time, winget PR check, CLA, Defender false positives and `@wingetbot run`, Intel macOS runner retirement (fall 2027), `[bump] breaking_always_bump_major = false` if `--bumped-version` is mentioned, user-facing fix subjects (no "address … review findings" commits)
     - [x] (main session) Shrink `conductor/workflow.md` Release Workflow to a pointer to `docs/releasing.md` plus a short checklist; replace "CHANGELOG updated" with the git-cliff prep PR; reword the hotfix flow: merge hotfixes to main first and tag from main
 - [ ] Task: Dry-run release
-    - [x] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
-    - [x] Fix issues found; record outcome in plan
-- [x] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)
+    - [ ] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
+    - [ ] Fix issues found; record outcome in plan
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)

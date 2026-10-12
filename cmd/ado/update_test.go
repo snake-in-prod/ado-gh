@@ -50,16 +50,16 @@ func TestRunUpdateNotifier(t *testing.T) {
 		tag        string
 		wantCode   cmdutil.ExitCode
 		wantNotice string // "" means stderr has no notice
-		wantCalls  int
+		wantCalls  int    // -1: not checked (a failed command cancels the check)
 	}{
 		{name: "after a command", args: []string{"version"}, tag: "v1.1.0", wantNotice: notice, wantCalls: 1},
 		{name: "up to date", args: []string{"version"}, tag: "v1.0.0", wantCalls: 1},
-		{name: "not after a failed command", args: []string{"nope"}, tag: "v1.1.0", wantCode: cmdutil.ExitError, wantCalls: 1},
+		{name: "not after a failed command", args: []string{"nope"}, tag: "v1.1.0", wantCode: cmdutil.ExitError, wantCalls: -1},
 		{name: "after an alias", args: []string{"ver"}, tag: "v1.1.0", wantNotice: notice, wantCalls: 1},
 		{name: "after an extension", args: []string{"hello"}, env: map[string]string{"ADO_FAKE_HELLO": "echo"},
 			tag: "v1.1.0", wantNotice: notice, wantCalls: 1},
 		{name: "not after a failed extension", args: []string{"hello"}, env: map[string]string{"ADO_FAKE_HELLO": "1"},
-			tag: "v1.1.0", wantCode: 3, wantCalls: 1},
+			tag: "v1.1.0", wantCode: 3, wantCalls: -1},
 		{name: "quiet inside an extension", args: []string{"version"}, env: map[string]string{"ADO_EXTENSION_NAME": "x"}, tag: "v1.1.0"},
 		{name: "opted out", args: []string{"version"}, env: map[string]string{"ADO_NO_UPDATE_NOTIFIER": "1"}, tag: "v1.1.0"},
 		{name: "azure pipelines", args: []string{"version"}, env: map[string]string{"TF_BUILD": "True"}, tag: "v1.1.0"},
@@ -93,7 +93,7 @@ func TestRunUpdateNotifier(t *testing.T) {
 			if !strings.Contains(errOut.String(), tt.wantNotice) {
 				t.Errorf("stderr = %q, want %q", errOut, tt.wantNotice)
 			}
-			if len(reg.Requests) != tt.wantCalls {
+			if tt.wantCalls >= 0 && len(reg.Requests) != tt.wantCalls {
 				t.Errorf("requests = %d, want %d", len(reg.Requests), tt.wantCalls)
 			}
 		})

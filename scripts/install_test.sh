@@ -63,7 +63,7 @@ python3 -u -m http.server --bind 127.0.0.1 --directory "$tmp/srv" 0 >"$tmp/http.
 server_pid=$!
 port=
 i=0
-while [ -z "$port" ] && [ "$i" -lt 100 ]; do
+while [ -z "$port" ] && [ "$i" -lt 600 ]; do # up to 60 s: python3 starts slowly on fresh macOS runners
 	port=$(sed -n 's/.*Serving HTTP on 127\.0\.0\.1 port \([0-9]*\).*/\1/p' "$tmp/http.log")
 	[ -n "$port" ] || sleep 0.1
 	i=$((i + 1))

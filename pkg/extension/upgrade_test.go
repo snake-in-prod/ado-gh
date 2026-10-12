@@ -376,7 +376,7 @@ func TestUpgradeArtifacts(t *testing.T) {
 	a.release(t, "Linux", "amd64", "linux-x64")
 	a.packages("proj", "0.1.0", "0.2.0")
 	a.cmds = nil
-	res, err := Upgrade(context.Background(), a.s.f, UpgradeOptions{Root: a.s.root, Name: "hello", DryRun: true})
+	res, err := Upgrade(context.Background(), a.s.f, UpgradeOptions{Root: a.s.root, Name: "hello", DryRun: true, goos: "linux", goarch: "amd64"})
 	require.NoError(t, err)
 	a.reg.Verify(t)
 	assert.Equal(t, UpgradeResult{From: "0.1.0", To: "0.2.0"}, res)
@@ -421,7 +421,7 @@ func TestUpgradeArtifactsFromGitHubSource(t *testing.T) {
 
 	a.release(t, "Linux", "amd64", "linux-x64")
 	a.packages("proj", "0.1.0", "0.2.0")
-	res, err := Upgrade(context.Background(), a.s.f, UpgradeOptions{Root: a.s.root, Name: "hello", DryRun: true})
+	res, err := Upgrade(context.Background(), a.s.f, UpgradeOptions{Root: a.s.root, Name: "hello", DryRun: true, goos: "linux", goarch: "amd64"})
 	require.NoError(t, err)
 	assert.Equal(t, UpgradeResult{From: "0.1.0", To: "0.2.0"}, res)
 	for _, req := range a.reg.Requests {

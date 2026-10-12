@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -352,6 +353,9 @@ func TestInstallScriptFailures(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			if name == "not executable" && runtime.GOOS == "windows" {
+				t.Skip("on Windows a file with a shebang counts as executable (o13); see TestCheckScriptExecutableWindows")
+			}
 			s := newScriptFixture(t)
 			if tt.setup != nil {
 				tt.setup(s)

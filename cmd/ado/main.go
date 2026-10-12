@@ -44,6 +44,9 @@ func run(args []string, ios *iostreams.IOStreams) cmdutil.ExitCode {
 	code := cmdutil.HandleError(ios.ErrOut, err, cmd.UsageString())
 	if code == cmdutil.ExitOK {
 		update.Print(ctx, ios, updates, build.Version, f.Debug) // f.Debug is final after ExecuteC
+	} else if updates != nil {
+		cancel() // no notice after a failure: stop the check and wait for it
+		<-updates
 	}
 	return code
 }

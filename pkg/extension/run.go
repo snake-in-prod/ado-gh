@@ -25,7 +25,13 @@ import (
 func Run(f *cmdutil.Factory, ext Extension, args []string) error {
 	rec, err := ReadRecord(filepath.Dir(ext.Path), ext.Name)
 	consent := err == nil && rec.TokenConsent
-	return launcher{}.launch(f, ext.Name, ext.Executable(), consent, args)
+	exe := ext.Executable()
+	// Checked here, not by exec: on Windows a file with no known extension runs through sh,
+	// which would report a missing file as the extension's own exit code 127.
+	if _, err := os.Stat(exe); err != nil {
+		return fmt.Errorf("extension %q has no executable %s; reinstall it with ado extension install --force", ext.Name, filepath.Base(exe))
+	}
+	return launcher{}.launch(f, ext.Name, exe, consent, args)
 }
 
 // RunPath runs the executable ado-<name> found on PATH at path. It never gets a token.

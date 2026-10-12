@@ -31,11 +31,14 @@ if diff "$tmp/a.sum" "$tmp/b.sum"; then
 fi
 
 # Mismatch: show version output and a strings diff per differing binary
-# (go version -m hides ldflags under -trimpath).
+# plus the build info (go version -m: settings, deps; ldflags are hidden under -trimpath).
 diff "$tmp/a.sum" "$tmp/b.sum" | sed -n 's/^< [0-9a-f]*  //p' | while read -r p; do
 	echo "== $p"
 	"./$p" --version 2>&1 || true
 	"$tmp/b/$p" --version 2>&1 || true
+	go version -m "$p" >"$tmp/a.mod" 2>&1 || true
+	go version -m "$tmp/b/$p" >"$tmp/b.mod" 2>&1 || true
+	diff "$tmp/a.mod" "$tmp/b.mod" || true
 	strings "$p" >"$tmp/a.str"
 	strings "$tmp/b/$p" >"$tmp/b.str"
 	diff "$tmp/a.str" "$tmp/b.str" | head -n 100 || true

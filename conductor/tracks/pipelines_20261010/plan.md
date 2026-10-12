@@ -93,40 +93,40 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 4: download, approve/reject, enable/disable' (Protocol in workflow.md)
     - [x] Confirm live: artifact zip layout and whether download redirects, definition conflict body, secret variables surviving the enable/disable PUT, approval `id` vs `identifier`
 
-## Phase 5: `ado release` (Read)
+## Phase 5: `ado release` (Read) [checkpoint: 7d8d67c]
 
-- [x] Task: Release API layer and fixtures `11024f1`
+- [x] Task: Release API layer and fixtures `7d8d67c`
     - [x] Fixtures: release definitions, releases with multiple environments, deploy steps, pending pre/post approvals; ResourceAreas stubbed on the org and Locations on the vsrm base, plus an org without a release area (on-prem fallback)
     - [x] Write tests: `api/release.go` builds `release.ClientImpl` via the unexported `areaClient(..., release.ResourceAreaId)`, resolving the `vsrm` host for dev.azure.com and visualstudio.com orgs; wrappers for list/get/logs/approvals; shared pager stores string tokens and `Atoi`s them for releases/approvals
     - [x] Implement
-- [x] Task: `ado release list` `0e9590d`
+- [x] Task: `ado release list` `7d8d67c`
     - [x] Write tests: filters (`-u` resolved to an identity for `createdBy`), `-d` definitions, TTY/TSV, JSON fields
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado release view` / `logs` `6ff8e5e`
+- [x] Task: `ado release view` / `logs` `7d8d67c`
     - [x] Write tests: GET release with `$expand=tasks`, environments + deploy steps tree via shared renderer, approvals section, `--log`, `--log-failed` (`GetTaskLog` with `ReleaseDeployPhase.Id` + `ReleaseTask.Id`), `logs --environment/--failed/-o` (optional `GetLogs` zip for `-o`), JSON, `-w`
     - [x] Implement; classify in `TestWebFlagAudit`
-- [x] Task: `ado release watch` `fc6d824`
+- [x] Task: `ado release watch` `7d8d67c`
     - [x] Write tests: shared watch loop over environments, `--environment` filter, exit codes across watched environments (`rejected`/`partiallySucceeded` → 1, `canceled` → 2); a `rejected` environment exits 1 whether from a failed deployment or an approval rejection, and the output tells them apart via deploy-step `operationStatus` (fixture with the latest deploy step `<failed, phaseFailed>`); fall back to deploy-step `status`/`operationStatus`
     - [x] Implement; classify in `TestWebFlagAudit`
 - [x] Task: Conductor - User Manual Verification 'Phase 5: ado release (Read)' (Protocol in workflow.md)
     - [x] Confirm live: `ReleaseDeployPhase.Id` for task logs, environment status for failed deployments, Entra bearer token on vsrm
 
-## Phase 6: `ado release` (Write), Web, Docs
+## Phase 6: `ado release` (Write), Web, Docs [checkpoint: aab0b75]
 
-- [ ] Task: `ado release create`
-    - [ ] Write tests: `--artifact alias=version`; without `--artifact` no artifacts sent and the versions chosen by the server printed from the returned release; overridable `-v` only (checked against the definition's `$expand=variables` `allowOverride`), `--description`, prints URL, `--watch`, `-w`
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado release deploy` / `cancel`
-    - [ ] Write tests: environment status PATCH (`inProgress` / `canceled`), TTY confirm, `-y`, non-TTY refuses without `--yes`, unknown environment lists valid ones, `-c`
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado release approve` / `reject`
-    - [ ] Write tests: pre/post approvals, `--environment`, multi-pending rules, not approver error
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: Web audit and docs
-    - [ ] Confirm every `pipeline`/`release` subcommand is classified in `webCmds` or `noWebCmds` in `TestWebFlagAudit`
-    - [ ] Update `docs/gh-differences.md` with every divergence in the spec, plus: `-b` not matching PR-validation runs (use `-e pullRequest`), rerun not preserving secret variables, the "X" failure mark, classic release creation disabled by default in new orgs
-    - [ ] README PAT list: Build (Read / Read & execute), Release (Read / Read, write & execute / manage), Pipeline Resources (Use)
-    - [ ] Update `spec.md` (main session) for the divergences decided in research: FR8 classic `--failed` uses `retry=true` instead of erroring (o1); FR9 a single `-n` extracts directly into `<dir>` (o13); FR1 failure mark "X" instead of ✗ (o2); FR11 enable also resumes paused definitions, no pause support (o19); FR12 `release create` without `--artifact` sends none and prints the chosen versions (o21); NFR Security: `--debug` logs every request URL without its query string (o15)
-    - [ ] Verify help text/examples for `pipeline *` and `release *`
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: ado release (Write), Web, Docs' (Protocol in workflow.md)
-    - [ ] Confirm live: the release `status: canceled` payload; then tear down the live test environment
+- [x] Task: `ado release create` `aab0b75`
+    - [x] Write tests: `--artifact alias=version`; without `--artifact` no artifacts sent and the versions chosen by the server printed from the returned release; overridable `-v` only (checked against the definition's `$expand=variables` `allowOverride`), `--description`, prints URL, `--watch`, `-w`
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado release deploy` / `cancel` `aab0b75`
+    - [x] Write tests: environment status PATCH (`inProgress` / `canceled`), TTY confirm, `-y`, non-TTY refuses without `--yes`, unknown environment lists valid ones, `-c`
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado release approve` / `reject` `aab0b75`
+    - [x] Write tests: pre/post approvals, `--environment`, multi-pending rules, not approver error
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: Web audit and docs `aab0b75`
+    - [x] Confirm every `pipeline`/`release` subcommand is classified in `webCmds` or `noWebCmds` in `TestWebFlagAudit`
+    - [x] Update `docs/gh-differences.md` with every divergence in the spec, plus: `-b` not matching PR-validation runs (use `-e pullRequest`), rerun not preserving secret variables, the "X" failure mark, classic release creation disabled by default in new orgs
+    - [x] README PAT list: Build (Read / Read & execute), Release (Read / Read, write & execute / manage), Pipeline Resources (Use)
+    - [x] Update `spec.md` (main session) for the divergences decided in research: FR8 classic `--failed` uses `retry=true` instead of erroring (o1); FR9 a single `-n` extracts directly into `<dir>` (o13); FR1 failure mark "X" instead of ✗ (o2); FR11 enable also resumes paused definitions, no pause support (o19); FR12 `release create` without `--artifact` sends none and prints the chosen versions (o21); NFR Security: `--debug` logs every request URL without its query string (o15)
+    - [x] Verify help text/examples for `pipeline *` and `release *`
+- [x] Task: Conductor - User Manual Verification 'Phase 6: ado release (Write), Web, Docs' (Protocol in workflow.md)
+    - [x] Confirm live: the release `status: canceled` payload; then tear down the live test environment

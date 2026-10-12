@@ -4,9 +4,7 @@ package approve
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 
@@ -121,7 +119,7 @@ func runApprove(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	}
 	updated, err := c.UpdateApprovals(ctx, ids, o.status, o.comment)
 	if err != nil {
-		return wrapErr(err, fmt.Sprintf("could not %s %s", o.verb, labels(sel)), updateScopes, approvers(sel))
+		return shared.ApprovalError(err, fmt.Sprintf("could not %s %s", o.verb, labels(sel)), updateScopes, approvers(sel))
 	}
 	report(f, o, sel, updated)
 	return nil
@@ -155,7 +153,7 @@ func pendingApprovals(ctx context.Context, c *api.PipelineClient, id int) ([]pen
 	}
 	got, err := c.QueryApprovals(ctx, ids)
 	if err != nil {
-		return nil, wrapErr(err, fmt.Sprintf("could not read the approvals of run %d", id), queryScopes, nil)
+		return nil, shared.ApprovalError(err, fmt.Sprintf("could not read the approvals of run %d", id), queryScopes, nil)
 	}
 	var out []pending
 	for _, r := range recs {
@@ -250,24 +248,4 @@ func approvers(ps []pending) []string {
 		}
 	}
 	return out
-}
-
-// wrapErr prefixes err with what. A 4xx gets the approvers (the server decides who may act and
-// its refusal is undocumented); a 401/403 becomes an AuthError naming the scopes.
-func wrapErr(err error, what, scopes string, names []string) error {
-	var authErr *cmdutil.AuthError
-	var he *api.HTTPError
-	status := 0
-	if errors.As(err, &he) {
-		status = he.StatusCode
-	}
-	auth := errors.As(err, &authErr) || status == http.StatusUnauthorized || status == http.StatusForbidden
-	err = fmt.Errorf("%s: %w", what, err)
-	if len(names) > 0 && (auth || status >= 400 && status < 500) {
-		err = fmt.Errorf("%w; approvers: %s", err, strings.Join(names, ", "))
-	}
-	if auth {
-		return &cmdutil.AuthError{Err: fmt.Errorf("%w; the credential needs the %s scope", err, scopes)}
-	}
-	return err
 }

@@ -3,7 +3,6 @@ package list
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 	authshared "github.com/snake-in-prod/ado-gh/pkg/cmd/auth/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/shared"
 	prshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
+	relshared "github.com/snake-in-prod/ado-gh/pkg/cmd/release/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/spf13/cobra"
 )
@@ -130,7 +130,7 @@ func runReleases(ctx context.Context, f *cmdutil.Factory, c *api.ReleaseClient, 
 	expand := release.ReleaseExpandsValues.Environments
 	args := release.GetReleasesArgs{Expand: &expand}
 	if ref != "" {
-		id, err := resolveDefinition(ctx, c, ref)
+		id, err := relshared.ResolveDefinition(ctx, c, ref)
 		if err != nil {
 			return err
 		}
@@ -212,35 +212,6 @@ func runReleases(ctx context.Context, f *cmdutil.Factory, c *api.ReleaseClient, 
 		tp.EndRow()
 	}
 	return tp.Render()
-}
-
-// resolveDefinition returns the ID of the release definition ref (an ID or an exact name,
-// ignoring case) names.
-func resolveDefinition(ctx context.Context, c *api.ReleaseClient, ref string) (int, error) {
-	if id, err := strconv.Atoi(ref); err == nil && id > 0 && ref[0] != '+' {
-		return id, nil
-	}
-	if strings.TrimSpace(ref) == "" {
-		return 0, errors.New("invalid release definition: expected an ID or a name")
-	}
-	exact := true
-	defs, err := c.Definitions(ctx, release.GetReleaseDefinitionsArgs{SearchText: &ref, IsExactNameMatch: &exact}, 0)
-	if err != nil {
-		return 0, err
-	}
-	defs = slices.DeleteFunc(defs, func(d release.ReleaseDefinition) bool { return !strings.EqualFold(prshared.Deref(d.Name), ref) })
-	switch len(defs) {
-	case 0:
-		return 0, fmt.Errorf("no release definition with that name in project %s; list them with: ado release list -d", c.Project)
-	case 1:
-		return prshared.Deref(defs[0].Id), nil
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "several release definitions in project %s have that name; pass an ID:", c.Project)
-	for _, d := range defs {
-		fmt.Fprintf(&b, "\n  %s (ID %d)", strings.TrimSuffix(prshared.Deref(d.Path), `\`)+`\`+prshared.Deref(d.Name), prshared.Deref(d.Id))
-	}
-	return 0, errors.New(b.String())
 }
 
 // envJSON is a release environment in JSON output.

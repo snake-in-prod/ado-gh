@@ -157,6 +157,20 @@ func (c *ReleaseClient) Approvals(ctx context.Context, args release.GetApprovals
 	})
 }
 
+// UpdateApproval sets release approval id to status, recording comment (if any).
+func (c *ReleaseClient) UpdateApproval(ctx context.Context, id int, status release.ApprovalStatus, comment string) (*release.ReleaseApproval, error) {
+	rc, err := c.client(ctx)
+	if err != nil {
+		return nil, err
+	}
+	a := &release.ReleaseApproval{Status: &status}
+	if comment != "" {
+		a.Comments = &comment
+	}
+	got, err := rc.UpdateReleaseApproval(ctx, release.UpdateReleaseApprovalArgs{Project: &c.Project, ApprovalId: &id, Approval: a})
+	return got, mapErr(err)
+}
+
 // TaskLog opens the plain-text log of task taskID (ReleaseTask.Id) in deploy phase phaseID
 // (ReleaseDeployPhase.Id, not its phaseId) of environment envID of release releaseID. The
 // caller closes it.

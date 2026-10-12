@@ -48,7 +48,7 @@ the current repository's pipeline on the current branch (or of the project).`,
 			return runRerun(cmd.Context(), f, o)
 		},
 	}
-	cmd.Flags().BoolVar(&o.failed, "failed", false, "Retry only the failed and canceled stages of the run")
+	cmd.Flags().BoolVar(&o.failed, "failed", false, "Retry the failed parts of a completed run in place instead of queueing a new run")
 	return cmd
 }
 

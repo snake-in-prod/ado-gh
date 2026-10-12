@@ -603,6 +603,152 @@ can push to a fork's PR branch depends only on your permissions on the fork
 repository. If you don't have Contribute permission there, `git push` after
 `ado pr checkout` fails.
 
+## Pipelines, not workflows
+
+`ado pipeline` (alias `ado run`) does the work of both `gh run` and
+`gh workflow`: Azure Pipelines has no separate "workflow" object to list or
+dispatch. It covers YAML pipelines and classic (designer) build pipelines. A
+pipeline is an ID, a name, a folder path (`\Folder\Name` or `Folder/Name`) or a
+URL; a run is a run (build) ID or URL. Without a pipeline argument, ado uses the
+current repository's pipeline: disabled pipelines don't count, and when several
+remain a terminal asks which one.
+
+Marks: `✓` succeeded, `X` failed (an ASCII `X`, as in `pr checks`, not `gh`'s
+`✗`), `!` partially succeeded, `●` in progress, `⏸` waiting, `-` canceled or
+skipped.
+
+### `pipeline list`
+
+- `gh workflow list` is `ado pipeline list -d/--definitions`. It lists enabled
+  pipelines (with `-a/--all`, also disabled and paused ones) with their folder,
+  type (`yaml` or `classic`), repository, queue status and last result.
+  `--folder` and `--match <glob>` filter them.
+- The pipeline is a positional argument, not `gh`'s `-w/--workflow`.
+- `-b/--branch` matches the run's **source branch** only. Pull request
+  validation runs build `refs/pull/<id>/merge`, so `-b feature/x` doesn't find
+  them: use `-e pullRequest` instead.
+- `-e/--event` takes Azure DevOps reasons: `manual`, `individualCI`,
+  `batchedCI`, `pullRequest`, `schedule`, `resourceTrigger`. `-s/--status`
+  takes `notStarted`, `inProgress`, `cancelling`, `completed` or `postponed`,
+  and the outcome is a separate `--result` filter (`succeeded`,
+  `partiallySucceeded`, `failed`, `canceled`).
+- `-c/--commit` is filtered on the client, because the API can't: ado reads at
+  most the newest 1000 runs and warns when it stopped early. Narrow it with a
+  pipeline or `-b`.
+
+### `pipeline run`
+
+- `gh workflow run` is `ado pipeline run`. `-p/--parameter key=value` sets YAML
+  template parameters (`gh`'s `-f/-F` inputs); `-v/--variable key=value` sets
+  queue-time variables, which the pipeline must allow to be set at queue time.
+  Classic pipelines have no template parameters, so `-p` is rejected for them.
+- `-b/--branch` is `gh`'s `--ref`. Without it, ado sends the pipeline
+  repository's default branch explicitly. `--commit` runs a given commit.
+- A disabled pipeline is an error before anything is queued; a paused one is
+  queued with a warning that the run won't start until it's enabled.
+- ado prints the run URL (on stdout) and the `ado pipeline watch` command.
+  `--watch` watches the run and exits with its result.
+- A pipeline's **first run** can wait for permission to use its agent queue.
+  `view` and `watch` list that check under "Waiting"; permit it in the web UI,
+  `ado pipeline approve` can't.
+
+### `pipeline view`, `watch` and `logs`
+
+- `view` shows stages, jobs and, with `-v/--verbose`, tasks. Failed jobs always
+  expand to their failed tasks. "Annotations" lists the errors and warnings
+  tasks reported; "Waiting" lists pending approvals and checks.
+- A retried stage or job shows only its latest attempt, marked "attempt N".
+  There is no `--attempt` flag.
+- `--log` and `--log-failed` prefix each line with the job and task names, as
+  in `gh`. `--job` takes a job name or ID.
+- `--json` adds `stages` (the tree) and `pendingApprovals` to the run fields.
+- `watch` exits 0 if the run succeeded, 1 if it failed or partially
+  succeeded and 2 if it was canceled or you pressed Ctrl+C (the run goes on).
+  `gh run watch` exits 0 unless you pass `--exit-status`; ado accepts
+  `--exit-status` and ignores it. On a terminal the tree is redrawn every
+  `-i/--interval` seconds (default 3); when piped, ado prints one line per
+  stage or job state change.
+- `ado pipeline logs` has no `gh` counterpart. It prints the logs of completed
+  tasks (`--job`, `--task`, `--failed` filter them), or writes them to
+  `<dir>/<stage>/<job>/<NN>_<task>.log` with `-o/--output`. Azure DevOps serves
+  only the logs of **completed** tasks, so `-f/--follow` prints each task's log
+  when the task completes, not line by line.
+- Agentless (server) tasks have no logs.
+
+### `pipeline cancel` and `rerun`
+
+- `cancel` asks for confirmation on a terminal; `-y/--yes` skips it and is
+  required when not interactive. A completed run is an error; a run that is
+  already being canceled is a message and exit 0.
+- `rerun` queues a **new** run with the same branch, commit, template
+  parameters and queue-time variables, and prints its URL. `gh run rerun`
+  re-runs the same run instead. Secret values can't be read back, so secret
+  variables set at queue time aren't copied: the new run gets the pipeline's
+  own values for them.
+- `rerun --failed` retries in place, and only once the run has completed. For
+  a YAML run it retries the stages whose latest attempt failed or was
+  canceled, re-running only their failed jobs. For a classic run it retries
+  the run's failed jobs. Azure DevOps refuses to retry a classic run that
+  didn't fail: "Unable to retry pipeline N because the previous attempt did
+  not fail". There is no `--job` flag.
+
+### `pipeline download`
+
+- Pipeline artifacts and build (container) artifacts are downloaded as zip and
+  extracted; entries that would land outside the target directory are
+  rejected. File share artifacts are skipped with their UNC path.
+- With a single `-n/--name`, the artifact is extracted into `-D/--dir`, as in
+  `gh`. Otherwise each artifact goes to `<dir>/<artifact>`. An existing target
+  is an error unless `--clobber`, which replaces `<dir>/<artifact>`.
+
+### `pipeline approve`, `reject`, `enable` and `disable`
+
+- `approve` and `reject` act on a run's pending stage approvals; `gh` has
+  nothing like them. With several pending, a terminal asks which; otherwise
+  pass `--stage <name>` or `--all`. `-c/--comment` records a comment. When an
+  approval needs more approvers, ado prints "Approved (1 of 2 required); still
+  waiting" and exits 0. Whether you may approve is up to the server; when it
+  refuses, the error names the approvers. Other checks (business hours, Azure
+  functions, ...) show in `view` but can't be acted on.
+- `enable` and `disable` are `gh workflow enable`/`disable`. `enable` also
+  resumes a paused pipeline; ado can't pause one. A concurrent edit of the
+  pipeline is retried once.
+
+### Not supported
+
+`gh workflow view --yaml`, `gh run delete`, creating or editing pipeline
+definitions, and retrying a stage by name.
+
+## `ado release` is Classic Release
+
+`ado release` manages **Classic Release** pipelines (on the
+`vsrm.dev.azure.com` host), not GitHub-style releases: `gh release` has no
+counterpart. A release is an ID or URL; a release definition is an ID or name.
+
+- `list` (`-s active|abandoned|draft`, `-u`, `-b` for the primary artifact's
+  branch, `-d` for definitions), `view`, `logs` and `watch` work like their
+  `ado pipeline` counterparts, with environments in place of stages.
+- `create <definition>` takes `--artifact alias=version` (a build artifact's
+  version is the run ID); artifacts not given use the definition's default
+  version, and ado prints the versions chosen. `-v/--variable` sets only
+  variables marked "Settable at release time".
+- `deploy` and `cancel` act on one `--environment`. They ask for confirmation
+  on a terminal and need `--yes` when not interactive.
+- `approve` and `reject` act on pending pre- and post-deployment approvals,
+  with `--environment` or `--all` when several are pending.
+- `watch` exits 0 if every deployed environment succeeded, 1 if any was
+  rejected, failed or partially succeeded, and 2 if any was canceled. A failed
+  deployment and a rejected approval both leave the environment "rejected";
+  the summary tells them apart.
+
+Organizations created since 2023 block **creating** classic build and release
+pipelines until an organization admin turns off "Disable creation of classic
+build pipelines" and "Disable creation of classic release pipelines" under
+Organization settings > Pipelines > Settings. While it's on, creating one
+through the REST API fails with "Specified argument was out of the range of
+valid values. Parameter name: JobAuthorizationScope". ado doesn't create
+definitions, but `ado release` needs a release definition to act on.
+
 ## `ado api --paginate` merges pages
 
 `gh api --paginate` prints each page as a separate JSON document, or wraps all

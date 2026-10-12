@@ -2,6 +2,9 @@
 package release
 
 import (
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/approve"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/create"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/deploy"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/list"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/logs"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/release/view"
@@ -18,7 +21,12 @@ func NewCmdRelease(f *cmdutil.Factory) *cobra.Command {
 		GroupID: "core",
 	}
 	cmd.AddCommand(
+		approve.NewCmdApprove(f),
+		deploy.NewCmdCancel(f),
+		create.NewCmdCreate(f),
+		deploy.NewCmdDeploy(f),
 		list.NewCmdList(f),
+		approve.NewCmdReject(f),
 		logs.NewCmdLogs(f),
 		view.NewCmdView(f),
 		watch.NewCmdWatch(f),

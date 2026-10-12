@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/release"
+	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	pshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/shared"
 	prshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
@@ -71,13 +72,20 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 	if err != nil {
 		return err
 	}
+	return Release(ctx, f.IOStreams, c, project, id, o.environment, time.Duration(o.interval)*time.Second)
+}
+
+// Release watches release id of project through c every interval, all its environments or
+// only the one environment names (when not ""), and prints the summary; the error is the
+// exit status, as for `release watch`.
+func Release(ctx context.Context, ios *iostreams.IOStreams, c *api.ReleaseClient, project adocontext.Repo, id int, environment string, interval time.Duration) error {
 	var (
 		r    *release.Release
 		envs []shared.Environment
+		err  error
 	)
-	ios := f.IOStreams
 	w := &pshared.Watch{
-		Interval: time.Duration(o.interval) * time.Second,
+		Interval: interval,
 		Header:   fmt.Sprintf("Release %d", id),
 		Poll: func(ctx context.Context) (pshared.Timeline, error) {
 			if r, err = c.ReleaseByID(ctx, id); err != nil {
@@ -86,8 +94,8 @@ func run(ctx context.Context, f *cmdutil.Factory, o *options) error {
 			tree := shared.NewTree(*r)
 			nodes := tree.Nodes
 			envs = tree.Environments
-			if o.environment != "" {
-				i, err := tree.EnvironmentIndex(o.environment, id)
+			if environment != "" {
+				i, err := tree.EnvironmentIndex(environment, id)
 				if err != nil {
 					return pshared.Timeline{}, err
 				}

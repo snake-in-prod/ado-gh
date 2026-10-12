@@ -31,6 +31,13 @@ Create an **organization-scoped** PAT (global PATs stop working on 2026-12-01) w
 - **Identity (Read)** (needed to resolve reviewers, authors and assignees)
 - **Work Items (Read & write)** (work items, queries, sprints and boards)
 - **Project and Team (Read)** (teams, sprints and boards)
+- **Build (Read)** to list, view, watch and download runs; **Build (Read & execute)**
+  to run, cancel, rerun, enable and disable pipelines and to approve runs
+- **Pipeline Resources (Use)** to approve or reject runs, if you'd rather not grant
+  Build (Read & execute)
+- **Release (Read)** to list, view, watch and read releases; **Release (Read, write &
+  execute)** to create, deploy and cancel them; **Release (Read, write, execute &
+  manage)** to approve or reject them
 
 Work Items (Read & write) is expected to cover `ado workitem delete --permanent`
 too: the permanent delete was checked with an Entra ID login, not a PAT. If it
@@ -108,6 +115,21 @@ ado config set team "Web Team" --project fabrikam/Fiber
 
 See [docs/gh-differences.md](docs/gh-differences.md) for how they differ from
 `gh issue`.
+
+## Pipelines and releases
+
+```sh
+ado run list -b main --result failed
+ado pipeline run deploy -b main -p env=prod --watch
+ado run view 812 --log-failed
+ado pipeline approve 812 -c "ship it"
+ado pipeline download 812 -n drop -D out
+ado release deploy 45 --environment Prod
+```
+
+`ado pipeline` (alias `run`) covers YAML and classic build pipelines; `ado release`
+covers Classic Release pipelines. See [docs/gh-differences.md](docs/gh-differences.md)
+for how they differ from `gh run` and `gh workflow`.
 
 ## REST API
 

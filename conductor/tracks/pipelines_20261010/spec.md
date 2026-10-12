@@ -16,7 +16,7 @@ Add `ado pipeline` (alias `run`) to list, trigger, inspect, watch, log, cancel, 
 - **Pipeline refs:** ID, name, folder path (`\Folder\Name` or `Folder/Name`), or URL. Ambiguous names error and list matches.
 - **Run refs:** run (build) ID or URL. With no run argument: TTY → select prompt over recent runs (the default pipeline's runs on the current branch when one resolves, otherwise the project's). Non-TTY → error naming the missing `<run>`.
 - **Default pipeline:** definitions whose repository is the current repo. Exactly one: it's used. Several: TTY select prompt, non-TTY error listing names. None: error suggesting a pipeline argument.
-- **Status model:** `status` (`notStarted|inProgress|cancelling|completed|postponed`) and `result` (`succeeded|partiallySucceeded|failed|canceled`), plus a display mark (✓ ✗ ! - ● ⏸).
+- **Status model:** `status` (`notStarted|inProgress|cancelling|completed|postponed`) and `result` (`succeeded|partiallySucceeded|failed|canceled`), plus a display mark (✓ X ! - ● ⏸); the failure mark is `X`, matching `pr checks` and the work item commands (o2).
 - **Timeline tree:** Build timeline records nested as Stage → Phase/Job → Task (classic builds have no Stage level). Each node carries state, result, start/finish, duration, attempt, log ID, error/warning issues, and pending checkpoints (approvals/checks).
 - **Exit codes (`watch`, `run --watch`, `view --exit-status`):** succeeded `0`, failed/partiallySucceeded `1`, canceled `2`. `--exit-status` is accepted on `watch` as a no-op for gh scripts.
 
@@ -59,12 +59,12 @@ Add `ado pipeline` (alias `run`) to list, trigger, inspect, watch, log, cancel, 
 
 ### FR8: `ado pipeline rerun [<run>]`
 - Default: queues a new run of the same definition, branch, commit, template parameters and queue-time variables. Prints the new run URL.
-- `--failed`: retries only failed stages of the same YAML run (stage retry API, failed jobs only). Classic: error `--failed is supported only for YAML pipelines`. No failed stages: error.
+- `--failed`: only on a completed run (otherwise error `run is still in progress`). YAML: retries the failed and canceled stages of the same run (stage retry API, failed jobs only); none: error. Classic: `PATCH builds/{id}?retry=true`, the server's error passed through when the build did not fail (o1, o10, o12).
 
 ### FR9: `ado pipeline download [<run>]`
-- `-n/--name` (repeatable), `-p/--pattern <glob>`, `-D/--dir` (default cwd; each artifact goes to `<dir>/<artifact>`).
+- `-n/--name` (repeatable), `-p/--pattern <glob>`, `-D/--dir` (default cwd). As in gh, a single `-n` extracts directly into `<dir>`; several `-n`, `-p` or none extract each artifact into `<dir>/<artifact>` (o13).
 - Supports pipeline artifacts and build container artifacts (zip download + extraction with zip-slip protection). File-share artifacts are skipped with a warning showing the UNC path.
-- Existing target directory: error unless `--clobber`.
+- Existing `<dir>/<artifact>`: error unless `--clobber`, which removes it and re-extracts into a fresh directory (o14). Single `-n`: files that would be overwritten error unless `--clobber`; `<dir>` itself is never removed.
 
 ### FR10: `ado pipeline approve|reject <run>`
 - Acts on pending approvals for the run where the signed-in user is an approver. `-c/--comment`.
@@ -73,13 +73,13 @@ Add `ado pipeline` (alias `run`) to list, trigger, inspect, watch, log, cancel, 
 - Other checks (business hours, invoke function, etc.) appear in `view`/`watch` as waiting but can't be acted on here.
 
 ### FR11: `ado pipeline enable|disable <pipeline>`
-- Sets the definition `queueStatus` to `enabled` / `disabled` (GET + PUT with revision; concurrency conflict → retry message).
+- Sets the definition `queueStatus` to `enabled` / `disabled` (GET + PUT with revision, changing only `queueStatus`; a revision conflict retries the GET + PUT once, then fails with the conflict message (o20)). `enable` also resumes a paused definition; there is no pause command (o19).
 - Already in that state: message, exit 0.
 
 ### FR12: `ado release` (Classic Release)
 - `list [<definition>]`: releases with `-s/--status {active|abandoned|draft}`, `-u/--user`, `-b/--branch` (primary artifact branch), `-L`. Also `-d/--definitions` (name, folder, environments). JSON: `id,name,definition,status,createdBy,createdOn,environments[{name,status}],url`.
 - `view <release>`: environments with status, deploy steps tree (deploy phases → jobs → tasks), approvals, `--log`, `--log-failed`, `-w`. JSON with `environments` tree.
-- `create <definition>`: `--artifact alias=version` (repeatable; default latest), `-v/--variable key=value` (overridable only), `--description`, `--watch`, `-w`. Prints the release URL.
+- `create <definition>`: `--artifact alias=version` (repeatable; without it no artifacts are sent, the server uses each artifact's default version and ado prints the versions it chose (o21)), `-v/--variable key=value` (overridable only), `--description`, `--watch`, `-w`. Prints the release URL.
 - `deploy <release> --environment <name>`: manual/re-deploy. Confirms on TTY. `-y` required when non-interactive. `-c/--comment`.
 - `watch <release> [--environment <name>]`: same behavior as FR5. Exit codes across the watched environments: all succeeded `0`, any rejected/failed/partiallySucceeded `1`, canceled `2`.
 - `logs <release>`: `--environment`, `--failed`, `-o/--output` (same layout rules as FR6).
@@ -93,10 +93,10 @@ Add `ado pipeline` (alias `run`) to list, trigger, inspect, watch, log, cancel, 
 ## Non-Functional Requirements
 - **Output contract:** read commands (`pipeline list/view`, `release list/view`) support `--json/--jq/--template`. Field names are public API.
 - **Safety:** `pipeline cancel`, `release deploy`, `release cancel` confirm on TTY and require `--yes` when non-interactive.
-- **Security:** artifact extraction and `--output` paths are confined to the target directory (zip-slip / path traversal tests). Tokens are never logged. Signed download URLs are never printed.
+- **Security:** artifact extraction and `--output` paths are confined to the target directory (zip-slip / path traversal tests). Tokens are never logged. Signed download URLs are never printed, and `--debug` logs every request URL without its query string (o15).
 - **No new dependencies:** zip via `archive/zip`, polling via `time.Ticker` with an injectable clock for tests.
 - **Testing:** >90% coverage. httpmock fixtures for YAML multi-stage runs, classic runs (no stages), retried stage attempts, pending approvals, and release environments. TTY and non-TTY watch output covered with a fake clock.
-- **Docs:** `docs/gh-differences.md` covers `pipeline` vs `run`/`workflow`, `list -d`, `-p` vs `-v`, strict watch exit codes, `logs` command and `--follow` limits, `rerun --failed` YAML-only, approvals, `ado release`.
+- **Docs:** `docs/gh-differences.md` covers `pipeline` vs `run`/`workflow`, `list -d`, `-p` vs `-v`, strict watch exit codes, `logs` command and `--follow` limits, `rerun --failed` (YAML stage retry, classic `retry=true`), approvals, `ado release`.
 
 ## Acceptance Criteria
 - [ ] `ado run list -b main --result failed --json id,result` and `ado pipeline list -d` work. The default pipeline resolves inside a clone that has one pipeline.
@@ -104,7 +104,7 @@ Add `ado pipeline` (alias `run`) to list, trigger, inspect, watch, log, cancel, 
 - [ ] `ado pipeline view 812 -v`, `--log-failed` and `--json stages` show the tree and failed logs.
 - [ ] `ado pipeline watch` redraws on TTY and prints transitions when piped.
 - [ ] `ado pipeline logs 812 -o out/` writes the per-task tree. `--failed` filters.
-- [ ] `cancel` confirms. `rerun` queues a copy. `rerun --failed` retries only failed stages of a YAML run.
+- [ ] `cancel` confirms. `rerun` queues a copy. `rerun --failed` retries the failed and canceled stages of a YAML run, or a failed classic build.
 - [ ] `download -n drop -D out` extracts safely. `approve 812 -c ok` approves. `enable`/`disable` toggle the queue status.
 - [ ] `ado release list/view/create/deploy/watch/logs/cancel/approve/reject` work against fixture data.
 - [ ] Docs updated. Coverage >90%. CI green on linux/macos/windows.

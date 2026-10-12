@@ -244,6 +244,33 @@ func TestReleaseClient_ApprovalsBadToken(t *testing.T) {
 	assert.ErrorContains(t, err, `continuation token "x"`)
 }
 
+func TestReleaseClient_UpdateApproval(t *testing.T) {
+	org := "relupdapprorg"
+	c, reg := newReleaseTestClient(t, org)
+	var body string
+	reg.Register(httpmock.REST(http.MethodPatch, org+"/proj/_apis/release/approvals/4"), func(r *http.Request) (*http.Response, error) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		return httpmock.JSONResponse(map[string]any{"id": 4, "status": "approved"})(r)
+	})
+	reg.Register(httpmock.REST(http.MethodPatch, org+"/proj/_apis/release/approvals/5"),
+		httpmock.StatusJSONResponse(http.StatusBadRequest, map[string]any{"message": "not yours"}))
+
+	got, err := c.UpdateApproval(context.Background(), 4, release.ApprovalStatusValues.Approved, "ship it")
+	require.NoError(t, err)
+	assert.Equal(t, release.ApprovalStatusValues.Approved, *got.Status)
+	assert.JSONEq(t, `{"status":"approved","comments":"ship it"}`, body)
+
+	_, err = c.UpdateApproval(context.Background(), 5, release.ApprovalStatusValues.Rejected, "")
+	var he *HTTPError
+	require.ErrorAs(t, err, &he)
+	assert.Equal(t, http.StatusBadRequest, he.StatusCode)
+
+	bad := NewReleaseClient(NewHTTPClient(ClientOptions{Transport: &httpmock.Registry{}}), "https://dev.azure.com/relupdapprdisc", "proj")
+	_, err = bad.UpdateApproval(context.Background(), 4, release.ApprovalStatusValues.Approved, "")
+	assert.Error(t, err)
+}
+
 func TestReleaseClient_Logs(t *testing.T) {
 	org := "rellogsorg"
 	c, reg := newReleaseTestClient(t, org)

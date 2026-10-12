@@ -1,0 +1,31 @@
+name: Smoke
+
+# Called from release.yml after a release, or run by hand for a published tag.
+# Stub: the binary and channel matrices land in Phase 5.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release tag, e.g. v1.2.3
+        required: true
+        type: string
+    secrets:
+      SMOKE_ADO_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag, e.g. v1.2.3
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  stub:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Smoke tests not implemented yet
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "::notice::smoke tests for $VERSION are not implemented yet"

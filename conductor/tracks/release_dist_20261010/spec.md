@@ -68,15 +68,15 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 
 ### FR7: Release workflow (`.github/workflows/release.yml`)
 - **Trigger:** tags `v*`. A guard step rejects tags that aren't strict SemVer and tags whose commit isn't on `main`.
-- **Permissions:** `contents: write`, `id-token: write`, `attestations: write`. Secrets come from a `release` GitHub environment: `PACKAGES_PAT` (fine-grained: tap, bucket, winget fork), `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+- **Permissions:** `contents: write`, `id-token: write`, `attestations: write`. Secrets come from a `release` GitHub environment: `PACKAGES_PAT` (fine-grained: Contents read/write on the tap, bucket and winget fork), `WINGET_PR_PAT` (classic `public_repo`: fine-grained PATs can't open the pull request into `microsoft/winget-pkgs`), `GPG_PRIVATE_KEY` (a signing subkey only; the primary key stays offline), `GPG_PASSPHRASE`. A guard job without secrets runs first and the release job needs it.
 - **Steps:**
   1. Checkout with full history, `setup-go`.
   2. Gate: `go test ./... -race`.
   3. Install syft, cosign and git-cliff; import the GPG key.
   4. Render release notes.
   5. `goreleaser release --clean`.
-  6. `actions/attest-build-provenance` for archives, packages and checksums.
-  7. Trigger the smoke workflow (FR9).
+  6. `actions/attest@v4` build provenance for archives, packages and checksums; the attestation bundle is uploaded as a release asset so users can run `gh attestation verify --bundle` without logging in.
+  7. Call `smoke.yml` (FR9) and, for stable tags, `docs.yml` (FR4) as reusable workflows (`workflow_call`): events created with `GITHUB_TOKEN` don't trigger other workflows.
 - No secret value is ever printed. GPG key material is cleaned up at job end.
 
 ### FR8: Install scripts

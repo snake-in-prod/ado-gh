@@ -68,30 +68,31 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
     - [x] Pin and bump ci.yml actions to SHAs (checkout v7.0.1, setup-go v7.0.0, golangci-lint-action v9.3.0); actionlint passes
 - [x] Task: Conductor - User Manual Verification 'Phase 3: GoReleaser and Changelog' (Protocol in workflow.md)
 
-## Phase 4: Release Workflow and Install Scripts
+## Phase 4: Release Workflow and Install Scripts [checkpoint: b751518]
 
-- [ ] Task: One-time external setup (manual, maintainer)
-    - [ ] Make GitHub canonical: push main and history to `snake-in-prod/ado-gh`; the Azure DevOps remote becomes a mirror or is dropped
-    - [ ] Create `snake-in-prod/homebrew-tap`, `snake-in-prod/scoop-bucket`, fork `microsoft/winget-pkgs` as `snake-in-prod/winget-pkgs`; sign the Microsoft CLA; `winget search ado` to confirm `SnakeInProd.Ado` is free
-    - [ ] Tokens: fine-grained `PACKAGES_PAT` (Contents read/write on tap, bucket, fork; optional Workflows on fork) plus classic `public_repo` `WINGET_PR_PAT` for `pull_request.token`
-    - [ ] GPG: certify-only primary kept offline, signing subkey (1–2-year expiry) exported with `--export-secret-subkeys FPR!` as the only CI secret, offline revocation cert; publish to keys.openpgp.org (web upload, email verification)
-    - [ ] Enable Pages (GitHub Actions); `release` environment with secrets; `v*` tag rules on `github-pages` and `release` environments plus a `v*` tag ruleset
-    - [ ] Update spec line 71 (FR7 secrets): split `PACKAGES_PAT` / `WINGET_PR_PAT`, signing subkey only
-- [ ] Task: `.github/workflows/release.yml`
-    - [ ] Write tests for `scripts/release-guard.sh` (valid/invalid tag table): accepts `vX.Y.Z` and `vX.Y.Z-<prerelease>`, rejects `+build`, leading zeros and non-`v` tags; rejects commits not ancestors of `origin/main`
-    - [ ] Implement guard script; `guard` job (no secrets) and `release` job (`needs: guard`, `environment: release`); `permissions: {}` at top, per-job `contents: write`, `id-token: write`, `attestations: write`; concurrency; `fetch-depth: 0`, `persist-credentials: false`; pinned action SHAs; test gate; setup-go `go-version-file` + `GOTOOLCHAIN=local`
-    - [ ] Tools: GoReleaser v2.18.3, cosign-installer with `cosign-release: v3.1.3`, `download-syft`; GPG via plain `gpg --batch` import into a temporary GNUPGHOME, fed to GoReleaser via `signs.stdin`, `if: always()` cleanup step (no ghaction-import-gpg)
-    - [ ] Notes: git-cliff stable `--current` / rc `--unreleased --tag "$TAG"`; check the heading matches the tag and the body is non-empty, then drop the heading line from notes.md; GoReleaser `--release-notes`
-    - [ ] Provenance with `actions/attest@v4` (`subject-checksums: dist/checksums.txt` plus `subject-path: dist/checksums.txt`); upload the attestation bundle (`bundle-path` output) as a release asset
-    - [ ] Call docs.yml (`if: ${{ !contains(github.ref_name, '-') }}`) and smoke.yml via `workflow_call`; add a smoke.yml stub so the call resolves
-    - [ ] Update spec: provenance via `actions/attest@v4` (not attest-build-provenance), bundle uploaded as an asset; FR7 dispatches docs/smoke via `workflow_call`
-    - [ ] Verify: actionlint
-- [ ] Task: Install scripts
-    - [ ] Write tests: `scripts/install_test.sh` (python3 `http.server` fixture, stubbed uname/sysctl, run under dash and `bash --posix`) for `install.sh` — OS/arch detection incl. Rosetta, `--version`, `--bin-dir`, checksum mismatch aborts, optional cosign verify, Git Bash/MSYS2/Cygwin exits with a message pointing to install.ps1; Pester 5 tests under powershell 5.1 and pwsh for `install.ps1` — `-Version`/`-BinDir` with `ADO_VERSION`/`ADO_INSTALL_DIR` env fallback, `-NoModifyPath` leaves HKCU untouched, checksum mismatch aborts, ARM64 arch from HKLM
-    - [ ] Implement `scripts/install.sh`: functions with bare `main "$@"` last, `set -eu`, EXIT plus INT/TERM/HUP traps, uname mapping incl. Rosetta check, sha256sum/shasum/openssl fallback, https-only curl/wget, test-only base-URL override
-    - [ ] Implement `scripts/install.ps1`: `-UseBasicParsing`, `$ProgressPreference`, Tls12 only when not SystemDefault, HKLM registry arch, `-NoModifyPath`, raw HKCU PATH write keeping REG_EXPAND_SZ plus `WM_SETTINGCHANGE`
-    - [ ] CI: shellcheck in the lint job; PSScriptAnalyzer settings with `PSUseCompatibleSyntax` 5.1, fail on any result; Pester in CI only (locally only the sh harness runs)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Release Workflow and Install Scripts' (Protocol in workflow.md)
+- [x] Task: One-time external setup (manual, maintainer)
+    - Done 2026-10-13: `main` pushed to GitHub, `homebrew-tap`, `scoop-bucket` and the `winget-pkgs` fork created, Pages (Actions), `release`/`github-pages` environments with `v*` tag rules, `release tags` ruleset, `SnakeInProd.Ado` free in winget; GPG primary `E8CC 041B D0BE BDC1 3ADB 967E EC1E F53E 7EF8 CA48` (uid `f.dziewiatowski@gmail.com`, published and verified on keys.openpgp.org), signing subkey `9236 1482 2D64 5B37 06B7 56E7 F621 5CEA 43F8 A59C` (2-year expiry) and its passphrase as secrets; `PACKAGES_PAT` and `WINGET_PR_PAT` set. Left for the maintainer: move `~/ado-release-keys` offline, sync the fork and sign the CLA at the first stable release.
+    - [x] Make GitHub canonical: push main and history to `snake-in-prod/ado-gh`; the Azure DevOps remote becomes a mirror or is dropped
+    - [x] Create `snake-in-prod/homebrew-tap`, `snake-in-prod/scoop-bucket`, fork `microsoft/winget-pkgs` as `snake-in-prod/winget-pkgs`; sign the Microsoft CLA; `winget search ado` to confirm `SnakeInProd.Ado` is free
+    - [x] Tokens: fine-grained `PACKAGES_PAT` (Contents read/write on tap, bucket, fork; optional Workflows on fork) plus classic `public_repo` `WINGET_PR_PAT` for `pull_request.token`
+    - [x] GPG: certify-only primary kept offline, signing subkey (1–2-year expiry) exported with `--export-secret-subkeys FPR!` as the only CI secret, offline revocation cert; publish to keys.openpgp.org (web upload, email verification)
+    - [x] Enable Pages (GitHub Actions); `release` environment with secrets; `v*` tag rules on `github-pages` and `release` environments plus a `v*` tag ruleset
+    - [x] Update spec (main session) line 71 (FR7 secrets): split `PACKAGES_PAT` / `WINGET_PR_PAT`, signing subkey only
+- [x] Task: `.github/workflows/release.yml` `b751518`
+    - [x] Write tests for `scripts/release-guard.sh` (valid/invalid tag table): accepts `vX.Y.Z` and `vX.Y.Z-<prerelease>`, rejects `+build`, leading zeros and non-`v` tags; rejects commits not ancestors of `origin/main`
+    - [x] Implement guard script; `guard` job (no secrets) and `release` job (`needs: guard`, `environment: release`); `permissions: {}` at top, per-job `contents: write`, `id-token: write`, `attestations: write`; concurrency; `fetch-depth: 0`, `persist-credentials: false`; pinned action SHAs; test gate; setup-go `go-version-file` + `GOTOOLCHAIN=local`
+    - [x] Tools: GoReleaser v2.18.3, cosign-installer with `cosign-release: v3.1.3`, `download-syft`; GPG via plain `gpg --batch` import into a temporary GNUPGHOME, fed to GoReleaser via `signs.stdin`, `if: always()` cleanup step (no ghaction-import-gpg)
+    - [x] Notes: git-cliff stable `--current` / rc `--unreleased --tag "$TAG"`; check the heading matches the tag and the body is non-empty, then drop the heading line from notes.md; GoReleaser `--release-notes`
+    - [x] Provenance with `actions/attest@v4` (`subject-checksums: dist/checksums.txt` plus `subject-path: dist/checksums.txt`); upload the attestation bundle (`bundle-path` output) as a release asset
+    - [x] Call docs.yml (`if: ${{ !contains(github.ref_name, '-') }}`) and smoke.yml via `workflow_call`; add a smoke.yml stub so the call resolves
+    - [x] Update spec (main session): provenance via `actions/attest@v4` (not attest-build-provenance), bundle uploaded as an asset; FR7 dispatches docs/smoke via `workflow_call`
+    - [x] Verify: actionlint
+- [x] Task: Install scripts `b751518`
+    - [x] Write tests: `scripts/install_test.sh` (python3 `http.server` fixture, stubbed uname/sysctl, run under dash and `bash --posix`) for `install.sh` — OS/arch detection incl. Rosetta, `--version`, `--bin-dir`, checksum mismatch aborts, optional cosign verify, Git Bash/MSYS2/Cygwin exits with a message pointing to install.ps1; Pester 5 tests under powershell 5.1 and pwsh for `install.ps1` — `-Version`/`-BinDir` with `ADO_VERSION`/`ADO_INSTALL_DIR` env fallback, `-NoModifyPath` leaves HKCU untouched, checksum mismatch aborts, ARM64 arch from HKLM
+    - [x] Implement `scripts/install.sh`: functions with bare `main "$@"` last, `set -eu`, EXIT plus INT/TERM/HUP traps, uname mapping incl. Rosetta check, sha256sum/shasum/openssl fallback, https-only curl/wget, test-only base-URL override
+    - [x] Implement `scripts/install.ps1`: `-UseBasicParsing`, `$ProgressPreference`, Tls12 only when not SystemDefault, HKLM registry arch, `-NoModifyPath`, raw HKCU PATH write keeping REG_EXPAND_SZ plus `WM_SETTINGCHANGE`
+    - [x] CI: shellcheck in the lint job; PSScriptAnalyzer settings with `PSUseCompatibleSyntax` 5.1, fail on any result; Pester in CI only (locally only the sh harness runs)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Release Workflow and Install Scripts' (Protocol in workflow.md)
 
 ## Phase 5: Smoke Tests, README, Release Checklist, First Release
 

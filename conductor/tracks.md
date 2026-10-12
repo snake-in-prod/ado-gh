@@ -4,11 +4,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Add pipeline commands mirroring gh run/workflow: `ado pipeline` (alias `run`) list/run/view/watch/logs/cancel/rerun/download/approve/reject/enable/disable for YAML and classic builds, default pipeline per repo, `ado release` group for Classic Release pipelines, `--json/--jq/--template` on read commands**
-*Link: [./tracks/pipelines_20261010/](./tracks/pipelines_20261010/)*
-
----
-
 - [ ] **Track: Add user aliases and an extension system matching gh: `ado alias set/list/delete/import` ($1 placeholders, --shell, no shadowing, config.yml) and `ado extension install/list/upgrade/remove/exec/create/search/browse` (GitHub/ADO/local sources, script + GitHub Release + Azure Artifacts binaries, checksums, pinning, allowlist, token consent), `ado-<name>` dispatch with context env vars, author contract docs**
 *Link: [./tracks/extensions_20261010/](./tracks/extensions_20261010/)*
 

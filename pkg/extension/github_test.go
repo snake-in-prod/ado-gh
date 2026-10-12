@@ -338,9 +338,9 @@ func TestInstallGitHubBinaryHTTPErrors(t *testing.T) {
 		wantErr string
 	}{
 		"rate limit 403": {httpmock.WithHeader(httpmock.StatusStringResponse(http.StatusForbidden, ""), "X-RateLimit-Remaining", "0"),
-			"GitHub release of o/ado-hello: GitHub API rate limit exceeded; set GH_TOKEN"},
+			"GitHub release of o/ado-hello: GitHub API rate limit exceeded (retrying now won't help); set GH_TOKEN"},
 		"rate limit 429": {httpmock.WithHeader(httpmock.StatusStringResponse(http.StatusTooManyRequests, ""), "X-RateLimit-Remaining", "0"),
-			"rate limit exceeded; set GH_TOKEN"},
+			"rate limit exceeded (retrying now won't help); set GH_TOKEN"},
 		"forbidden":    {httpmock.StatusStringResponse(http.StatusForbidden, ""), "GitHub release of o/ado-hello: HTTP 403"},
 		"unauthorized": {httpmock.StatusStringResponse(http.StatusUnauthorized, ""), "check GH_TOKEN or GITHUB_TOKEN"},
 		"bad json":     {httpmock.StringResponse("{"), "GitHub release of o/ado-hello: unexpected EOF"},

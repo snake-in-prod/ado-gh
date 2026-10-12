@@ -1,0 +1,17 @@
+# The ado extension manifest: <% .DocsURL %>
+name: <% .Name %>
+description: ""
+# true asks users at install for consent to pass their Azure DevOps token as ADO_TOKEN.
+token: false
+<%- if ne .Kind "script" %>
+binaries:
+  # Binaries from the GitHub release of a tag (.github/workflows/release.yml). To install them
+  # from the Azure Artifacts universal package of azure-pipelines.yml instead, replace this line
+  # with the azure-artifacts block below.
+  github-releases: true
+  # azure-artifacts:
+  #   organization: ORG
+  #   project: PROJECT # omit for an organization-scoped feed
+  #   feed: FEED
+  #   package: ado-<% .Name %>
+<%- end %>

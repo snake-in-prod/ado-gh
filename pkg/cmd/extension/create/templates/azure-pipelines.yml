@@ -1,0 +1,45 @@
+# Builds ado-<% .Name %> for six platforms when a v* tag is pushed, and publishes the binaries and
+# checksums.txt as the Azure Artifacts universal package ado-<% .Name %>, version = tag without "v".
+# Set vstsFeedPublish below and the azure-artifacts block of ado-extension.yml to your feed, and
+# give the build service identities the Feed Publisher (Contributor) role on it.
+trigger:
+  branches:
+    exclude: ["*"]
+  tags:
+    include: ["v*"]
+pr: none
+pool:
+  vmImage: ubuntu-latest
+steps:
+<%- if eq .Kind "go" %>
+  - task: GoTool@0
+    displayName: Install Go
+    inputs:
+      version: "<% .PipelineGoVersion %>" # a full version: GoTool@0 cannot read go.mod
+  - bash: |
+      for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+        os=${t%/*}; arch=${t#*/}; ext=; [ "$os" = windows ] && ext=.exe
+        CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags="-s -w" -o "dist/ado-<% .Name %>-$os-$arch$ext" || exit 1
+      done
+    displayName: Build
+<%- else %>
+  - bash: script/build.sh
+    displayName: Build
+<%- end %>
+  - bash: |
+      set -e
+      cd dist && sha256sum * > checksums.txt
+      v="$(Build.SourceBranchName)"
+      echo "##vso[task.setvariable variable=pkgVersion]${v#v}"
+    displayName: Checksums and version
+  - task: UniversalPackages@0
+    displayName: Publish
+    inputs:
+      command: publish
+      publishDirectory: $(Build.SourcesDirectory)/dist
+      feedsToUsePublish: internal
+      vstsFeedPublish: PROJECT/FEED # an organization-scoped feed: just FEED
+      vstsFeedPackagePublish: ado-<% .Name %>
+      versionOption: custom
+      versionPublish: $(pkgVersion)
+      packagePublishDescription: ado-<% .Name %> extension binaries

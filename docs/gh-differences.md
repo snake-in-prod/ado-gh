@@ -798,3 +798,84 @@ Other `ado api` differences:
 - CI tokens come from `ADO_TOKEN` or `AZURE_DEVOPS_EXT_PAT` instead of
   `GH_TOKEN`/`GITHUB_TOKEN`.
 - Missing or rejected credentials exit with code `4`, as in `gh`.
+
+## Aliases
+
+`ado alias` works like `gh alias`, with these differences:
+
+- **Dispatch order.** `ado` resolves a command name as built-in command, then
+  alias, then installed extension, then `ado-<name>` on `PATH`. In `gh` an
+  installed extension wins over an alias (`gh alias set` refuses the name). In
+  `ado` an alias may shadow an extension, with a warning; run the extension
+  with `ado extension exec <name>`.
+- **Top-level names only.** `gh` allows names under a command group, such as
+  `gh alias set 'issue mine' ...`. `ado` alias names are one word.
+- **No chaining.** An alias expands once. A non-shell expansion must start with
+  a built-in command, not another alias or an extension (in `gh`, chaining
+  works only when the target alias happens to load first).
+- **Arguments.** The expansion is split into words first, then `$1..$n` are
+  replaced inside each word and every argument no placeholder used is
+  appended. An argument containing spaces stays one argument.
+- **`alias list`** prints a table on a terminal and YAML when piped (the format
+  `alias import` reads), and supports `--json name,expansion,shell`. `gh alias
+  list` always prints YAML.
+- **Shell aliases on Windows.** `gh` needs `sh` from Git for Windows. `ado`
+  uses `sh` when it finds it, else `pwsh`, else `powershell`, unless the
+  `alias_shell` config key names a shell. PowerShell runs the expansion with
+  `-NoProfile -NonInteractive -EncodedCommand`; `$1..$n` are variables bound
+  from `$args`, which holds every argument. The exit code is passed on.
+
+## Extensions
+
+`ado extension` follows `gh extension` (install, upgrade, list, remove, exec,
+create, search, browse). Writing one is covered in
+[extensions.md](extensions.md). Differences:
+
+- **Sources.** Besides GitHub (`owner/repo` or a URL), extensions install from
+  Azure DevOps repositories (`dev.azure.com`, `ssh.dev.azure.com`,
+  `*.visualstudio.com`), with binaries from an Azure Artifacts universal
+  package named in the repository's `ado-extension.yml`.
+- **Trust controls.** A repository install shows a summary and asks to confirm
+  (`--yes` when not interactive). Release binaries must match `checksums.txt`
+  unless `--allow-unverified`. The `extension_sources` config list restricts
+  where extensions may come from (`*` is one path segment, `**` any number):
+
+  ```sh
+  ado config set extension_sources 'github.com/myco/*,dev.azure.com/myorg/**,local'
+  ```
+
+- **Token consent.** `gh` extensions inherit `GH_TOKEN` and can run
+  `gh auth token`. An `ado` extension gets `ADO_TOKEN` only if its manifest
+  asks for it and the user agreed at install (`--allow-token`). Otherwise
+  `ADO_TOKEN` and `AZURE_DEVOPS_EXT_PAT` are removed from its environment and
+  `ado auth token` refuses inside it.
+- **Context in the environment.** `gh` passes only `GH_EXTENSION` and
+  `GH_PATH`. `ado` passes `ADO_HOST`, `ADO_ORG`, `ADO_PROJECT`,
+  `ADO_REPO_NAME` (or `ADO_REPO` after a global `-R`), `ADO_EXTENSION_NAME`
+  and `ADO_EXECUTABLE`.
+- **PATH extensions.** `gh` runs only installed extensions. `ado` also runs
+  any `ado-<name>` executable on `PATH` (after built-ins, aliases and installed
+  extensions) and lists them in help and completion. They never get a token.
+- **Windows scripts.** `gh` runs every non-`.exe` extension through `sh`.
+  `ado` runs `ado-<name>.exe`, then `ado-<name>.ps1` through `pwsh` (or
+  `powershell`) with `-ExecutionPolicy Bypass`, then `ado-<name>.cmd`, then
+  `ado-<name>` through `sh`. A `.cmd` extension can't receive arguments
+  containing `& | < > ^ % "`.
+- **git 2.31 or later** is needed to install or upgrade a private Azure DevOps
+  script extension: the token reaches git through `GIT_CONFIG_*` environment
+  variables, never the command line or a config file.
+- **Upgrading scripts.** `gh` runs `git pull`, and with `--force` resets to
+  `origin/HEAD`, which doesn't follow a renamed default branch. `ado` runs
+  `git fetch origin HEAD` and `git merge --ff-only FETCH_HEAD`, so it follows
+  a renamed default branch; rewritten history needs `--force`, which resets to
+  `FETCH_HEAD`.
+- **Binary names.** `ado` looks for `ado-<name>-<os>-<arch>[.exe]` first, then
+  any asset ending in `<os>-<arch>[.exe]` as `gh` does. A release may name its
+  checksums `checksums.txt` or a single `*_checksums.txt`.
+- **`browse`** is a select prompt over search results with a README view, not
+  `gh`'s split-pane screen. It loads `-L/--limit` results (default 100) to stay
+  within GitHub's unauthenticated search rate limit.
+- **`create --precompiled`** also writes an `azure-pipelines.yml` that
+  publishes the binaries as an Azure Artifacts universal package. Inside an
+  Azure DevOps clone the Go module path is
+  `dev.azure.com/<org>/<project>/_git/ado-<name>`.

@@ -103,24 +103,25 @@ func TestDebugFlagDefaultsToFactory(t *testing.T) {
 
 // webCmds must expose -w/--web.
 var webCmds = map[string]bool{
-	"ado pr checks":       true,
-	"ado pr comment":      true,
-	"ado pr create":       true,
-	"ado pr diff":         true,
-	"ado pr list":         true,
-	"ado pr view":         true,
-	"ado board":           true,
-	"ado sprint current":  true,
-	"ado sprint view":     true,
-	"ado pipeline run":    true,
-	"ado pipeline view":   true,
-	"ado release create":  true,
-	"ado release view":    true,
-	"ado repo view":       true,
-	"ado workitem create": true,
-	"ado workitem list":   true,
-	"ado workitem query":  true,
-	"ado workitem view":   true,
+	"ado pr checks":        true,
+	"ado pr comment":       true,
+	"ado pr create":        true,
+	"ado pr diff":          true,
+	"ado pr list":          true,
+	"ado pr view":          true,
+	"ado board":            true,
+	"ado sprint current":   true,
+	"ado sprint view":      true,
+	"ado pipeline run":     true,
+	"ado pipeline view":    true,
+	"ado release create":   true,
+	"ado release view":     true,
+	"ado repo view":        true,
+	"ado workitem create":  true,
+	"ado workitem list":    true,
+	"ado workitem query":   true,
+	"ado workitem view":    true,
+	"ado extension search": true,
 }
 
 // noWebCmds is the documented exclusion list: command path -> reason it has no --web.
@@ -182,11 +183,13 @@ var noWebCmds = map[string]string{
 	"ado alias list":          "local config, no page",
 	"ado alias delete":        "local config, no page",
 	"ado alias import":        "local config, no page",
+	"ado extension create":    "scaffolds a local directory, no page",
 	"ado extension list":      "local install state, no page",
 	"ado extension remove":    "local files, no page",
 	"ado extension exec":      "runs a local executable",
 	"ado extension install":   "local install; the source repo is opened by extension browse",
 	"ado extension upgrade":   "local install state; the source repo is opened by extension browse",
+	"ado extension browse":    "interactive; offers opening the selected repo in the browser",
 }
 
 // TestWebFlagAudit fails for commands missing from both lists and for stale entries.

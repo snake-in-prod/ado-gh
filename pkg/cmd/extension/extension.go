@@ -1,4 +1,4 @@
-// Package extension implements `ado extension install/upgrade/list/remove/exec`.
+// Package extension implements `ado extension install/upgrade/search/list/remove/exec/create/browse`.
 package extension
 
 import (
@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/browse"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/create"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/install"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/search"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/upgrade"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	extpkg "github.com/snake-in-prod/ado-gh/pkg/extension"
@@ -29,7 +32,8 @@ extension, and an installed extension wins over an ado-<name> executable on PATH
 "ado extension exec <name>" runs an installed extension even when an alias shadows it.`,
 		GroupID: "additional",
 	}
-	cmd.AddCommand(install.NewCmdInstall(f), upgrade.NewCmdUpgrade(f), newCmdList(f), newCmdRemove(f), newCmdExec(f))
+	cmd.AddCommand(install.NewCmdInstall(f), upgrade.NewCmdUpgrade(f), search.NewCmdSearch(f), newCmdList(f), newCmdRemove(f),
+		newCmdExec(f), create.NewCmdCreate(f), browse.NewCmdBrowse(f))
 	return cmd
 }
 
@@ -122,7 +126,8 @@ func newCmdRemove(f *cmdutil.Factory) *cobra.Command {
 		Short: "Remove an installed extension",
 		Long: `Remove an installed extension and its install record. For a local install only the
 link to the directory is removed, never the directory itself.`,
-		Args: cobra.ExactArgs(1),
+		Example: `  ado extension remove lint`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
 			err := extpkg.Remove(extpkg.Dir(), name)

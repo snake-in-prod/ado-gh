@@ -16,7 +16,9 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/snake-in-prod/ado-gh/internal/fsutil"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -101,10 +103,20 @@ func githubGet(ctx context.Context, hc *http.Client, u, accept string) (*http.Re
 	case code == http.StatusUnauthorized:
 		return nil, errors.New("GitHub rejected the credentials: check GH_TOKEN or GITHUB_TOKEN")
 	case (code == http.StatusForbidden || code == http.StatusTooManyRequests) && resp.Header.Get("X-RateLimit-Remaining") == "0":
-		return nil, errors.New("GitHub API rate limit exceeded; set GH_TOKEN to a GitHub token to raise it (retrying won't help)")
+		return nil, rateLimitError(resp.Header.Get("X-RateLimit-Reset"))
 	default:
 		return nil, fmt.Errorf("HTTP %d", code)
 	}
+}
+
+// rateLimitError names when the limit resets (reset is Unix seconds, from X-RateLimit-Reset)
+// and how to raise it.
+func rateLimitError(reset string) error {
+	when := "retrying now won't help"
+	if sec, err := strconv.ParseInt(reset, 10, 64); err == nil {
+		when = "it resets at " + time.Unix(sec, 0).Format("15:04:05 MST")
+	}
+	return fmt.Errorf("GitHub API rate limit exceeded (%s); set GH_TOKEN to a GitHub token to raise it", when)
 }
 
 // withoutURL returns the error inside a *url.Error, whose message would print the URL.

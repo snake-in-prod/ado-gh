@@ -17,9 +17,9 @@ Add user aliases (`ado alias`) and an extension system (`ado extension`, alias `
   - A non-shell expansion must start with a valid `ado` command.
   - `-s/--shell` stores the alias with a `!` prefix (gh format) and runs it through the shell. `$1..$n` are positional parameters.
   - `--clobber` overwrites an existing alias.
-- **Shell:** config `alias_shell`. Defaults: `sh` on Unix. On Windows, `sh` if on PATH (Git for Windows), else `pwsh`, then `powershell -NoProfile`. For PowerShell, `ado` replaces `$1..$n` with single-quoted escaped literals and exposes `$args`.
+- **Shell:** config `alias_shell`. Defaults: `sh` on Unix. On Windows, `sh` if on PATH (Git for Windows), else `pwsh`, then `powershell`. PowerShell runs the expansion with `-NoProfile -NonInteractive -EncodedCommand`, binding `$1..$n` from `$args` (arguments passed as single-quoted escaped literals).
 - **Shadowing:** names that match a built-in command or built-in alias (`pr`, `wi`, `issue`, `run`, …) are refused. Shadowing an installed extension gives a warning.
-- `alias list`: TTY table, TSV when piped, `--json name,expansion,shell`.
+- `alias list`: TTY table, YAML (gh's format) when piped, `--json name,expansion,shell`.
 - `alias delete <name>` / `--all`.
 - `alias import [<file>|-]`: gh-format YAML map. Each entry is validated. `--clobber`. Prints imported and skipped entries with reasons.
 - Stored under `aliases:` in `config.yml`. Expansion happens once (no recursion).
@@ -30,29 +30,30 @@ Add user aliases (`ado alias`) and an extension system (`ado extension`, alias `
 - Global `-R` given before the extension name is passed on as `ADO_REPO`. Arguments after the name pass through untouched. stdio is inherited and the exit code is passed through.
 
 ### FR3: Extension contract (env)
-- Always set: `ADO_HOST`, `ADO_ORG`, `ADO_PROJECT`, `ADO_REPO` (empty when context can't be resolved; failing to resolve is not fatal), `ADO_EXTENSION_NAME`, `ADO_EXECUTABLE` (path of the running `ado`, for calls like `$ADO_EXECUTABLE api …`), plus the TTY/color env so the extension can match `ado`'s output behavior.
-- `ADO_TOKEN` only if the extension's manifest declares `token: true` and the user consented (FR5).
+- Always set: `ADO_HOST`, `ADO_ORG`, `ADO_PROJECT`, `ADO_REPO_NAME` (empty when context can't be resolved; failing to resolve is not fatal), `ADO_EXTENSION_NAME`, `ADO_EXECUTABLE` (path of the running `ado`, for calls like `$ADO_EXECUTABLE api …`), plus the TTY/color env so the extension can match `ado`'s output behavior.
+- `ADO_REPO` (`org/project/repo`) only from `-R` or an inherited `ADO_REPO`, since a child `ado` reads it as an override.
+- `ADO_TOKEN` only if the extension's manifest declares `token: true` and the user consented (FR5), with `ADO_TOKEN_TYPE=bearer` alongside an Entra token. Without consent, inherited `ADO_TOKEN`/`AZURE_DEVOPS_EXT_PAT` are removed and a one-time warning is printed to stderr.
 - Speed bump: `ado auth token` refuses to run when `ADO_EXTENSION_NAME` is set and that extension has no consent. Documented as a convention, not a security boundary, because extensions run with the user's privileges.
 
 ### FR4: Extension layout & manifests
 - Install dir: `$XDG_DATA_HOME/ado/extensions/ado-<name>/` (`%LocalAppData%\ado\extensions` on Windows).
-- **Author manifest** `ado-extension.yml` at the repo root (optional for plain scripts): `name`, `description`, `token: bool`, `binaries: {github-releases: true} | {azure-artifacts: {organization, feed, package}}`, `minAdoVersion`.
-- **Install record** `.ado-install.yml` written by `ado`: source URL, host, kind (`script|binary|local`), tag/commit/version, `pinned`, `tokenConsent`, verified checksum.
+- **Author manifest** `ado-extension.yml` at the repo root (optional for plain scripts): `name`, `description`, `token: bool`, `binaries: {github-releases: true} | {azure-artifacts: {organization, project?, feed, package}}` (empty `project` = org-scoped feed), `minAdoVersion`.
+- **Install record** `extensions/.records/<name>.yml` written by `ado` for every kind: source URL, host, kind (`script|binary|local`), tag/commit/version, `pinned`, `tokenConsent`, verified checksum.
 - Repo names must start with `ado-`. The extension name is the part after the prefix. Names that collide with core commands or built-in aliases are refused.
 
 ### FR5: `ado extension install <source>`
 - **Sources:** `owner/repo` (github.com), GitHub URL, Azure DevOps URL (`dev.azure.com`, `ssh.dev.azure.com`, `*.visualstudio.com`), or a local path (`.`).
 - **Kinds:**
   - **Script:** git clone. The repo root must contain an executable `ado-<name>`. On Windows: `ado-<name>.ps1` / `.cmd` if present, else run through `sh`.
-  - **Binary (GitHub):** Release asset `ado-<name>-<os>-<arch>[.exe]` plus `checksums.txt` (SHA-256, goreleaser format).
+  - **Binary (GitHub):** Release asset `ado-<name>-<os>-<arch>[.exe]`, else the single asset ending in `<os>-<arch>[.exe]`, plus `checksums.txt` or a single `*_checksums.txt` asset (SHA-256, goreleaser format).
   - **Binary (Azure DevOps):** Azure Artifacts universal package named in the manifest. The version matches the tag, otherwise the latest. Same asset names and `checksums.txt`. Downloaded through Microsoft's ArtifactTool, which `ado` fetches from `_apis/clienttools/ArtifactTool/release` into a per-OS/arch cache.
-  - **Local:** symlink to the directory (on Windows without symlink rights, a pointer file). No checksum or confirmation.
+  - **Local:** symlink to the directory; on Windows always a pointer file (gh parity). No checksum or confirmation.
 - No binary for the current OS/arch: error listing the available ones.
 - `--pin <tag|commit|version>` installs that ref and marks it pinned.
 - **Checksums:** binaries are verified against `checksums.txt`, and a mismatch aborts. A missing `checksums.txt` refuses unless `--allow-unverified`, which also shows a warning on TTY.
 - **Confirmation:** TTY shows source URL, resolved tag/commit/version, kind, checksum status and token request before installing. Non-interactive requires `--yes`.
 - **Token consent:** if the manifest says `token: true`, TTY asks a separate yes/no question (default no). Non-TTY needs `--allow-token`. Without consent the extension installs with a warning that it may not work.
-- **Allowlist:** config `extension_sources` (glob list, e.g. `github.com/myco/*`, `dev.azure.com/myorg/*`, `local`). When set, sources outside it are refused, including during upgrade.
+- **Allowlist:** config `extension_sources` (glob list where `*` matches one path segment and `**` any number, e.g. `github.com/myco/*`, `dev.azure.com/myorg/**`, `local`). When set, sources outside it are refused, including during upgrade.
 - **Auth:** GitHub API calls use `GH_TOKEN`/`GITHUB_TOKEN` if set (rate limits). The ADO token is never sent to non-ADO hosts. Private ADO clones pass the token through `GIT_CONFIG_*` env vars (not argv, not persisted). ArtifactTool gets it through its env var.
 - Already installed: error unless `--force`.
 

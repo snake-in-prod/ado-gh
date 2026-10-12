@@ -1,0 +1,33 @@
+// Command ado-<% .Name %> is an ado extension: "ado <% .Name %>" runs it.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+)
+
+func main() {
+	fmt.Println("Hello from ado-<% .Name %>!")
+
+	// ado passes its context in the environment; a value is empty when ado could not resolve it.
+	fmt.Println("organization:", os.Getenv("ADO_ORG"))
+	fmt.Println("project:", os.Getenv("ADO_PROJECT"))
+
+	// Call ado back through ADO_EXECUTABLE: it uses the user's login and the same context.
+	ado := os.Getenv("ADO_EXECUTABLE")
+	if ado == "" {
+		ado = "ado" // run directly, not through ado
+	}
+	cmd := exec.Command(ado, "auth", "status")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

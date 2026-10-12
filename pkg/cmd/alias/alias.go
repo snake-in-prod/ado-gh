@@ -97,8 +97,10 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 $1, $2, … in the expansion are replaced by the alias arguments; arguments no placeholder
 uses are appended. A non-shell expansion must start with an ado command.
 
-With --shell the expansion runs through a shell ("alias_shell" config, default sh) and
-$1, $2, … are its positional parameters. It is stored with a leading "!".`,
+With --shell the expansion runs through a shell and $1, $2, … are its positional
+parameters. It is stored with a leading "!". The shell is the "alias_shell" config, else sh;
+on Windows without sh (Git for Windows) it is pwsh or powershell, where $1, $2, … are
+variables set from $args.`,
 		Example: `  ado alias set prs 'pr list -a @me'
   ado alias set wiv 'workitem view $1 --web'
   ado alias set --shell igrep 'ado workitem list --json id,title -q ".[].title" | grep "$1"'`,
@@ -213,7 +215,9 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete {<name> | --all}",
 		Short: "Delete aliases",
-		Args:  cobra.MaximumNArgs(1),
+		Example: `  ado alias delete prs
+  ado alias delete --all`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if (len(args) == 1) == all {
 				return cmdutil.FlagErrorf("specify either an alias name or --all")

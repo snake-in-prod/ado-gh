@@ -108,7 +108,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 				tp.AddField(r.Name, tableprinter.WithColor(ios.ColorScheme().Bold))
 				tp.AddField(tableprinter.OneLine(r.Source))
 				tp.AddField(string(r.Kind))
-				tp.AddField(tableprinter.OneLine(version))
+				tp.AddField(tableprinter.OneLine(extpkg.Sanitize(version)))
 				tp.AddField(mark(r.Pinned))
 				tp.AddField(mark(r.TokenConsent))
 				tp.EndRow()

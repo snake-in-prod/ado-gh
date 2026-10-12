@@ -78,6 +78,7 @@ func TestBrowseActions(t *testing.T) {
 	// remove; again, back; quit.
 	e := newBrowseEnv(t, true, "1\n1\n1\n2\n2\n1\n2\n3\n3\n")
 	require.NoError(t, os.MkdirAll(filepath.Join(extpkg.Dir(), "ado-lint"), 0o755))
+	require.NoError(t, extpkg.WriteRecord(extpkg.Dir(), "lint", &extpkg.Record{Source: "https://github.com/o/ado-lint", Kind: extpkg.KindBinary}))
 	e.search(
 		map[string]any{"full_name": "o/ado-hello", "description": "Says hi", "stargazers_count": 7},
 		map[string]any{"full_name": "o/gh-hello", "description": "a gh extension"},
@@ -154,4 +155,18 @@ func TestBrowseErrors(t *testing.T) {
 	e = newBrowseEnv(t, true, "")
 	e.reg.Register(httpmock.MatchAny, httpmock.WithHeader(httpmock.StatusStringResponse(http.StatusTooManyRequests, ""), "X-RateLimit-Remaining", "0"))
 	assert.ErrorContains(t, e.run(), "set GH_TOKEN")
+}
+
+func TestBrowseInstalledMatchesSource(t *testing.T) {
+	// ado-lint installed from Azure DevOps is not other/ado-lint on GitHub: no mark, and the
+	// action installs instead of removing the user's extension.
+	e := newBrowseEnv(t, true, "1\n1\n2\n")
+	require.NoError(t, os.MkdirAll(filepath.Join(extpkg.Dir(), "ado-lint"), 0o755))
+	require.NoError(t, extpkg.WriteRecord(extpkg.Dir(), "lint", &extpkg.Record{Source: "https://dev.azure.com/org/proj/_git/ado-lint", Kind: extpkg.KindScript}))
+	e.search(map[string]any{"full_name": "other/ado-lint"})
+	e.reg.Register(httpmock.REST("GET", "repos/other/ado-lint/readme"), httpmock.StringResponse("hi"))
+	require.NoError(t, e.run())
+	assert.Equal(t, [][]string{{"other/ado-lint"}}, e.installed)
+	assert.Empty(t, e.removed)
+	assert.NotContains(t, e.out.String(), "✓")
 }

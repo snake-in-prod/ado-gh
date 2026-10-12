@@ -38,7 +38,11 @@ func GitHubClient(f *cmdutil.Factory) (*http.Client, error) {
 	if token == "" {
 		token = os.Getenv("GITHUB_TOKEN")
 	}
-	t := &githubTransport{base: plain.Transport, token: token, userAgent: "ado-cli/" + f.AppVersion}
+	base := plain.Transport
+	if u, ok := base.(interface{ Unwrap() http.RoundTripper }); ok {
+		base = u.Unwrap() // not ADO's transport: no 401→AuthError, ADO headers or throttling
+	}
+	t := &githubTransport{base: base, token: token, userAgent: "ado-cli/" + f.AppVersion}
 	if t.base == nil {
 		t.base = http.DefaultTransport
 	}

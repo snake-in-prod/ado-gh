@@ -87,12 +87,12 @@ func SearchGitHub(ctx context.Context, hc *http.Client, q, sort string, limit in
 	return out, nil
 }
 
-// MarkInstalled sets Installed on the results whose repository is the recorded source of an
-// extension installed under root.
-func MarkInstalled(root string, results []SearchResult) error {
+// InstalledSources returns the canonical sources (Source.String) of the repository
+// extensions installed under root, so a same-named extension from elsewhere doesn't match.
+func InstalledSources(root string) (map[string]bool, error) {
 	exts, err := List(root)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	installed := map[string]bool{}
 	for _, e := range exts {
@@ -101,6 +101,16 @@ func MarkInstalled(root string, results []SearchResult) error {
 				installed[s.String()] = true
 			}
 		}
+	}
+	return installed, nil
+}
+
+// MarkInstalled sets Installed on the results whose repository is the recorded source of an
+// extension installed under root.
+func MarkInstalled(root string, results []SearchResult) error {
+	installed, err := InstalledSources(root)
+	if err != nil {
+		return err
 	}
 	for i, r := range results {
 		results[i].Installed = installed[strings.ToLower(hostGitHub+"/"+r.FullName)]

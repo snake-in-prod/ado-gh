@@ -403,3 +403,28 @@ func TestUpgradeArtifacts(t *testing.T) {
 	assert.Equal(t, "0.2.0", rec.Version)
 	assert.False(t, rec.Pinned)
 }
+
+func TestUpgradeArtifactsFromGitHubSource(t *testing.T) {
+	// A GitHub repo whose manifest names azure-artifacts upgrades from the feed, not from
+	// GitHub Releases.
+	a := newArtFixture(t, "")
+	a.opts.Source, a.opts.URL = ghSource, scriptGitHubURL
+	a.release(t, "Linux", "amd64", "linux-x64")
+	a.toolZip(t, "artifacttool")
+	a.packages("proj", "0.1.0")
+	a.linuxPackage()
+	_, err := a.install()
+	require.NoError(t, err)
+	rec, err := ReadRecord(a.s.root, "hello")
+	require.NoError(t, err)
+	require.Equal(t, hostGitHub, rec.Host)
+
+	a.release(t, "Linux", "amd64", "linux-x64")
+	a.packages("proj", "0.1.0", "0.2.0")
+	res, err := Upgrade(context.Background(), a.s.f, UpgradeOptions{Root: a.s.root, Name: "hello", DryRun: true})
+	require.NoError(t, err)
+	assert.Equal(t, UpgradeResult{From: "0.1.0", To: "0.2.0"}, res)
+	for _, req := range a.reg.Requests {
+		assert.NotEqual(t, "api.github.com", req.URL.Host, "no GitHub Releases lookup")
+	}
+}

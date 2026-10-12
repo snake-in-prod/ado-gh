@@ -127,6 +127,10 @@ type transport struct {
 	notBefore time.Time
 }
 
+// Unwrap returns the transport underneath, for clients of non-ADO hosts: it has no ADO
+// headers, 401→AuthError mapping or throttling backoff.
+func (t *transport) Unwrap() http.RoundTripper { return t.base }
+
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
 	req.Header.Set("User-Agent", t.userAgent)

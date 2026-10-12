@@ -58,18 +58,14 @@ func run(cmd *cobra.Command, f *cmdutil.Factory, limit int) error {
 	}
 	readmes := map[string]string{}
 	for {
-		exts, err := extpkg.List(extpkg.Dir())
+		installed, err := extpkg.InstalledSources(extpkg.Dir())
 		if err != nil {
 			return err
-		}
-		installed := map[string]bool{}
-		for _, e := range exts {
-			installed[e.Name] = true
 		}
 		options := make([]string, 0, len(repos)+1)
 		for _, r := range repos {
 			mark := "  "
-			if installed[r.Name] {
+			if installed[r.Source.String()] {
 				mark = "✓ "
 			}
 			options = append(options, fmt.Sprintf("%s%s/%s  ★ %d  %s", mark, r.Source.Owner, r.Source.Repo, r.Stars, tableprinter.OneLine(r.Description)))
@@ -97,7 +93,7 @@ func run(cmd *cobra.Command, f *cmdutil.Factory, limit int) error {
 		fmt.Fprintln(ios.Out, rendered)
 
 		toggle, toggleArgs := "Install", []string{"install", full}
-		if installed[r.Name] {
+		if installed[r.Source.String()] {
 			toggle, toggleArgs = "Remove", []string{"remove", r.Name}
 		}
 		action, err := f.Prompter.Select(full+":", []string{toggle, "Open in browser", "Back"})

@@ -61,7 +61,7 @@ func Upgrade(ctx context.Context, f *cmdutil.Factory, o UpgradeOptions) (Upgrade
 	}
 	res := UpgradeResult{From: cmp.Or(rec.Version, rec.Tag, rec.Commit)}
 	if rec.Pinned && !o.Force {
-		res.Skipped = "pinned to " + shortRef(res.From) + "; use --force to upgrade"
+		res.Skipped = "pinned to " + Sanitize(shortRef(res.From)) + "; use --force to upgrade"
 		return res, nil
 	}
 	src, err := ParseSource(rec.Source)
@@ -97,13 +97,13 @@ func Upgrade(ctx context.Context, f *cmdutil.Factory, o UpgradeOptions) (Upgrade
 		if err = upgradeScript(ctx, f, o, rec, src, trust, &res, resolved); errors.Is(err, errReinstall) {
 			err = reinstall()
 		}
-	case rec.Host == hostGitHub:
+	case rec.Host == hostGitHub && rec.Version == "": // Version marks an Azure Artifacts binary
 		_, err = InstallGitHubBinary(ctx, f, BinaryOptions{Root: o.Root, Name: o.Name, Source: src, Force: true,
 			Trust: trust, GOOS: o.goos, GOARCH: o.goarch, resolved: resolved})
 	default: // an Azure Artifacts binary: its manifest is read from a fresh clone
 		err = reinstall()
 	}
-	res.From, res.To = shortRef(res.From), shortRef(res.To)
+	res.From, res.To = Sanitize(shortRef(res.From)), Sanitize(shortRef(res.To)) // tags come from GitHub
 	switch {
 	case errors.Is(err, errUpToDate):
 		res.Skipped = "already up to date"

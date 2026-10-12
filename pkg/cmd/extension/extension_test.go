@@ -215,3 +215,13 @@ func TestExtensionExecErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestExtensionListSanitizesVersion(t *testing.T) {
+	out, _, err := runExtCmd(t, false, func(root string) {
+		mkExtDir(t, root, "bin", false)
+		require.NoError(t, extpkg.WriteRecord(root, "bin", &extpkg.Record{
+			Source: "github.com/o/ado-bin", Kind: extpkg.KindBinary, Tag: "v1\u202e0\u009b2"}))
+	}, "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "\tv102\t", "bidi and C1 controls stripped from the GitHub tag")
+}

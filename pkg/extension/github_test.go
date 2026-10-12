@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
@@ -437,4 +438,29 @@ func TestGitHubClientDebugLogsErrorsWithoutURL(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "> GET https://api.github.com/x\n< error: connection reset\n\n", g.errOut.String())
 	assert.NotContains(t, g.errOut.String(), "SECRETSIG")
+}
+
+func TestGitHubClientBypassesADOTransport(t *testing.T) {
+	// In production f.HttpClient is ado's own transport: GitHub calls must not get its 401 →
+	// AuthError mapping, ADO headers or token.
+	g := newGHFixture(t)
+	g.f.Debug = false
+	g.f.HttpClient = func() (*http.Client, error) {
+		return api.NewHTTPClient(api.ClientOptions{Transport: g.reg,
+			Token: func(*http.Request) (api.Token, error) { return api.Token{Value: "adotoken"}, nil }}), nil
+	}
+	hc, err := GitHubClient(g.f)
+	require.NoError(t, err)
+	g.reg.Register(hostIs("api.github.com", "/x"), httpmock.StatusStringResponse(http.StatusUnauthorized, ""))
+	resp, err := githubGet(context.Background(), hc, "https://api.github.com/x", "application/json")
+	if err == nil {
+		resp.Body.Close()
+	}
+	assert.EqualError(t, err, "GitHub rejected the credentials: check GH_TOKEN or GITHUB_TOKEN")
+	var authErr *cmdutil.AuthError
+	assert.False(t, errors.As(err, &authErr))
+	require.Len(t, g.reg.Requests, 1)
+	req := g.reg.Requests[0]
+	assert.Equal(t, "Bearer ghtoken", req.Header.Get("Authorization"))
+	assert.Empty(t, req.Header.Get("X-TFS-FedAuthRedirect"))
 }

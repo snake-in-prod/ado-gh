@@ -1,6 +1,6 @@
 # Plan: Aliases and Extensions — gh Parity
 
-Track: `extensions_20261010` · Spec: [spec.md](./spec.md) · Depends on: `mvp_core_20261010`
+Track: `extensions_20261010` · Spec: [spec.md](./spec.md) · Research: [research.md](./research.md) · Depends on: `mvp_core_20261010`
 
 Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase (one-line message, no attribution trailers).
 
@@ -9,82 +9,101 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 ## Phase 1: Aliases
 
 - [ ] Task: Alias storage and expansion (`internal/config`, `pkg/cmd/alias/shared`)
-    - [ ] Write tests: `aliases:` round-trip in `config.yml`, `!` prefix marks shell aliases, `$1..$n` substitution, unused args appended, missing args error, single expansion (no recursion)
-    - [ ] Implement
+    - [ ] Write tests: `aliases:` round-trip in `config.yml`, a hand-written nested `aliases:` map and an `extension_sources:` YAML list load (typed `Aliases map[string]string` and `ExtensionSources []string` fields next to `Hosts`; the inline string map can't decode them today); `alias_shell` in `shared.Options`; `DataDir()` next to `dir(goos)` (`XDG_DATA_HOME` → `LocalAppData` on Windows → `~/.local/share`, goos parameter); `!` prefix marks shell aliases; expansion is shlex-split first, then `$N` substituted per token, every unused arg appended (spec rule, o4): args with spaces, `$2`-only, `$10`, literal `$` (e.g. a jq filter); missing args error; single expansion validated against built-ins only (no recursion, no alias chaining)
+    - [ ] Implement; promote `github.com/google/shlex` to a direct dependency
 - [ ] Task: Shell execution
-    - [ ] Write tests (stubbed runner): `sh -c expansion -- args` on Unix; Windows picks `sh` → `pwsh` → `powershell -NoProfile`; PowerShell literal substitution escapes quotes; `alias_shell` override; exit code propagated
-    - [ ] Implement; add `alias_shell` config key
+    - [ ] Write tests (stubbed runner, `systemBrowser`-style `goos`/`getenv`/`lookPath`/`run` injection so the Windows order is tested on every OS): `sh -c expansion -- args` on Unix; Windows sh lookup as gh's findsh (PATH `sh`, `<git dir>\..\bin\sh.exe`, scoop path), then `pwsh`, then `powershell`, both via `-NoProfile -NonInteractive -EncodedCommand` (UTF-16LE base64) of `& { $1=$args[0]; $2=$args[1]; …; <expansion> } '<a1>' '<a2>' …; exit $LASTEXITCODE` with index-assigned variables (one-arg case) and all five single-quote characters (U+0027, U+2018, U+2019, U+201A, U+201B) doubled; `alias_shell` override; exit code propagated; LookPath-guarded real-shell tests (sh and pwsh) incl. a one-arg PowerShell test and an exit-code test
+    - [ ] Write tests: `cmdutil.ExternalExitError` checked first and silently in `HandleError`, signal-killed child (-1) → 1; `cmd/ado/main_test.go` case where a fake `ado-hello` exits 3 → `run` returns 3 with empty stderr (shared with Phase 2 extensions)
+    - [ ] Implement; add `alias_shell` config key and `ExternalExitError`
 - [ ] Task: `ado alias set/list/delete/import`
-    - [ ] Write tests: built-in and built-in-alias shadowing refused, extension shadowing warns, non-shell expansion must start with a valid command, `--clobber`, stdin expansion, list TTY/TSV/JSON, `delete --all`, `import` YAML (file/stdin) with per-entry validation report
+    - [ ] Write tests: built-in and built-in-alias shadowing refused, extension shadowing warns, nested names (`'pr mine'`) refused — top-level alias names only (o6), non-shell expansion must start with a valid command, `--clobber`, stdin expansion, list: table on a TTY, YAML when piped (round-trips into `alias import`), `--json` (o5); `delete --all`, `import` YAML (file/stdin) with per-entry validation report
     - [ ] Implement commands
 - [ ] Task: Root dispatch for aliases
-    - [ ] Write tests: built-in > alias order, alias args forwarded, help shows aliases section, completion includes alias names
-    - [ ] Implement in root command
+    - [ ] Write tests: built-in > alias order, alias args forwarded, help shows aliases section, completion includes alias names; `help` reserved; the `alias` group added only when aliases exist (cobra panics on a GroupID without its group); raw-argv pre-scan peels leading `--debug` / `-R v` / `--repo=v` / `-Rv` before the command name
+    - [ ] Implement: `NewCmdRoot` reads config and registers alias commands (`GroupID: "alias"`, `DisableFlagParsing: true`) before extension commands (`GroupID: "extension"`), each group added only when non-empty; never register an extension whose name collides with a built-in, built-in cobra alias or user alias (duplicate cobra names resolve nondeterministically); raw-argv pre-scan in `cmd/ado/main.go` (also hosts the Phase 2 PATH `ado-<name>` fallback)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Aliases' (Protocol in workflow.md)
+    - [ ] Windows host check (o28): cross-compile `ado.exe` and run shell aliases from the Windows host through WSL interop — Git `sh.exe` path, and the `powershell.exe` 5.1 fallback with `alias_shell` set (args with spaces/quotes, exit code)
 
 ## Phase 2: Extension Core (dispatch, env contract, list/remove/exec)
 
 - [ ] Task: Layout and manifests (`pkg/extension`)
-    - [ ] Write tests: data dir per OS, author manifest `ado-extension.yml` parsing/validation, install record `.ado-install.yml` round-trip, `ado-` name rule, core-name collision refused
+    - [ ] Write tests: data dir per OS (`DataDir()`), author manifest `ado-extension.yml` parsing/validation, `ado-` name rule via one strict validator shared by install/remove/exec/upgrade (no `.`/`..`, `../` names refused, manifest name must equal the repo-derived name), core-name collision refused; kind derived from the entry (directory / symlink / pointer file); install record round-trip in a separate records directory `extensions/.records/<name>.yml` for every kind, never inside the entry (o10); `.records` skipped when listing entries; missing record → treated as no token consent
     - [ ] Implement
 - [ ] Task: Dispatch and env contract
-    - [ ] Write tests: order built-in > alias > installed > PATH; env vars set (`ADO_HOST/ORG/PROJECT/REPO`, `ADO_EXTENSION_NAME`, `ADO_EXECUTABLE`, TTY/color); unresolvable context → empty, not fatal; `-R` before name → `ADO_REPO`; args/stdio/exit code passthrough; `ADO_TOKEN` only with consent; Windows `.ps1`/`.cmd`/`sh` launching
-    - [ ] Implement
+    - [ ] Write tests: order built-in > alias > installed > PATH; env vars set (`ADO_HOST` = API host — `dev.azure.com` or `<org>.visualstudio.com`, never a raw remote host like `ssh.dev.azure.com` — `ADO_ORG`, `ADO_PROJECT`, `ADO_EXTENSION_NAME`, `ADO_EXECUTABLE` from a Factory executable-path field filled by `os.Executable()`); `ADO_REPO` only when `-R` or an inherited `ADO_REPO` was given, otherwise new `ADO_REPO_NAME` alongside `ADO_HOST`/`ADO_ORG`/`ADO_PROJECT` (o7); `os.Environ()` and the real `*os.File` streams inherited, no exported TTY/colour state; pre-name `--debug` → `ADO_DEBUG=1`; unresolvable context → empty, not fatal; `-R` before and after the name; args/stdio/exit code passthrough via `ExternalExitError`; `signal.Notify` around `cmd.Run()` (not `signal.Ignore`)
+    - [ ] Write tests (token): `ADO_TOKEN` only with consent; without consent inherited `ADO_TOKEN` and `AZURE_DEVOPS_EXT_PAT` are filtered out of the child env (not overridden with empty values) and one stderr warning is printed when a token was withheld (o2); with consent and an Entra login the child gets the Entra token plus `ADO_TOKEN_TYPE=bearer` (o3); child side: env `ADO_TOKEN` with `ADO_TOKEN_TYPE=bearer` is sent as Bearer, unset → Basic (`internal/auth/store.go`, `pkg/cmd/auth/shared/credential.go`)
+    - [ ] Write tests (Windows launch): order `.exe` > `.ps1` via `pwsh` (fallback `powershell`) `-NoProfile -ExecutionPolicy Bypass -File` (o8) > `.cmd` > findsh `sh -c 'command "$@"' --`; a Windows `.cmd` metacharacter test (`&`, `|`, `"`, `%`) with an escape-or-refuse decision; helper-process fakes (editortest pattern) on all three OSes
+    - [ ] Implement, incl. `ADO_TOKEN_TYPE` handling in the credential lookup
 - [ ] Task: `ado auth token` speed bump
     - [ ] Write tests: refuses when `ADO_EXTENSION_NAME` set without consent, allowed with consent, unaffected outside extensions
     - [ ] Implement
 - [ ] Task: Help and completion
-    - [ ] Write tests: `ado help` extensions section, completion lists extension names
+    - [ ] Write tests: `ado help` extensions section, completion lists extension names; installed extensions registered eagerly (one `ReadDir`); PATH `ado-*` executables listed, scanned lazily only inside the help func and the root completion function, never on a normal run (o9); unknown-command fallback looks up only the given `ado-<name>` on PATH; `ado help <ext>` rewritten to `<ext> --help`
     - [ ] Implement
 - [ ] Task: `ado extension list / remove / exec` (alias `ext`)
-    - [ ] Write tests: list columns, TSV, JSON fields; remove deletes dir (and local symlink only, not target); exec bypasses alias shadowing; unknown name errors
+    - [ ] Write tests: list columns, TSV, JSON fields; remove Lstats the entry and deletes the dir, or only the local symlink/pointer file (not its target), plus its `.records/<name>.yml`; exec bypasses alias shadowing; unknown name errors
     - [ ] Implement
+- [ ] Task: Live test environment: setup and teardown
+    - Note: steps that change the org or accounts (ADO repo `ado-hello`, GitHub repo `snake-in-prod/ado-hello`, Azure Artifacts feed `ado-live` with universal package versions, the temporary WSL agent and short-lived PATs) are run by the main session during manual verification, with the user's prior approval (granted in o26, o27, o29), not by swarm workers. Credential: Entra login. Work from a Linux-filesystem scratch dir (not /mnt/c) so the exec bit sticks.
+    - [ ] Setup ADO repo (Phase 3 verification): `ado repo create` `ado-hello` in `ado-gh`; push an executable `ado-hello` (`git update-index --chmod=+x`) and `ado-extension.yml`; a second push later for `upgrade`
+    - [ ] Setup GitHub repo (Phase 3 verification): public `snake-in-prod/ado-hello` via `gh repo create`; releases v0.1.0 and v0.2.0 with `ado-hello-<os>-<arch>[.exe]` assets and `checksums.txt`; `gh repo edit --add-topic ado-extension`
+    - [ ] Setup Azure Artifacts (Phase 4 verification, o27): project-scoped feed `ado-live` via `ado api -X POST https://feeds.dev.azure.com/snake-in-prod/ado-gh/_apis/packaging/feeds?api-version=7.1 -f name=ado-live`; publish universal package versions 0.1.0 and 0.2.0 (`ado-hello-linux-amd64`, `ado-hello-windows-amd64.exe`, `checksums.txt`) with the cached ArtifactTool, `--project ado-gh`, Entra token via `--patvar`; fallback a short-lived Packaging (Read & write) PAT
+    - [ ] Setup Windows host (o28): cross-compile `ado.exe` (`GOOS=windows`) and run it from the Windows host through WSL interop (Git `sh.exe`, `powershell.exe` 5.1, client execution policy)
+    - [ ] Setup agent (Phase 5 verification, o29): re-register the temporary WSL self-hosted agent in the `Default` pool for one run of the generated `azure-pipelines.yml` (the user starts `run.sh`; the main session cannot start long-running background processes)
+    - Teardown (runs in Phase 5 verification): `ado repo delete ado-gh/ado-hello --permanent --yes` → feed `ado-live` `DELETE .../_apis/packaging/feeds/{id}` then `DELETE .../_apis/packaging/feedrecyclebin/{id}?api-version=7.1` → GitHub repo `gh repo delete snake-in-prod/ado-hello --yes` after the user grants `delete_repo` (`gh auth refresh -h github.com -s delete_repo`, o26) → agent unregistered, pool registration removed → short-lived PATs (agent registration, Packaging fallback) revoked
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Extension Core' (Protocol in workflow.md)
+    - [ ] Windows host check (o28): `.ps1` under the client's default execution policy, `.cmd`, and an `sh` script extension dispatched by the cross-compiled `ado.exe`
 
 ## Phase 3: Install — Local, Script, Trust Controls
 
 - [ ] Task: Source parsing and allowlist
-    - [ ] Write tests: `owner/repo`, GitHub URL, ADO HTTPS/SSH/visualstudio.com URLs, local paths; `extension_sources` glob matching incl. `local`; refused sources error naming the allowlist
-    - [ ] Implement; add `extension_sources` config key
+    - [ ] Write tests: `owner/repo`, GitHub URL, ADO HTTPS/SSH/visualstudio.com URLs, local paths, all canonicalised to lowercase `host/org[/project]/repo` (ADO via `ParseRemoteURL`, separate GitHub parser; `.`/`..` rejected, `.git` stripped, parsed hosts compared); `extension_sources` glob matching incl. `local`, where `*` matches one segment and `**` any number (e.g. `dev.azure.com/myorg/**`, o24); bad patterns or config fail closed; GitHub API `full_name` matched after resolving (transfers redirect silently); refused sources error naming the allowlist; `ado config get/set extension_sources` reads and writes the YAML list as a comma-separated value (o1); host-aware httpmock matcher (inline `Matcher` on `req.URL.Host`, `httpmock.REST` ignores the host) for "ADO token never sent to non-ADO hosts" and "`GH_TOKEN` only to api.github.com"
+    - [ ] Implement; add `extension_sources` config key with `ado config get/set` support
 - [ ] Task: Local install
-    - [ ] Write tests: symlink created, Windows pointer-file fallback, dispatch follows link, `--force` replaces
+    - [ ] Write tests: symlink created on Unix; Windows always writes a pointer file (build-tagged `symlink_windows.go` / `symlink_other.go`, gh parity, o11); pointer-file entries read and dispatched on every OS; path made absolute and directory confirmed before linking; missing executable warns but keeps the link; dispatch follows link; `--force` replaces
     - [ ] Implement
 - [ ] Task: Script install via git
-    - [ ] Write tests (stubbed git): clone to data dir, executable `ado-<name>` required, `--pin` checks out tag/commit and records it, private ADO clone passes token via `GIT_CONFIG_*` env (never argv), ADO token never sent to GitHub, already-installed error without `--force`
+    - [ ] Write tests (stubbed git): `Env []string` on `git.Client`, recorded by `gittest.Runner`; one real-git test that `GIT_CONFIG_COUNT/KEY_0/VALUE_0` sets `http.extraheader` (no network, all three OSes); `git version` < 2.31 with a private ADO HTTPS source fails with "git >= 2.31 required for private Azure DevOps extensions" (o14); clone into a temp dir inside the extensions root with `--` before the URL, `-c core.autocrlf=false -c core.eol=lf` (o12), no submodules, `GIT_ALLOW_PROTOCOL=https:ssh`, `GIT_PROTOCOL_FROM_USER=0`, `GIT_TERMINAL_PROMPT=0` off a TTY, then rename to `ado-<name>`; executable `ado-<name>` required: `git ls-files -s` mode 100755 on Unix, on Windows also a file with a shebang or a `.ps1`/`.cmd` sibling (o13); `--pin` checks out tag/commit, `-`-prefixed `--pin` rejected, resolved SHA (plus tag) recorded; private ADO clone passes a URL-scoped `http.<url>.extraheader` (Basic/Bearer header builder extracted from `api/http_client.go`) via `GIT_CONFIG_*` env, appended after an inherited `GIT_CONFIG_COUNT` (never argv or persisted config); ADO token never sent to GitHub; already-installed error without `--force`; real-git commit tests set `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
     - [ ] Implement
 - [ ] Task: Confirmation and token consent
-    - [ ] Write tests: TTY summary (source, ref, kind, checksum status, token request), decline → exit 2, non-TTY requires `--yes`, token consent prompt default no, `--allow-token`, no consent → warning and record `tokenConsent: false`
+    - [ ] Write tests: TTY summary (source, ref, kind, checksum status, token request), decline → exit 2, non-TTY requires `--yes`, token consent prompt default no, `--allow-token`, no consent → warning and record `tokenConsent: false` (in `.records/<name>.yml`); terminal control/escape sequences stripped from untrusted strings (manifest, tags, search results, README) before printing
     - [ ] Implement
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Install — Local, Script, Trust Controls' (Protocol in workflow.md)
+    - [ ] Set up the ADO and GitHub parts of the live test environment; install `https://dev.azure.com/snake-in-prod/ado-gh/_git/ado-hello` (private clone with the Entra bearer header) and `snake-in-prod/ado-hello` as script extensions; check `ado hello` env contract, `-R`, `--pin`, `list`, `remove`
+    - [ ] Windows host check (o28): local install writes a pointer file and dispatches
 
 ## Phase 4: Binary Install and Upgrade
 
 - [ ] Task: GitHub Releases binaries
-    - [ ] Write tests (httpmock): release by tag/latest, asset `ado-<name>-<os>-<arch>[.exe]` selection, missing platform lists available ones, `checksums.txt` SHA-256 verify, mismatch aborts, missing checksums needs `--allow-unverified`, `GH_TOKEN`/`GITHUB_TOKEN` used, executable bit set
+    - [ ] Move `LocalPath`, `SafeName`, `CreateFile`, `ExtractZip` from `pkg/cmd/pipeline/shared` into an `internal/` package (`git mv`, pipeline imports updated) before reuse
+    - [ ] Write tests (httpmock): release by tag/latest, asset selection exact `ado-<name>-<os>-<arch>[.exe]` first, then suffix `<os>-<arch>[.exe]` (o15); darwin-arm64 falls back to a darwin-amd64 asset with a message (o17); missing platform lists available ones; SHA-256 verify from `checksums.txt` or a single asset ending in `_checksums.txt` (o16); checksum parser (`  name`, ` *name`, basename, blank lines); mismatch aborts; missing checksums needs `--allow-unverified`; plain `f.HttpClient()` with Bearer (`GH_TOKEN` > `GITHUB_TOKEN`) only for api.github.com; `url.PathEscape` for path segments; 302 to the asset host without Authorization and no signed query in the log; 403/429 remaining-0 hint; latest 404; pinned prerelease; staged in an `O_EXCL` temp file, hashed while writing, `Chmod(0o755)`, renamed
     - [ ] Implement
 - [ ] Task: Azure Artifacts binaries via ArtifactTool
-    - [ ] Record ArtifactTool (runtime-downloaded external binary) in `tech-stack.md`
-    - [ ] Write tests: ArtifactTool fetched from `_apis/clienttools/ArtifactTool/release` per OS/arch and cached, invoked (stubbed runner) with feed/package/version and token via env, version matches tag else latest, extracted files confined to install dir, checksum verify
+    - [ ] Record ArtifactTool in `tech-stack.md`: a proprietary Microsoft binary fetched at runtime from the user's org, never bundled or mirrored, with no integrity hash
+    - [ ] Write tests: ArtifactTool fetched from `_apis/clienttools/ArtifactTool/release` (clienttools area via `areaClient` and `StubResourceAreas`) with osName `Linux`/`Darwin`/`Windows` and arch, `uri` downloaded with plain `f.HttpClient()`, extracted + chmod, cached in `<cache>/artifacttool/<rid>_<version>`; darwin/windows arm64 without a native build falls back to amd64 with a one-line warning (o20); invoked (stubbed runner) with feed/package/version, `--project` when the manifest's optional `azure-artifacts.project` is set (empty = org-scoped, o18), token only in the `--patvar` env; manifest args validated (no leading `-`); version matches tag (`v` stripped) else latest = highest non-prerelease via `feed.GetPackages` exact match, same as ArtifactTool's `*` (o19); feed org may differ from the source repo's org only if it passes `extension_sources` (o25); non-zero exit = failure with Serilog Error/Critical lines; output read through `os.Root` accepting only expected regular files, confined to the install dir; checksum verify; Azure DevOps Server error test
     - [ ] Implement
 - [ ] Task: `ado extension upgrade`
-    - [ ] Write tests: binary → latest version, script → fast-forward default branch, local skipped, pinned skipped unless `--force`, `--dry-run` output, new token request re-prompts consent, allowlist re-checked, `--all` partial failure summary exit 1
+    - [ ] Write tests: binary → latest version (old binary renamed aside, not the directory, on Windows); script → token env on `ls-remote`/`fetch`/`merge`, `git fetch origin HEAD` + `git merge --ff-only FETCH_HEAD` (follows a renamed default branch), non-ff fails with a `--force` hint, `--force` = `git reset --hard FETCH_HEAD`; local skipped, pinned skipped unless `--force`, `--dry-run` output (script: `ls-remote` vs `rev-parse HEAD`), new token request re-prompts consent, allowlist re-checked, `--all` partial failure summary exit 1
     - [ ] Implement
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Binary Install and Upgrade' (Protocol in workflow.md)
+    - [ ] Set up the Azure Artifacts part of the live test environment (o27); install and upgrade binaries from GitHub releases v0.1.0 → v0.2.0 (checksum pass) and from feed `ado-live` 0.1.0 → 0.2.0 (confirm Entra-as-patvar and the osName spelling live); script `upgrade` after a second push to the ADO repo
 
 ## Phase 5: `create`, `search`, `browse`, Docs
 
 - [ ] Task: `ado extension create`
-    - [ ] Write tests: script/go/other templates file sets, `ado-extension.yml` contents, GitHub workflow and `azure-pipelines.yml` present, `git init` + initial commit (stubbed), TTY prompts, non-TTY missing name error, next-steps output
+    - [ ] Write tests: script/go/other templates file sets, `ado-extension.yml` contents, GitHub workflow and `azure-pipelines.yml` present, `git init` + initial commit (stubbed) with `git add --chmod=+x`, `.gitignore` with `/dist/`; generated `release.yml` is a plain script (setup-go `go-version-file`, six-target loop, `sha256sum` → `checksums.txt`, `gh release create`, prerelease for `-` tags) with build-provenance attestations (generation only, o23); `go.mod` written from the template with module path `dev.azure.com/<org>/<project>/_git/ado-<name>` from the ADO context, falling back to `ado-<name>` (o21), not `go mod init`; `azure-pipelines.yml` pins a full Go version, strips `v` for the package version, and passes a YAML parse/structure test; TTY prompts, non-TTY missing name error, next-steps output; real-git commit tests set `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
     - [ ] Implement templates (`embed.FS`)
     - [ ] Smoke test: generated Go template compiles (`go build` in test with `-short` skip)
 - [ ] Task: `ado extension search`
-    - [ ] Write tests (httpmock): `topic:ado-extension` query composition, `--owner`, `--sort`, `--limit`, installed mark, TTY/TSV/JSON, `-w` URL
+    - [ ] Write tests (httpmock): `topic:ado-extension` query composition, `--owner`, `--sort` validated (`stars|updated`), `--limit` capped at 1000, installed mark, TTY/TSV/JSON, `-w` URL; 403/429 remaining-0 message with reset time and `GH_TOKEN` hint
     - [ ] Implement
 - [ ] Task: `ado extension browse`
-    - [ ] Write tests: select prompt over results, README render, install/remove/open/back actions dispatch, non-TTY error
+    - [ ] Write tests: `-L/--limit` default 100 (o22), results filtered to `ado-`; select prompt over results, README via `/readme` with explicit Accept, 404 placeholder, in-memory cache; install/remove/open/back actions dispatch, non-TTY error
     - [ ] Implement
 - [ ] Task: Docs
-    - [ ] Write `docs/extensions.md` (author contract per spec)
-    - [ ] Update `docs/gh-differences.md`
+    - [ ] Write `docs/extensions.md` (author contract per spec): env contract incl. `ADO_REPO_NAME`, `ADO_TOKEN_TYPE` and token stripping; inherited TTY/colour variables (`ADO_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE`, `ADO_PROMPT_DISABLED`, `CI`, `TERM`, `COLORTERM`, `GLAMOUR_STYLE`); `.gitattributes` `ado-* text eol=lf` (and `*.cmd text eol=crlf`); `git update-index --chmod=+x`; `checksums.txt` naming; Feed Publisher (Contributor) for build identities; lowercase-dash package names; Universal Packages on Azure DevOps Services only; consent bypass list; checksums = integrity not authenticity; `.cmd` escaping limit; `pwsh -File` caveats (Ctrl+C exit 0, `-`-prefixed args binding to script parameters)
+    - [ ] Update `docs/gh-differences.md`: alias/extension dispatch order (gh: built-in > extension > alias), alias list output, top-level alias names only, no alias chaining, PowerShell shell aliases, `.ps1`/`.cmd` extensions, PATH extensions, git 2.31 minimum, `FETCH_HEAD` upgrade
+    - [ ] Update `spec.md` (main session) for the decisions made in research: FR1 `alias list` prints a table on a TTY, YAML when piped, plus `--json` (o5), and the Shell bullet reworded for sh → `pwsh` → `powershell` via `-EncodedCommand` with `$1..$n` bound from `$args` (c3); FR3 `ADO_REPO` set only from `-R` or an inherited `ADO_REPO`, otherwise `ADO_HOST`/`ADO_ORG`/`ADO_PROJECT` plus new `ADO_REPO_NAME` (o7), `ADO_TOKEN`/`AZURE_DEVOPS_EXT_PAT` stripped from extensions without token consent with a one-time stderr warning (o2), and `ADO_TOKEN_TYPE=bearer` alongside an Entra `ADO_TOKEN` (o3); FR4 install records in `extensions/.records/<name>.yml` for every kind (o10) and an optional `project` field under `azure-artifacts` in `ado-extension.yml`, empty = org-scoped (o18); FR5 local installs always use a pointer file on Windows (o11), asset selection exact name then `<os>-<arch>[.exe]` suffix (o15), checksums from `checksums.txt` or a single `*_checksums.txt` asset (o16), allowlist examples with `*` = one segment and `**` = any number, e.g. `dev.azure.com/myorg/**` (o24)
     - [ ] Verify help text/examples for `alias *` and `extension *`
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: create, search, browse, Docs' (Protocol in workflow.md)
+    - [ ] Confirm live: `search` and `browse` find `snake-in-prod/ado-hello` (topic indexing can lag minutes); re-register the temporary WSL agent and run the generated `azure-pipelines.yml` once (o29); then tear down the live test environment

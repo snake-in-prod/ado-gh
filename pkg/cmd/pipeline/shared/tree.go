@@ -93,15 +93,19 @@ func orEmpty[T any](s []T) []T {
 // PrintTree prints nodes with their mark, attempt and duration, children indented. Tasks are
 // shown when verbose; otherwise only failed ones, so failed jobs expand to their failed tasks.
 func PrintTree(w io.Writer, cs *iostreams.ColorScheme, nodes []*Node, verbose bool) {
-	printTree(w, cs, nodes, verbose, "")
+	printTree(w, cs, nodes, verbose, "", "")
 }
 
-func printTree(w io.Writer, cs *iostreams.ColorScheme, nodes []*Node, verbose bool, indent string) {
+// printTree is PrintTree with spin, when set, as the mark of in-progress nodes.
+func printTree(w io.Writer, cs *iostreams.ColorScheme, nodes []*Node, verbose bool, indent, spin string) {
 	for _, n := range nodes {
 		if n.Type == "Task" && !verbose && n.Result != "failed" {
 			continue
 		}
 		mark, color := StatusMark(cs, n.State, n.Result)
+		if spin != "" && n.State == "inProgress" {
+			mark = spin
+		}
 		line := indent + color(mark) + " " + n.Name
 		if n.Attempt > 1 {
 			line += fmt.Sprintf(" (attempt %d)", n.Attempt)
@@ -110,7 +114,7 @@ func printTree(w io.Writer, cs *iostreams.ColorScheme, nodes []*Node, verbose bo
 			line += cs.Gray(" in " + d.String())
 		}
 		fmt.Fprintln(w, line)
-		printTree(w, cs, n.Children, verbose, indent+"  ")
+		printTree(w, cs, n.Children, verbose, indent+"  ", spin)
 	}
 }
 

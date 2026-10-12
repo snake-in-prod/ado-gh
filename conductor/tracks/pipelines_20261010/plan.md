@@ -39,45 +39,45 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Pipeline Foundation' (Protocol in workflow.md)
     - [x] Set up the live test environment; confirm live and correct fixtures if needed: timeline type strings, Checkpoint states while waiting, approval `id` vs `identifier`, `__default` stage, retry layout, the "No hosted parallelism" message
 
-## Phase 2: `list`, `view`, `logs`
+## Phase 2: `list`, `view`, `logs` [checkpoint: 6d4a692]
 
-- [x] Task: Command group and `run` alias `29a845a`
+- [x] Task: Command group and `run` alias `6d4a692`
     - [x] Write tests: `ado pipeline` and `ado run` resolve to the same group
     - [x] Implement group
-- [x] Task: `ado pipeline list` `0820775`
+- [x] Task: `ado pipeline list` `6d4a692`
     - [x] Write tests (runs): each filter → query param, `queryOrder=queueTimeDescending` sent, `-u`/`@me` resolved via `IdentityResolver.Resolve`, branch normalization, `-b` matches `sourceBranch` only (PR-validation runs need `-e pullRequest`), `-c` filtered client-side while paging with the continuation token, narrowed by `-b`/definition in the server query, page cap and a warning when results may be incomplete (matches spanning pages), `--limit` default 20, TTY table vs TSV, JSON fields, empty message
     - [x] Write tests (definitions): `-d` via the full-definitions read, `--folder`, `--match`, `-a` includes disabled, type/repo/last result (`latestCompletedBuild.result`) columns, JSON fields
     - [x] Implement `list`; classify in `TestWebFlagAudit`
-- [x] Task: Shared log fetcher `7a20d66`
+- [x] Task: Shared log fetcher `6d4a692`
     - [x] Write tests: record `log.id` → streamed `GetBuildLog`, Task-record logs only (job logs duplicate them), `job<TAB>task<TAB>` prefixing via `bufio.Reader` (a >64 KiB line), `--job`/`--task`/`--failed` filters, `--output` layout written through the shared `os.Root` helper after name sanitization (Windows reserved names, `:*?"<>|`, control characters, trailing dots/spaces), traversal attempts confined to dir
     - [x] Implement (used by `view --log`, `logs`, `release logs`)
-- [x] Task: `ado pipeline view` `eac292b`
+- [x] Task: `ado pipeline view` `6d4a692`
     - [x] Write tests: summary fields, tree default/`-v`, Annotations and Waiting sections (Waiting lists non-approval `Checkpoint` children by timeline name and state, timeline only, no checks API), `--log`, `--log-failed`, `--job`, `--exit-status`, JSON incl. `stages`/`pendingApprovals`, `-w`
     - [x] Implement `view`; classify in `TestWebFlagAudit`
-- [x] Task: `ado pipeline logs` `c2884e1`
+- [x] Task: `ado pipeline logs` `6d4a692`
     - [x] Write tests: stdout stream, filters, `-o` writes tree, `--follow` (inside a `testing/synctest` bubble with a `time.Ticker`, as `pr checks` and `api/throttle_test.go` do) prints task logs as timeline records complete, keeps polling completed records with `log: null` until they or their parent job get a `log.id`, and stops at run completion
     - [x] Implement `logs`; classify in `TestWebFlagAudit`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: list, view, logs' (Protocol in workflow.md)
 
 ## Phase 3: `run`, `watch`, `cancel`, `rerun`
 
-- [ ] Task: Watch loop (shared)
-    - [ ] Write tests (`testing/synctest` bubble, `time.Ticker`): TTY redraw per interval with spinner and waiting line, non-TTY transition lines + final summary, completed run → immediate summary, Ctrl-C (context cancel) → exit 2, exit code per result; only the timeline is polled per tick and the build is fetched once at the end
-    - [ ] Implement (reused by `release watch`); spinner is a tiny frame index; no throttle code (the transport handles Retry-After/X-RateLimit)
-- [ ] Task: `ado pipeline watch`
-    - [ ] Write tests: no-arg TTY prompt over in-progress runs, `-i` interval, `--exit-status` no-op
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline run`
-    - [ ] Write tests: `queueStatus` pre-check from the definition GET (disabled → error, paused → warning, then queue), YAML via Pipelines API (branch, commit as `resources.repositories.self`, template parameters), classic via Build queue (branch, commit, variables as a JSON-encoded `map[string]string`), `-p` rejected for classic, no `-b` → branch from `definition.repository.defaultBranch` (fallback: the Git repo's default branch) sent explicitly, non-settable variable error surfaced (`PipelineValidationException` fixture, 400 assumed), `ValidationResults` details shown, prints URL (`_build/results?buildId=`, not `Run.url`) + watch hint, `--watch` exit codes, `-w`
-    - [ ] Implement `run`; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline cancel`
-    - [ ] Write tests: GET first; completed → exit 1 without PATCH; already `cancelling` → message and exit 0 without PATCH; PATCH `cancelling`, TTY confirm/decline → exit 2, `-y`, non-TTY without `--yes` refuses
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: `ado pipeline rerun`
-    - [ ] Write tests: full rerun from one Build GET (`templateParameters` + decoded `parameters`, `sourceBranch`, `sourceVersion`) to `RunPipeline` (YAML) or Build queue (classic), prints new URL; `--failed` only once the run is completed, otherwise error "run is still in progress"; YAML `--failed` retries `failed` and `canceled` stages via `UpdateStage` with stageRefName = `identifier`, a failed stage depending on another failed stage, no failed or canceled stages → error; classic `--failed` sends `UpdateBuild` with `retry=true`; server error via `mapErr`
-    - [ ] Implement; classify in `TestWebFlagAudit`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: run, watch, cancel, rerun' (Protocol in workflow.md)
-    - [ ] Confirm live: downstream behaviour of a 7.1 stage retry, classic `retry=true` behaviour
+- [x] Task: Watch loop (shared) `129f77c`
+    - [x] Write tests (`testing/synctest` bubble, `time.Ticker`): TTY redraw per interval with spinner and waiting line, non-TTY transition lines + final summary, completed run → immediate summary, Ctrl-C (context cancel) → exit 2, exit code per result; only the timeline is polled per tick and the build is fetched once at the end
+    - [x] Implement (reused by `release watch`); spinner is a tiny frame index; no throttle code (the transport handles Retry-After/X-RateLimit)
+- [x] Task: `ado pipeline watch` `f43dffe`
+    - [x] Write tests: no-arg TTY prompt over in-progress runs, `-i` interval, `--exit-status` no-op
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline run` `c743c0d`
+    - [x] Write tests: `queueStatus` pre-check from the definition GET (disabled → error, paused → warning, then queue), YAML via Pipelines API (branch, commit as `resources.repositories.self`, template parameters), classic via Build queue (branch, commit, variables as a JSON-encoded `map[string]string`), `-p` rejected for classic, no `-b` → branch from `definition.repository.defaultBranch` (fallback: the Git repo's default branch) sent explicitly, non-settable variable error surfaced (`PipelineValidationException` fixture, 400 assumed), `ValidationResults` details shown, prints URL (`_build/results?buildId=`, not `Run.url`) + watch hint, `--watch` exit codes, `-w`
+    - [x] Implement `run`; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline cancel` `bfb5d15`
+    - [x] Write tests: GET first; completed → exit 1 without PATCH; already `cancelling` → message and exit 0 without PATCH; PATCH `cancelling`, TTY confirm/decline → exit 2, `-y`, non-TTY without `--yes` refuses
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: `ado pipeline rerun` `e120451`
+    - [x] Write tests: full rerun from one Build GET (`templateParameters` + decoded `parameters`, `sourceBranch`, `sourceVersion`) to `RunPipeline` (YAML) or Build queue (classic), prints new URL; `--failed` only once the run is completed, otherwise error "run is still in progress"; YAML `--failed` retries `failed` and `canceled` stages via `UpdateStage` with stageRefName = `identifier`, a failed stage depending on another failed stage, no failed or canceled stages → error; classic `--failed` sends `UpdateBuild` with `retry=true`; server error via `mapErr`
+    - [x] Implement; classify in `TestWebFlagAudit`
+- [x] Task: Conductor - User Manual Verification 'Phase 3: run, watch, cancel, rerun' (Protocol in workflow.md)
+    - [x] Confirm live: downstream behaviour of a 7.1 stage retry, classic `retry=true` behaviour
 
 ## Phase 4: `download`, `approve`/`reject`, `enable`/`disable`
 

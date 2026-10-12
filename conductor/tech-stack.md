@@ -39,7 +39,9 @@
 - Git context from shelling out to `git` (`git remote -v`, `git rev-parse`), same as gh. Parses `https://dev.azure.com/{org}/{project}/_git/{repo}`, `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`, `https://{org}.visualstudio.com/...`.
 - Default repo per checkout via `remote.<name>.ado-resolved = base` (gh's mechanism, set by `ado repo set-default`); resolution order `-R` > `ADO_REPO` > `ado-resolved` > `origin` > `upstream` > first ADO remote. Global config `org` and per-host `git_protocol` (`https`|`ssh`).
 - Project-scoped commands (`workitem`, `sprint`, `board`) also accept `-R ORG/PROJECT`; per-project `team` config key under the hosts-map scope `dev.azure.com/ORG/PROJECT` (`ado config set team X --project ORG/PROJECT`).
-- Extensions: `ado-<name>` executables found on `PATH` / extension dir, gh model.
+- Extensions: `ado-<name>` executables installed under `<DataDir>/extensions` (install records in `.records/<name>.yml`), plus `ado-<name>` on `PATH`, gh model. Script installs clone with `git` (2.31+ for private Azure DevOps sources); the token reaches git only as a URL-scoped `http.extraheader` in `GIT_CONFIG_*` env, never argv or persisted config.
+- **ArtifactTool** (Azure Artifacts binary extensions): a proprietary Microsoft binary fetched at runtime from the user's org via `_apis/clienttools/ArtifactTool/release` and cached in `<DataDir>/artifacttool/<rid>_<version>`. Never bundled or mirrored; the API gives no integrity hash. The token is passed only through the env var `--patvar` names.
+  - *2026-10-12:* zip extraction (`internal/fsutil`) treats backslashes in entry names as separators: ArtifactTool's .NET-built zip uses them, including for directory entries.
 
 ## Testing & Quality
 - **`go test`** + **`stretchr/testify`**.

@@ -28,7 +28,7 @@ Today's Azure DevOps terminal tooling (`az devops` extension, raw REST) is verbo
 - **Auth:** `ado auth login|logout|status|token`, using Personal Access Tokens and Microsoft Entra ID (interactive/device-code). Credentials stored in the OS keychain.
 - **Context detection:** infer organization, project and repository from the git remote (`dev.azure.com`, `ssh.dev.azure.com`, legacy `*.visualstudio.com`). Explicit `--org/--project/--repo` flags and `ADO_*` env vars override.
 - **Scripting output:** `--json <fields>`, `--jq`, `--template`. TTY-aware formatting (tables for humans, plain/tab-separated when piped). `ado api <path>` for raw authenticated REST calls.
-- **Aliases & extensions:** `ado alias set/list/delete`. `ado extension install/list/remove` for `ado-<name>` executables, matching gh's extension model.
+- **Aliases & extensions:** `ado alias set/list/delete/import` (`$1` placeholders, `--shell` via sh or PowerShell). `ado extension install/list/upgrade/remove/exec/create/search/browse` for `ado-<name>` executables, matching gh's extension model: GitHub, Azure DevOps or local sources; script, GitHub Release and Azure Artifacts binaries; checksums, pinning, an `extension_sources` allowlist and token consent. Author guide in `docs/extensions.md`.
 - **Browse:** `--web` / `ado browse` opens the matching page in the browser.
 
 ## Scope & Targets

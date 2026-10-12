@@ -4,7 +4,10 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/spf13/cobra"
 
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/root"
@@ -19,11 +22,48 @@ func main() {
 	os.Exit(int(run(os.Args[1:], iostreams.System())))
 }
 
+// newCmdRoot builds the command tree; tests add commands to it.
+var newCmdRoot = root.NewCmdRoot
+
 func run(args []string, ios *iostreams.IOStreams) cmdutil.ExitCode {
-	rootCmd := root.NewCmdRoot(newFactory(ios))
-	rootCmd.SetArgs(args)
+	rootCmd := newCmdRoot(newFactory(ios))
+	rootCmd.SetArgs(dispatchArgs(rootCmd, args))
 	cmd, err := rootCmd.ExecuteC()
 	return cmdutil.HandleError(ios.ErrOut, err, cmd.UsageString())
+}
+
+// dispatchArgs applies the global flags leading the command name to root and drops them from
+// args when the name is an alias or extension. Those commands get their arguments unparsed,
+// so cobra would hand them -R/--debug as arguments and leave the Factory unset.
+func dispatchArgs(root *cobra.Command, args []string) []string {
+	n := globalFlagsLen(args)
+	if n == 0 || n == len(args) {
+		return args
+	}
+	c, _, err := root.Find(args[n : n+1])
+	if err != nil || !c.DisableFlagParsing {
+		return args // a built-in parses its own flags
+	}
+	if err := root.PersistentFlags().Parse(args[:n]); err != nil {
+		return args // cobra reports it
+	}
+	return args[n:]
+}
+
+// globalFlagsLen returns how many leading args are --debug and -R/--repo flags with values.
+func globalFlagsLen(args []string) int {
+	i := 0
+	for i < len(args) {
+		switch a := args[i]; {
+		case a == "-R" || a == "--repo":
+			i += 2
+		case a == "--debug" || strings.HasPrefix(a, "--debug=") || strings.HasPrefix(a, "--repo=") || strings.HasPrefix(a, "-R"):
+			i++
+		default:
+			return i
+		}
+	}
+	return min(i, len(args))
 }
 
 // newFactory wires the api transport into the Factory here because cmdutil can't import api.

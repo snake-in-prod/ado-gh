@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 )
 
@@ -49,11 +50,36 @@ func FlagErrorf(format string, args ...any) error {
 // FlagErrorWrap marks err as a FlagError.
 func FlagErrorWrap(err error) error { return &FlagError{Err: err} }
 
+// ExternalExitError passes the exit code of an extension or shell alias through ado.
+// HandleError returns it without printing; the child already reported its failure.
+type ExternalExitError struct{ Code int }
+
+func (e *ExternalExitError) Error() string {
+	return fmt.Sprintf("external command exited with status %d", e.Code)
+}
+
+// ExternalExit turns a child process's *exec.ExitError into an ExternalExitError. Other
+// errors, such as a missing executable, are returned unchanged.
+func ExternalExit(err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return &ExternalExitError{Code: exitErr.ExitCode()}
+	}
+	return err
+}
+
 // HandleError reports err on stderr and returns the exit code main should use.
 // usage is printed after flag errors (cobra's cmd.UsageString()).
 func HandleError(stderr io.Writer, err error, usage string) ExitCode {
 	if err == nil {
 		return ExitOK
+	}
+	var ext *ExternalExitError
+	if errors.As(err, &ext) {
+		if ext.Code < 0 { // killed by a signal
+			return ExitError
+		}
+		return ExitCode(ext.Code)
 	}
 	if errors.Is(err, CancelError) {
 		return ExitCancel

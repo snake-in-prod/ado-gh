@@ -2,6 +2,14 @@
 package root
 
 import (
+	"fmt"
+	"maps"
+	"slices"
+	"strings"
+	"unicode"
+
+	aliasCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/alias"
+	aliasShared "github.com/snake-in-prod/ado-gh/pkg/cmd/alias/shared"
 	apiCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/api"
 	authCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/auth"
 	boardCmd "github.com/snake-in-prod/ado-gh/pkg/cmd/board"
@@ -43,8 +51,58 @@ func NewCmdRoot(f *cmdutil.Factory) *cobra.Command {
 		&cobra.Group{ID: "additional", Title: "Additional commands:"},
 	)
 	cmd.SetHelpCommandGroupID("additional")
-	cmd.AddCommand(newCmdCompletion(), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
+	cmd.AddCommand(newCmdCompletion(), aliasCmd.NewCmdAlias(f), apiCmd.NewCmdAPI(f), authCmd.NewCmdAuth(f), boardCmd.NewCmdBoard(f), browseCmd.NewCmdBrowse(f), configCmd.NewCmdConfig(f), pipelineCmd.NewCmdPipeline(f), prCmd.NewCmdPR(f), releaseCmd.NewCmdRelease(f), repoCmd.NewCmdRepo(f), sprintCmd.NewCmdSprint(f), workitemCmd.NewCmdWorkItem(f))
+	addAliasCommands(cmd, f)
 	return cmd
+}
+
+// addAliasCommands registers the user's aliases as commands after the built-ins, so a name
+// taken by a built-in, its cobra aliases or help is skipped: built-ins win. The alias group is
+// added only when an alias is registered: cobra panics on a GroupID without its group, and an
+// unused group would print an empty heading.
+func addAliasCommands(root *cobra.Command, f *cmdutil.Factory) {
+	cfg, err := f.Config()
+	if err != nil {
+		return // commands that read the config report it
+	}
+	ac, err := aliasShared.AliasConfig(cfg)
+	if err != nil {
+		return
+	}
+	aliases := ac.Aliases()
+	for _, name := range slices.Sorted(maps.Keys(aliases)) {
+		if name == "" || name == "help" || strings.HasPrefix(name, "-") || strings.ContainsFunc(name, unicode.IsSpace) {
+			continue
+		}
+		if c, _, err := root.Find([]string{name}); err == nil && c != root {
+			continue
+		}
+		if !root.ContainsGroup(aliasShared.AliasGroupID) {
+			root.AddGroup(&cobra.Group{ID: aliasShared.AliasGroupID, Title: "Alias commands:"})
+		}
+		expansion := aliases[name]
+		root.AddCommand(&cobra.Command{
+			Use:                name,
+			Short:              fmt.Sprintf("Alias for %q", expansion),
+			GroupID:            aliasShared.AliasGroupID,
+			DisableFlagParsing: true,
+			RunE: func(_ *cobra.Command, args []string) error {
+				if aliasShared.IsShell(expansion) {
+					return aliasShared.RunShell(f.IOStreams, cfg.Get("", "alias_shell"), expansion, args)
+				}
+				// Checked against built-ins only, so an alias expands exactly once.
+				if err := aliasShared.ValidateExpansion(root, expansion); err != nil {
+					return fmt.Errorf("alias %q: %w", name, err)
+				}
+				expanded, err := aliasShared.Expand(expansion, args)
+				if err != nil {
+					return err
+				}
+				root.SetArgs(expanded)
+				return root.Execute()
+			},
+		})
+	}
 }
 
 // newCmdCompletion is explicit because cobra adds its default only when other

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -30,6 +32,10 @@ type Config struct {
 type file struct {
 	Global map[string]string            `yaml:",inline"`
 	Hosts  map[string]map[string]string `yaml:"hosts,omitempty"`
+	// Aliases maps alias names to expansions; a leading "!" marks a shell alias.
+	Aliases map[string]string `yaml:"aliases,omitempty"`
+	// ExtensionSources are the glob patterns extensions may be installed from.
+	ExtensionSources []string `yaml:"extension_sources,omitempty"`
 }
 
 // Dir returns the config directory: $ADO_CONFIG_DIR, else $XDG_CONFIG_HOME/ado,
@@ -48,6 +54,21 @@ func dir(goos string) string {
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "ado")
+}
+
+// DataDir returns the data directory: $XDG_DATA_HOME/ado, else %LocalAppData%\ado on
+// Windows, else ~/.local/share/ado.
+func DataDir() string { return dataDir(runtime.GOOS) }
+
+func dataDir(goos string) string {
+	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+		return filepath.Join(d, "ado")
+	}
+	if d := os.Getenv("LocalAppData"); goos == "windows" && d != "" {
+		return filepath.Join(d, "ado")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "ado")
 }
 
 // Load reads the config file. A missing file yields an empty config.
@@ -124,6 +145,26 @@ func (c *Config) Hosts() []string {
 	sort.Strings(hosts)
 	return hosts
 }
+
+// Aliases returns a copy of the alias map.
+func (c *Config) Aliases() map[string]string { return maps.Clone(c.data.Aliases) }
+
+// SetAlias stores an alias expansion.
+func (c *Config) SetAlias(name, expansion string) {
+	if c.data.Aliases == nil {
+		c.data.Aliases = map[string]string{}
+	}
+	c.data.Aliases[name] = expansion
+}
+
+// DeleteAlias removes an alias.
+func (c *Config) DeleteAlias(name string) { delete(c.data.Aliases, name) }
+
+// ExtensionSources returns the extension_sources allowlist; empty means any source.
+func (c *Config) ExtensionSources() []string { return slices.Clone(c.data.ExtensionSources) }
+
+// SetExtensionSources replaces the extension_sources allowlist.
+func (c *Config) SetExtensionSources(patterns []string) { c.data.ExtensionSources = patterns }
 
 // Write writes the config atomically with mode 0600, since it may hold a
 // plaintext token when no keychain is available.

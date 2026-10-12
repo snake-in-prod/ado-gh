@@ -2,9 +2,12 @@ package root
 
 import (
 	"errors"
+	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 	"github.com/spf13/cobra"
@@ -12,7 +15,14 @@ import (
 
 func run(t *testing.T, args ...string) (f *cmdutil.Factory, stdout string, err error) {
 	t.Helper()
+	return runWithAliases(t, nil, args...)
+}
+
+// runWithAliases runs ado with a fresh config dir holding aliases.
+func runWithAliases(t *testing.T, aliases map[string]string, args ...string) (f *cmdutil.Factory, stdout string, err error) {
+	t.Helper()
 	t.Setenv("ADO_DEBUG", "")
+	seedAliases(t, aliases)
 	ios, _, out, _ := iostreams.Test()
 	f = cmdutil.NewFactory("1.2.3", ios)
 	cmd := NewCmdRoot(f)
@@ -76,6 +86,7 @@ func TestRepoFlag(t *testing.T) {
 }
 
 func TestDebugFlagDefaultsToFactory(t *testing.T) {
+	seedAliases(t, nil)
 	ios, _, _, _ := iostreams.Test()
 	f := cmdutil.NewFactory("1.2.3", ios)
 	f.Debug = true // as set from ADO_DEBUG
@@ -163,10 +174,15 @@ var noWebCmds = map[string]string{
 	"ado workitem restore":    "prints the work item URL",
 	"ado workitem unlink":     "changes links; `ado wi view -w` opens the item",
 	"ado browse":              "opens the browser by default (-n prints the URL)",
+	"ado alias set":           "local config, no page",
+	"ado alias list":          "local config, no page",
+	"ado alias delete":        "local config, no page",
+	"ado alias import":        "local config, no page",
 }
 
 // TestWebFlagAudit fails for commands missing from both lists and for stale entries.
 func TestWebFlagAudit(t *testing.T) {
+	seedAliases(t, nil)
 	ios, _, _, _ := iostreams.Test()
 	seen := map[string]bool{}
 	var walk func(*cobra.Command)
@@ -211,5 +227,111 @@ func TestCompletion(t *testing.T) {
 		if err != nil || !strings.Contains(out, "ado") {
 			t.Errorf("%s: err = %v, out = %.80q", shell, err, out)
 		}
+	}
+}
+
+// seedAliases points ADO_CONFIG_DIR at a fresh dir, so the user's own aliases never leak in,
+// and saves aliases there.
+func seedAliases(t *testing.T, aliases map[string]string) {
+	t.Helper()
+	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
+	if len(aliases) == 0 {
+		return
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range aliases {
+		cfg.SetAlias(k, v)
+	}
+	if err := cfg.Write(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAliasDispatch(t *testing.T) {
+	aliases := map[string]string{
+		"co":   "completion $1",
+		"c":    "completion",
+		"pr":   "completion bash", // built-in wins
+		"wi":   "completion bash", // built-in cobra alias wins
+		"help": "completion bash", // reserved
+		"cc":   "co bash",         // an alias expands once: no chaining
+	}
+	tests := []struct {
+		args    []string
+		wantOut string
+		wantErr string
+	}{
+		{args: []string{"co", "bash"}, wantOut: "bash completion V2 for ado"},
+		{args: []string{"c", "zsh"}, wantOut: "zsh completion for ado"}, // unused args appended
+		{args: []string{"co"}, wantErr: "not enough arguments"},
+		{args: []string{"cc"}, wantErr: "does not start with an ado command"},
+		{args: []string{"pr"}, wantOut: "Manage pull requests"},
+		{args: []string{"wi"}, wantOut: "Manage work items"},
+		{args: []string{"help"}, wantOut: "Alias commands"},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
+			_, out, err := runWithAliases(t, aliases, tt.args...)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil || !strings.Contains(out, tt.wantOut) {
+				t.Errorf("err = %v, out = %.200q, want %q", err, out, tt.wantOut)
+			}
+		})
+	}
+}
+
+func TestAliasHelpAndCompletion(t *testing.T) {
+	aliases := map[string]string{"co": "completion $1", "pr": "completion bash", "sh1": "!echo hi"}
+	_, out, err := runWithAliases(t, aliases, "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, section, _ := strings.Cut(out, "Alias commands")
+	section, _, _ = strings.Cut(section, "\n\n")
+	for _, want := range []string{"co", `Alias for "completion $1"`, "sh1"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("alias section missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(section, "pr ") {
+		t.Errorf("alias shadowing a built-in listed:\n%s", section)
+	}
+
+	_, out, err = runWithAliases(t, aliases, "__complete", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"co\t", "sh1\t"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("completion missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestNoAliasGroupWithoutAliases(t *testing.T) {
+	for _, aliases := range []map[string]string{nil, {"pr": "repo list", "help": "pr list"}} {
+		// Only shadowed aliases: still no group, and no cobra panic.
+		_, out, err := runWithAliases(t, aliases, "--help")
+		if err != nil || strings.Contains(out, "Alias commands") {
+			t.Errorf("%v: err = %v, empty alias section shown:\n%s", aliases, err, out)
+		}
+	}
+}
+
+func TestShellAliasDispatch(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil || runtime.GOOS == "windows" {
+		t.Skip("needs sh")
+	}
+	_, out, err := runWithAliases(t, map[string]string{"greet": `!echo "hi $1" "$2"`}, "greet", "a b", "--debug")
+	if err != nil || out != "hi a b --debug\n" {
+		t.Errorf("out = %q, err = %v", out, err)
 	}
 }

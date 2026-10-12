@@ -24,6 +24,7 @@ type Option struct {
 
 // Options are the keys known to `ado config`, sorted by key.
 var Options = []Option{
+	{Key: "alias_shell", Description: "the shell that runs shell aliases (default: sh; on Windows without sh, pwsh then powershell)"},
 	{Key: "browser", Description: "the web browser to use for opening URLs"},
 	{Key: "editor", Description: "the text editor program to use for authoring text"},
 	{Key: "entra_client_id", Description: "the Microsoft Entra ID app client ID used by Entra login"},

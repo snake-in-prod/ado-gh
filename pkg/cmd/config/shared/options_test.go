@@ -23,7 +23,7 @@ func TestFind(t *testing.T) {
 		t.Errorf("Find(prompt) = %v, %v", o, err)
 	}
 	_, err := Find("nope")
-	if err == nil || !strings.Contains(err.Error(), `unknown config key "nope"`) || !strings.Contains(err.Error(), "browser, editor, entra_client_id, git_protocol, org, prompt, team") {
+	if err == nil || !strings.Contains(err.Error(), `unknown config key "nope"`) || !strings.Contains(err.Error(), "alias_shell, browser, editor, entra_client_id, git_protocol, org, prompt, team") {
 		t.Errorf("err = %v", err)
 	}
 }

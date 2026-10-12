@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/snake-in-prod/ado-gh/api"
+	"github.com/snake-in-prod/ado-gh/internal/fsutil"
 )
 
 // TaskLog is the log of one task, with the stage and job it ran in.
@@ -126,9 +127,9 @@ func (w *LogWriter) Write(ctx context.Context, open LogOpener, logs []TaskLog) e
 	}
 	defer root.Close()
 	for _, l := range logs {
-		name := path.Join(w.jobDir(l), fmt.Sprintf("%02d_%s.log", l.Index, SafeName(l.Task.Name)))
+		name := path.Join(w.jobDir(l), fmt.Sprintf("%02d_%s.log", l.Index, fsutil.SafeName(l.Task.Name)))
 		if err := withLog(ctx, open, l, func(r io.Reader) error {
-			f, err := CreateFile(root, name, os.O_TRUNC)
+			f, err := fsutil.CreateFile(root, name, os.O_TRUNC)
 			if err != nil {
 				return err
 			}
@@ -156,9 +157,9 @@ func (w *LogWriter) jobDir(l TaskLog) string {
 	if w.dirs == nil {
 		w.dirs, w.taken = map[jobKey]string{}, map[string]bool{}
 	}
-	base := SafeName(l.Job)
+	base := fsutil.SafeName(l.Job)
 	if l.Stage != "" {
-		base = path.Join(SafeName(l.Stage), base)
+		base = path.Join(fsutil.SafeName(l.Stage), base)
 	}
 	d := base
 	for n := 2; w.taken[strings.ToLower(d)]; n++ {

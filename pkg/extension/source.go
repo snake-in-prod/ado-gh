@@ -2,20 +2,15 @@ package extension
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 
-	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 )
@@ -196,15 +191,10 @@ func matchSegments(pattern, segs []string) bool {
 // A GitHub source is checked again under the name the GitHub API resolves it to, since
 // transferred and renamed repositories redirect silently.
 func CheckSource(ctx context.Context, f *cmdutil.Factory, s Source) error {
-	cfg, err := f.Config()
+	patterns, err := sourcePatterns(f)
 	if err != nil {
-		return fmt.Errorf("read extension_sources: %w", err)
+		return err
 	}
-	sc, ok := cfg.(interface{ ExtensionSources() []string })
-	if !ok {
-		return errors.New("cannot read extension_sources from this config")
-	}
-	patterns := sc.ExtensionSources()
 	if err := CheckAllowed(patterns, s); err != nil || len(patterns) == 0 || s.Host != hostGitHub {
 		return err
 	}
@@ -219,71 +209,15 @@ func CheckSource(ctx context.Context, f *cmdutil.Factory, s Source) error {
 	return CheckAllowed(patterns, resolved)
 }
 
-// ResolveGitHub returns the GitHub source under its current name: the API's full_name,
-// following redirects for transferred or renamed repositories.
-func ResolveGitHub(ctx context.Context, hc *http.Client, s Source) (Source, error) {
-	u := "https://" + hostGitHubAPI + "/repos/" + url.PathEscape(s.Owner) + "/" + url.PathEscape(s.Repo)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+// sourcePatterns returns the extension_sources allowlist; an unreadable config is an error.
+func sourcePatterns(f *cmdutil.Factory) ([]string, error) {
+	cfg, err := f.Config()
 	if err != nil {
-		return Source{}, err
+		return nil, fmt.Errorf("read extension_sources: %w", err)
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	resp, err := hc.Do(req)
-	var authErr *cmdutil.AuthError
-	if errors.As(err, &authErr) {
-		return Source{}, fmt.Errorf("GitHub rejected the credentials for %s/%s: check GH_TOKEN or GITHUB_TOKEN", s.Owner, s.Repo)
+	sc, ok := cfg.(interface{ ExtensionSources() []string })
+	if !ok {
+		return nil, errors.New("cannot read extension_sources from this config")
 	}
-	if err != nil {
-		return Source{}, err
-	}
-	defer resp.Body.Close()
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return Source{}, fmt.Errorf("GitHub repository %s/%s not found", s.Owner, s.Repo)
-	case resp.StatusCode != http.StatusOK:
-		return Source{}, fmt.Errorf("GitHub repository %s/%s: HTTP %d", s.Owner, s.Repo, resp.StatusCode)
-	}
-	var repo struct {
-		FullName string `json:"full_name"`
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&repo); err != nil {
-		return Source{}, fmt.Errorf("GitHub repository %s/%s: %w", s.Owner, s.Repo, err)
-	}
-	owner, name, _ := strings.Cut(repo.FullName, "/")
-	resolved, err := githubSource(owner, name)
-	if err != nil {
-		return Source{}, fmt.Errorf("GitHub repository %s/%s: unexpected full_name %q", s.Owner, s.Repo, repo.FullName)
-	}
-	return resolved, nil
-}
-
-// GitHubClient returns a client for the GitHub API over f.HttpClient's transport. It sends
-// GH_TOKEN (else GITHUB_TOKEN) as a Bearer token only to https://api.github.com, per request,
-// so redirects to other hosts (release asset storage) go out without it; it never sends the
-// Azure DevOps token.
-func GitHubClient(f *cmdutil.Factory) (*http.Client, error) {
-	plain, err := f.HttpClient()
-	if err != nil {
-		return nil, err
-	}
-	token := os.Getenv("GH_TOKEN")
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-	var log io.Writer
-	if f.Debug {
-		log = f.IOStreams.ErrOut
-	}
-	return api.NewHTTPClient(api.ClientOptions{
-		AppVersion: f.AppVersion,
-		Token: func(req *http.Request) (api.Token, error) {
-			if req.URL.Scheme != "https" || !strings.EqualFold(req.URL.Hostname(), hostGitHubAPI) {
-				return api.Token{}, nil
-			}
-			return api.Token{Value: token, Bearer: true}, nil
-		},
-		Log:       log,
-		Transport: plain.Transport,
-	}), nil
+	return sc.ExtensionSources(), nil
 }

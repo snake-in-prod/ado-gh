@@ -1,4 +1,6 @@
-package shared
+// Package fsutil holds path checks and writers that keep untrusted names (archive entries,
+// log names, downloaded files) inside a target directory on every OS.
+package fsutil
 
 import (
 	"fmt"

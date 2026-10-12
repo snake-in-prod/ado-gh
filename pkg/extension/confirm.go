@@ -37,6 +37,8 @@ type Trust struct {
 	Yes bool
 	// AllowToken grants a token-requesting extension ADO_TOKEN without asking.
 	AllowToken bool
+	// AllowUnverified installs a binary whose release has no checksums file.
+	AllowUnverified bool
 }
 
 // Check refuses a non-interactive install without --yes. Run it before downloading anything.

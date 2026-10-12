@@ -86,17 +86,26 @@ func NewSDKClient(hc *http.Client, baseURL string) *azuredevops.Client {
 // almsearch for Search), found through the org's ResourceAreas. ok is false when the org lists
 // no such area (on-prem lists none); the client then targets orgURL.
 func areaClient(ctx context.Context, hc *http.Client, orgURL string, areaID uuid.UUID) (c *azuredevops.Client, ok bool, err error) {
-	areas, err := NewSDKClient(hc, orgURL).GetResourceAreas(ctx)
+	base, ok, err := areaURL(ctx, hc, orgURL, areaID)
 	if err != nil {
 		return nil, false, err
 	}
-	base := orgURL
+	return NewSDKClient(hc, base), ok, nil
+}
+
+// areaURL returns the base URL of resource area areaID, as areaClient finds it.
+func areaURL(ctx context.Context, hc *http.Client, orgURL string, areaID uuid.UUID) (base string, ok bool, err error) {
+	areas, err := NewSDKClient(hc, orgURL).GetResourceAreas(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	base = orgURL
 	for _, a := range deref(areas) {
 		if a.Id != nil && *a.Id == areaID && a.LocationUrl != nil {
 			base, ok = *a.LocationUrl, true
 		}
 	}
-	return NewSDKClient(hc, base), ok, nil
+	return base, ok, nil
 }
 
 // Throttling limits: a 429 is retried at most maxRetries times; a server-requested delay is

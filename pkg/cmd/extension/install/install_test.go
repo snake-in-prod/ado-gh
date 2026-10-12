@@ -2,8 +2,12 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -15,6 +19,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/internal/git/gittest"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	extpkg "github.com/snake-in-prod/ado-gh/pkg/extension"
+	"github.com/snake-in-prod/ado-gh/pkg/httpmock"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
 
@@ -139,7 +144,11 @@ func runInstallScriptCmd(t *testing.T, args ...string) (*gittest.Runner, string,
 	}}
 	ios, _, out, errOut := iostreams.Test()
 	ios.SetStderrTTY(true)
+	// A GitHub source without releases is a script extension.
+	reg := &httpmock.Registry{}
+	reg.RegisterOptional(httpmock.REST(http.MethodGet, "repos/myco/ado-hello/releases/latest"), httpmock.StatusStringResponse(http.StatusNotFound, ""))
 	f := &cmdutil.Factory{IOStreams: ios, Config: func() (cmdutil.Config, error) { return cfg, nil },
+		HttpClient: func() (*http.Client, error) { return &http.Client{Transport: reg}, nil },
 		GitClient: &git.Client{Run: func(ctx context.Context, dir string, a ...string) ([]byte, error) {
 			if a[0] == "clone" {
 				dst := a[len(a)-1]
@@ -191,4 +200,79 @@ func TestInstallScriptCmdErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "must be named ado-<name>")
 	_, _, err = runInstallScriptCmd(t, "myco/ado-hello", "--pin=-x", "--yes")
 	assert.EqualError(t, err, `invalid --pin "-x"`)
+}
+
+// runInstallBinaryCmd runs `ado install <args>` with HTTP served by reg and no git.
+func runInstallBinaryCmd(t *testing.T, reg *httpmock.Registry, args ...string) (string, error) {
+	t.Helper()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("ADO_CONFIG_DIR", t.TempDir())
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	ios, _, out, errOut := iostreams.Test()
+	ios.SetStderrTTY(true)
+	f := &cmdutil.Factory{IOStreams: ios, Config: func() (cmdutil.Config, error) { return cfg, nil },
+		HttpClient: func() (*http.Client, error) { return &http.Client{Transport: reg}, nil },
+		GitClient: &git.Client{Run: func(context.Context, string, ...string) ([]byte, error) {
+			t.Fatal("a binary install runs no git")
+			return nil, nil
+		}}}
+	root := &cobra.Command{Use: "ado", SilenceErrors: true, SilenceUsage: true}
+	root.AddCommand(NewCmdInstall(f))
+	root.SetOut(out)
+	root.SetErr(errOut)
+	root.SetArgs(append([]string{"install"}, args...))
+	err = root.Execute()
+	return errOut.String(), err
+}
+
+// binaryReleaseStub registers a myco/ado-hello release with the binary for this platform
+// (asset 1), plus checksums.txt (asset 2) when sum is set, and no manifest.
+func binaryReleaseStub(reg *httpmock.Registry, bin, sum string) {
+	asset := "ado-hello-" + runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == "windows" {
+		asset += ".exe"
+	}
+	assets := []map[string]any{{"id": 1, "name": asset}}
+	if sum != "" {
+		assets = append(assets, map[string]any{"id": 2, "name": "checksums.txt"})
+	}
+	reg.Register(httpmock.REST(http.MethodGet, "repos/myco/ado-hello/releases/latest"),
+		httpmock.JSONResponse(map[string]any{"tag_name": "v1.0.0", "assets": assets}))
+	if sum != "" {
+		reg.Register(httpmock.REST(http.MethodGet, "repos/myco/ado-hello/releases/assets/2"), httpmock.StringResponse(sum+"  "+asset+"\n"))
+	}
+	reg.RegisterOptional(httpmock.REST(http.MethodGet, "repos/myco/ado-hello/contents/ado-extension.yml"),
+		httpmock.StatusStringResponse(http.StatusNotFound, ""))
+	reg.RegisterOptional(httpmock.REST(http.MethodGet, "repos/myco/ado-hello/releases/assets/1"), httpmock.StringResponse(bin))
+}
+
+func TestInstallBinaryCmd(t *testing.T) {
+	h := sha256.Sum256([]byte("bin"))
+	reg := &httpmock.Registry{}
+	binaryReleaseStub(reg, "bin", hex.EncodeToString(h[:]))
+	errOut, err := runInstallBinaryCmd(t, reg, "myco/ado-hello", "--yes")
+	require.NoError(t, err)
+	reg.Verify(t)
+	assert.Contains(t, errOut, "Checksum:    SHA-256 from checksums.txt")
+	assert.Contains(t, errOut, "Installed extension hello")
+	ext, err := extpkg.Lookup(extpkg.Dir(), "hello")
+	require.NoError(t, err)
+	assert.Equal(t, extpkg.KindBinary, ext.Kind)
+	assert.FileExists(t, ext.Executable())
+}
+
+func TestInstallBinaryCmdAllowUnverified(t *testing.T) {
+	reg := &httpmock.Registry{}
+	binaryReleaseStub(reg, "bin", "")
+	_, err := runInstallBinaryCmd(t, reg, "myco/ado-hello", "--yes")
+	assert.ErrorContains(t, err, "use --allow-unverified")
+
+	reg = &httpmock.Registry{}
+	binaryReleaseStub(reg, "bin", "")
+	errOut, err := runInstallBinaryCmd(t, reg, "myco/ado-hello", "--yes", "--allow-unverified")
+	require.NoError(t, err)
+	assert.Contains(t, errOut, "installed without verification")
 }

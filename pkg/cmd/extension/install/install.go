@@ -29,6 +29,21 @@ Azure DevOps repository is cloned over HTTPS with your ado login, which needs gi
 later; the token is passed in git's environment, never stored. Use --pin to install a tag or
 commit instead of the default branch.
 
+A GitHub repository whose release (the latest, or the --pin tag) has binaries for several
+platforms installs the binary for yours instead: ado-<name>-<os>-<arch>[.exe], else an asset
+ending in <os>-<arch>[.exe]; on Apple silicon a darwin-amd64 binary is used when there is no
+darwin-arm64 one. The binary must match its SHA-256 in the release's checksums.txt (or a
+single *_checksums.txt); a release without one needs --allow-unverified. GH_TOKEN or
+GITHUB_TOKEN, when set, is sent to api.github.com only, which raises GitHub's rate limit.
+
+A repository whose ado-extension.yml names an Azure Artifacts universal package under
+binaries.azure-artifacts installs the binary for your platform from that package instead,
+with the same names and checksums rule. The version is the --pin tag without its "v", else the
+latest version without a prerelease part. It is downloaded with Microsoft's ArtifactTool,
+which ado fetches from your organization (Azure DevOps Services only) and caches; your ado
+login is passed to it in an environment variable. A feed in another organization must also be
+allowed by extension_sources.
+
 Before a repository install, ado shows its source, resolved tag or commit, kind, checksum
 status and whether it requests your Azure DevOps token, and asks to confirm; --yes skips
 that and is required when not running interactively. An extension whose ado-extension.yml
@@ -69,8 +84,16 @@ config allowlist must include "local" when it is set.`,
 			if src.IsLocal() {
 				_, err = extpkg.InstallLocal(extpkg.Dir(), name, src.Path, force)
 			} else {
-				_, err = extpkg.InstallScript(cmd.Context(), f, extpkg.ScriptOptions{Root: extpkg.Dir(), Name: name,
-					Source: src, URL: extpkg.CloneURL(args[0], src), Pin: pin, Force: force, Trust: trust})
+				// GitHub: release binaries when there are any (gh parity), else a script clone.
+				err = extpkg.ErrNotBinary
+				if src.Host == "github.com" {
+					_, err = extpkg.InstallGitHubBinary(cmd.Context(), f, extpkg.BinaryOptions{Root: extpkg.Dir(), Name: name,
+						Source: src, Pin: pin, Force: force, Trust: trust})
+				}
+				if errors.Is(err, extpkg.ErrNotBinary) {
+					_, err = extpkg.InstallScript(cmd.Context(), f, extpkg.ScriptOptions{Root: extpkg.Dir(), Name: name,
+						Source: src, URL: extpkg.CloneURL(args[0], src), Pin: pin, Force: force, Trust: trust})
+				}
 			}
 			ios := f.IOStreams
 			cs := ios.ColorScheme()
@@ -92,5 +115,6 @@ config allowlist must include "local" when it is set.`,
 	cmd.Flags().StringVar(&pin, "pin", "", "Install a specific `tag or commit` of a repository extension")
 	cmd.Flags().BoolVarP(&trust.Yes, "yes", "y", false, "Skip the install confirmation")
 	cmd.Flags().BoolVar(&trust.AllowToken, "allow-token", false, "Give the extension your Azure DevOps token if it requests it")
+	cmd.Flags().BoolVar(&trust.AllowUnverified, "allow-unverified", false, "Install a release binary that has no checksums file")
 	return cmd
 }

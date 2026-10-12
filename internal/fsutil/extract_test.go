@@ -1,4 +1,4 @@
-package shared
+package fsutil
 
 import (
 	"archive/zip"
@@ -59,15 +59,6 @@ func readTree(t *testing.T, dir string) map[string]string {
 	return got
 }
 
-func TestValidArtifactName(t *testing.T) {
-	for _, name := range []string{"drop", "web app", "logs-1.2", "Drop ✓"} {
-		assert.NoError(t, ValidArtifactName(name), name)
-	}
-	for _, name := range []string{"", ".", "..", "../x", "a/b", `a\b`, "NUL", "con.txt", "C:", "x:y", "trailing.", "tab\t"} {
-		assert.Error(t, ValidArtifactName(name), "%q", name)
-	}
-}
-
 func TestExtractZipStripsArtifactFolder(t *testing.T) {
 	for _, top := range []string{"drop", "DROP"} {
 		dir := filepath.Join(t.TempDir(), "new", "out")
@@ -102,8 +93,22 @@ func TestExtractZipKeepsLayoutWithoutArtifactFolder(t *testing.T) {
 	assert.Equal(t, map[string]string{"drop": "d"}, readTree(t, dir))
 }
 
+func TestExtractZipBackslashSeparators(t *testing.T) {
+	dir := t.TempDir()
+	zr := newTestZip(t,
+		zipEntry{name: `drop\cs\`},
+		zipEntry{name: `drop\cs\a.dll`, body: "a"},
+		zipEntry{name: `drop\empty\`},
+		zipEntry{name: `drop\tool`, body: "t"},
+	)
+	_, err := ExtractZip(zr, dir, "drop", false)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"cs/a.dll": "a", "tool": "t"}, readTree(t, dir))
+	assert.DirExists(t, filepath.Join(dir, "empty"))
+}
+
 func TestExtractZipRejectsUnsafeEntries(t *testing.T) {
-	for _, name := range []string{"../x", "drop/../../x", "/abs", `a\..\b`, `drop\x`, "C:x", "drop/C:x", "NUL", "drop/nul.txt", "a//b", "./a"} {
+	for _, name := range []string{"../x", "drop/../../x", "/abs", `a\..\b`, `..\x`, `\abs`, "C:x", "drop/C:x", "NUL", "drop/nul.txt", "a//b", "./a"} {
 		dir := t.TempDir()
 		zr := newTestZip(t,
 			zipEntry{name: "drop/ok.txt", body: "ok"},

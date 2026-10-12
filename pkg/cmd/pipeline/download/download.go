@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
 	"github.com/snake-in-prod/ado-gh/api"
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
+	"github.com/snake-in-prod/ado-gh/internal/fsutil"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/pipeline/shared"
 	prshared "github.com/snake-in-prod/ado-gh/pkg/cmd/pr/shared"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
@@ -226,7 +227,7 @@ func download(ctx context.Context, w io.Writer, c *api.PipelineClient, t target,
 			return err
 		}
 	}
-	skipped, err := shared.ExtractZip(&zr.Reader, t.dir, t.name, clobber)
+	skipped, err := fsutil.ExtractZip(&zr.Reader, t.dir, t.name, clobber)
 	if err != nil {
 		return fmt.Errorf("artifact %s: %w", t.name, err)
 	}

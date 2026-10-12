@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -32,6 +33,14 @@ type ScriptOptions struct {
 	Pin   string
 	Force bool
 	Trust
+
+	// goos and goarch pick an Azure Artifacts binary and ArtifactTool build; empty means the
+	// running platform. runTool runs ArtifactTool; nil means (*exec.Cmd).Run. Test hooks.
+	goos, goarch string
+	runTool      func(*exec.Cmd) error
+	// resolved, when set, gets the commit (or package version) about to be installed, before
+	// anything is downloaded or confirmed; an error stops the install. Upgrade uses it.
+	resolved func(ref string) error
 }
 
 // CloneURL returns the URL to clone s from: arg itself when it is an SSH URL (the user's
@@ -50,9 +59,10 @@ func CloneURL(arg string, s Source) string {
 // root first (LF line endings, no submodules, https/ssh only, no terminal prompt off a TTY),
 // checks out o.Pin, requires an executable ado-<name>, reads the optional manifest, confirms
 // the install and token consent (see Confirm), then renames the clone into place and writes
-// the install record. An HTTPS Azure DevOps clone gets the user's token as a URL-scoped
-// http.extraheader through GIT_CONFIG_* env, never argv or a config file; other hosts never
-// get it.
+// the install record. A manifest naming an Azure Artifacts package installs that package's
+// binary instead (see installArtifacts). An HTTPS Azure DevOps clone gets the user's token as
+// a URL-scoped http.extraheader through GIT_CONFIG_* env, never argv or a config file; other
+// hosts never get it.
 func InstallScript(ctx context.Context, f *cmdutil.Factory, o ScriptOptions) (Extension, error) {
 	if err := ValidateName(o.Name); err != nil {
 		return Extension{}, err
@@ -94,11 +104,19 @@ func InstallScript(ctx context.Context, f *cmdutil.Factory, o ScriptOptions) (Ex
 	if rec.Commit, rec.Tag, err = checkoutPin(ctx, &g, o.Pin); err != nil {
 		return Extension{}, err
 	}
-	if err := checkScriptExecutable(ctx, &g, runtime.GOOS, o.Name); err != nil {
-		return Extension{}, err
-	}
 	m, err := ReadManifest(tmp, o.Name)
 	if err != nil {
+		return Extension{}, err
+	}
+	if m.Binaries.AzureArtifacts != nil {
+		return installArtifacts(ctx, f, o, m, rec)
+	}
+	if o.resolved != nil {
+		if err := o.resolved(rec.Commit); err != nil {
+			return Extension{}, err
+		}
+	}
+	if err := checkScriptExecutable(ctx, &g, runtime.GOOS, o.Name); err != nil {
 		return Extension{}, err
 	}
 	ref := rec.Commit + " (default branch)"

@@ -1,4 +1,4 @@
-// Package extension implements `ado extension install/list/remove/exec`.
+// Package extension implements `ado extension install/upgrade/list/remove/exec`.
 package extension
 
 import (
@@ -11,6 +11,7 @@ import (
 
 	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
 	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/install"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/upgrade"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	extpkg "github.com/snake-in-prod/ado-gh/pkg/extension"
 )
@@ -28,7 +29,7 @@ extension, and an installed extension wins over an ado-<name> executable on PATH
 "ado extension exec <name>" runs an installed extension even when an alias shadows it.`,
 		GroupID: "additional",
 	}
-	cmd.AddCommand(install.NewCmdInstall(f), newCmdList(f), newCmdRemove(f), newCmdExec(f))
+	cmd.AddCommand(install.NewCmdInstall(f), upgrade.NewCmdUpgrade(f), newCmdList(f), newCmdRemove(f), newCmdExec(f))
 	return cmd
 }
 

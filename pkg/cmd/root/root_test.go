@@ -185,6 +185,7 @@ var noWebCmds = map[string]string{
 	"ado extension list":      "local install state, no page",
 	"ado extension remove":    "local files, no page",
 	"ado extension exec":      "runs a local executable",
+	"ado extension install":   "local install; the source repo is opened by extension browse",
 }
 
 // TestWebFlagAudit fails for commands missing from both lists and for stale entries.

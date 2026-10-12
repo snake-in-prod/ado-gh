@@ -120,3 +120,25 @@ func TestEmptyAliasesAndSourcesAreOmitted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "editor: vim\n", string(raw))
 }
+
+func TestExtensionSourcesGetSetCommaSeparated(t *testing.T) {
+	d := t.TempDir()
+	t.Setenv("ADO_CONFIG_DIR", d)
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Get("", ExtensionSourcesKey))
+
+	cfg.Set("", ExtensionSourcesKey, " github.com/myco/* ,, dev.azure.com/myorg/**,local ")
+	assert.Equal(t, []string{"github.com/myco/*", "dev.azure.com/myorg/**", "local"}, cfg.ExtensionSources())
+	assert.Equal(t, "github.com/myco/*,dev.azure.com/myorg/**,local", cfg.Get("", ExtensionSourcesKey))
+	assert.Equal(t, "github.com/myco/*,dev.azure.com/myorg/**,local", cfg.Get("dev.azure.com", ExtensionSourcesKey), "global only")
+	require.NoError(t, cfg.Write())
+
+	raw, err := os.ReadFile(filepath.Join(d, "config.yml"))
+	require.NoError(t, err)
+	assert.Equal(t, "extension_sources:\n    - github.com/myco/*\n    - dev.azure.com/myorg/**\n    - local\n", string(raw), "stored as a YAML list")
+
+	cfg.Set("", ExtensionSourcesKey, "")
+	assert.Empty(t, cfg.ExtensionSources())
+	assert.Empty(t, cfg.Get("", ExtensionSourcesKey))
+}

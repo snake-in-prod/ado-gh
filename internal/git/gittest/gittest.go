@@ -11,13 +11,14 @@ import (
 )
 
 // Runner is a stubbed git runner: Replies maps "arg arg ..." to stdout, Fails maps it to an
-// error, and Calls records every invocation in that joined form, with Dirs[i] the directory of
-// Calls[i]. The zero value is usable.
+// error, and Calls records every invocation in that joined form, with Dirs[i] the directory and
+// Envs[i] the git.Client.Env of Calls[i]. The zero value is usable.
 type Runner struct {
 	Replies map[string]string
 	Fails   map[string]error
 	Calls   []string
 	Dirs    []string
+	Envs    [][]string
 }
 
 // Stream satisfies git.Client.Stream like Run, writing the reply to s.Out and, for a failure
@@ -41,10 +42,11 @@ func (r *Runner) Stream(ctx context.Context, dir string, s git.Streams, args ...
 
 // Run satisfies git.Client.Run. Unanswered rev-parse, symbolic-ref and config --get calls fail
 // with exit 1, like git for a missing ref, branch or config key; other calls succeed silently.
-func (r *Runner) Run(_ context.Context, dir string, args ...string) ([]byte, error) {
+func (r *Runner) Run(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	key := strings.Join(args, " ")
 	r.Calls = append(r.Calls, key)
 	r.Dirs = append(r.Dirs, dir)
+	r.Envs = append(r.Envs, git.EnvFrom(ctx))
 	if err, ok := r.Fails[key]; ok {
 		return nil, err
 	}

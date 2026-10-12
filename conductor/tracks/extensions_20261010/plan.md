@@ -54,23 +54,23 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Extension Core' (Protocol in workflow.md)
     - [x] Windows host check (o28): `.ps1` under the client's default execution policy, `.cmd`, and an `sh` script extension dispatched by the cross-compiled `ado.exe`
 
-## Phase 3: Install — Local, Script, Trust Controls
+## Phase 3: Install — Local, Script, Trust Controls [checkpoint: 630b473]
 
-- [ ] Task: Source parsing and allowlist
-    - [ ] Write tests: `owner/repo`, GitHub URL, ADO HTTPS/SSH/visualstudio.com URLs, local paths, all canonicalised to lowercase `host/org[/project]/repo` (ADO via `ParseRemoteURL`, separate GitHub parser; `.`/`..` rejected, `.git` stripped, parsed hosts compared); `extension_sources` glob matching incl. `local`, where `*` matches one segment and `**` any number (e.g. `dev.azure.com/myorg/**`, o24); bad patterns or config fail closed; GitHub API `full_name` matched after resolving (transfers redirect silently); refused sources error naming the allowlist; `ado config get/set extension_sources` reads and writes the YAML list as a comma-separated value (o1); host-aware httpmock matcher (inline `Matcher` on `req.URL.Host`, `httpmock.REST` ignores the host) for "ADO token never sent to non-ADO hosts" and "`GH_TOKEN` only to api.github.com"
-    - [ ] Implement; add `extension_sources` config key with `ado config get/set` support
-- [ ] Task: Local install
-    - [ ] Write tests: symlink created on Unix; Windows always writes a pointer file (build-tagged `symlink_windows.go` / `symlink_other.go`, gh parity, o11); pointer-file entries read and dispatched on every OS; path made absolute and directory confirmed before linking; missing executable warns but keeps the link; dispatch follows link; `--force` replaces
-    - [ ] Implement
-- [ ] Task: Script install via git
-    - [ ] Write tests (stubbed git): `Env []string` on `git.Client`, recorded by `gittest.Runner`; one real-git test that `GIT_CONFIG_COUNT/KEY_0/VALUE_0` sets `http.extraheader` (no network, all three OSes); `git version` < 2.31 with a private ADO HTTPS source fails with "git >= 2.31 required for private Azure DevOps extensions" (o14); clone into a temp dir inside the extensions root with `--` before the URL, `-c core.autocrlf=false -c core.eol=lf` (o12), no submodules, `GIT_ALLOW_PROTOCOL=https:ssh`, `GIT_PROTOCOL_FROM_USER=0`, `GIT_TERMINAL_PROMPT=0` off a TTY, then rename to `ado-<name>`; executable `ado-<name>` required: `git ls-files -s` mode 100755 on Unix, on Windows also a file with a shebang or a `.ps1`/`.cmd` sibling (o13); `--pin` checks out tag/commit, `-`-prefixed `--pin` rejected, resolved SHA (plus tag) recorded; private ADO clone passes a URL-scoped `http.<url>.extraheader` (Basic/Bearer header builder extracted from `api/http_client.go`) via `GIT_CONFIG_*` env, appended after an inherited `GIT_CONFIG_COUNT` (never argv or persisted config); ADO token never sent to GitHub; already-installed error without `--force`; real-git commit tests set `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
-    - [ ] Implement
-- [ ] Task: Confirmation and token consent
-    - [ ] Write tests: TTY summary (source, ref, kind, checksum status, token request), decline → exit 2, non-TTY requires `--yes`, token consent prompt default no, `--allow-token`, no consent → warning and record `tokenConsent: false` (in `.records/<name>.yml`); terminal control/escape sequences stripped from untrusted strings (manifest, tags, search results, README) before printing
-    - [ ] Implement
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Install — Local, Script, Trust Controls' (Protocol in workflow.md)
-    - [ ] Set up the ADO and GitHub parts of the live test environment; install `https://dev.azure.com/snake-in-prod/ado-gh/_git/ado-hello` (private clone with the Entra bearer header) and `snake-in-prod/ado-hello` as script extensions; check `ado hello` env contract, `-R`, `--pin`, `list`, `remove`
-    - [ ] Windows host check (o28): local install writes a pointer file and dispatches
+- [x] Task: Source parsing and allowlist `630b473`
+    - [x] Write tests: `owner/repo`, GitHub URL, ADO HTTPS/SSH/visualstudio.com URLs, local paths, all canonicalised to lowercase `host/org[/project]/repo` (ADO via `ParseRemoteURL`, separate GitHub parser; `.`/`..` rejected, `.git` stripped, parsed hosts compared); `extension_sources` glob matching incl. `local`, where `*` matches one segment and `**` any number (e.g. `dev.azure.com/myorg/**`, o24); bad patterns or config fail closed; GitHub API `full_name` matched after resolving (transfers redirect silently); refused sources error naming the allowlist; `ado config get/set extension_sources` reads and writes the YAML list as a comma-separated value (o1); host-aware httpmock matcher (inline `Matcher` on `req.URL.Host`, `httpmock.REST` ignores the host) for "ADO token never sent to non-ADO hosts" and "`GH_TOKEN` only to api.github.com"
+    - [x] Implement; add `extension_sources` config key with `ado config get/set` support
+- [x] Task: Local install `630b473`
+    - [x] Write tests: symlink created on Unix; Windows always writes a pointer file (build-tagged `symlink_windows.go` / `symlink_other.go`, gh parity, o11); pointer-file entries read and dispatched on every OS; path made absolute and directory confirmed before linking; missing executable warns but keeps the link; dispatch follows link; `--force` replaces
+    - [x] Implement
+- [x] Task: Script install via git `630b473`
+    - [x] Write tests (stubbed git): `Env []string` on `git.Client`, recorded by `gittest.Runner`; one real-git test that `GIT_CONFIG_COUNT/KEY_0/VALUE_0` sets `http.extraheader` (no network, all three OSes); `git version` < 2.31 with a private ADO HTTPS source fails with "git >= 2.31 required for private Azure DevOps extensions" (o14); clone into a temp dir inside the extensions root with `--` before the URL, `-c core.autocrlf=false -c core.eol=lf` (o12), no submodules, `GIT_ALLOW_PROTOCOL=https:ssh`, `GIT_PROTOCOL_FROM_USER=0`, `GIT_TERMINAL_PROMPT=0` off a TTY, then rename to `ado-<name>`; executable `ado-<name>` required: `git ls-files -s` mode 100755 on Unix, on Windows also a file with a shebang or a `.ps1`/`.cmd` sibling (o13); `--pin` checks out tag/commit, `-`-prefixed `--pin` rejected, resolved SHA (plus tag) recorded; private ADO clone passes a URL-scoped `http.<url>.extraheader` (Basic/Bearer header builder extracted from `api/http_client.go`) via `GIT_CONFIG_*` env, appended after an inherited `GIT_CONFIG_COUNT` (never argv or persisted config); ADO token never sent to GitHub; already-installed error without `--force`; real-git commit tests set `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
+    - [x] Implement
+- [x] Task: Confirmation and token consent `630b473`
+    - [x] Write tests: TTY summary (source, ref, kind, checksum status, token request), decline → exit 2, non-TTY requires `--yes`, token consent prompt default no, `--allow-token`, no consent → warning and record `tokenConsent: false` (in `.records/<name>.yml`); terminal control/escape sequences stripped from untrusted strings (manifest, tags, search results, README) before printing
+    - [x] Implement
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Install — Local, Script, Trust Controls' (Protocol in workflow.md)
+    - [x] Set up the ADO and GitHub parts of the live test environment; install `https://dev.azure.com/snake-in-prod/ado-gh/_git/ado-hello` (private clone with the Entra bearer header) and `snake-in-prod/ado-hello` as script extensions; check `ado hello` env contract, `-R`, `--pin`, `list`, `remove`
+    - [x] Windows host check (o28): local install writes a pointer file and dispatches
 
 ## Phase 4: Binary Install and Upgrade
 

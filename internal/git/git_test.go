@@ -249,3 +249,72 @@ func TestExecStreamMissingBinary(t *testing.T) {
 	err := (&Client{}).ExecStream(context.Background(), Streams{}, "status")
 	assert.True(t, errors.Is(err, exec.ErrNotFound), err)
 }
+
+func TestClientEnvReachesHooks(t *testing.T) {
+	var got [][]string
+	c := &Client{
+		Env: []string{"A=1"},
+		Run: func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+			got = append(got, EnvFrom(ctx))
+			return nil, nil
+		},
+		Stream: func(ctx context.Context, _ string, _ Streams, _ ...string) error {
+			got = append(got, EnvFrom(ctx))
+			return nil
+		},
+	}
+	_, err := c.Exec(context.Background(), "status")
+	require.NoError(t, err)
+	require.NoError(t, c.ExecStream(context.Background(), Streams{}, "status"))
+	assert.Equal(t, [][]string{{"A=1"}, {"A=1"}}, got)
+	assert.Nil(t, EnvFrom(context.Background()))
+}
+
+func TestConfigEnv(t *testing.T) {
+	tests := []struct {
+		inherited string
+		want      []string
+		wantErr   bool
+	}{
+		{"", []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=k", "GIT_CONFIG_VALUE_0=v"}, false},
+		{"2", []string{"GIT_CONFIG_COUNT=3", "GIT_CONFIG_KEY_2=k", "GIT_CONFIG_VALUE_2=v"}, false},
+		{"x", nil, true},
+		{"-1", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.inherited, func(t *testing.T) {
+			t.Setenv("GIT_CONFIG_COUNT", tt.inherited)
+			got, err := ConfigEnv("k", "v")
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "invalid GIT_CONFIG_COUNT")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestConfigEnvRealGit checks that git (>= 2.31) reads the pairs, after an inherited one.
+func TestConfigEnvRealGit(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "user.name")
+	t.Setenv("GIT_CONFIG_VALUE_0", "inherited")
+	key := "http.https://dev.azure.com/o/p/_git/r.extraheader"
+	env, err := ConfigEnv(key, "Authorization: Basic Zm9v")
+	require.NoError(t, err)
+	c := &Client{Dir: t.TempDir(), Env: env}
+	out, err := c.Exec(context.Background(), "config", "--get", key)
+	require.NoError(t, err)
+	assert.Equal(t, "Authorization: Basic Zm9v\n", string(out))
+	out, err = c.Exec(context.Background(), "config", "--get", "user.name")
+	require.NoError(t, err)
+	assert.Equal(t, "inherited\n", string(out), "inherited pair kept")
+
+	var stdout bytes.Buffer
+	require.NoError(t, c.ExecStream(context.Background(), Streams{Out: &stdout}, "config", "--get", key))
+	assert.Equal(t, "Authorization: Basic Zm9v\n", stdout.String(), "ExecStream gets Env too")
+}

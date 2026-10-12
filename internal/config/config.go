@@ -87,9 +87,27 @@ func Load() (*Config, error) {
 	return c, nil
 }
 
+// ExtensionSourcesKey is the global key of the extension_sources allowlist. It is stored as a
+// YAML list; Get and Set present it as one comma-separated value.
+const ExtensionSourcesKey = "extension_sources"
+
+// SplitList splits a comma-separated value, trimming spaces and dropping empty items.
+func SplitList(v string) []string {
+	var items []string
+	for s := range strings.SplitSeq(v, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			items = append(items, s)
+		}
+	}
+	return items
+}
+
 // Get returns the host value, else the global value, else the default.
 // Pass host "" for global settings.
 func (c *Config) Get(host, key string) string {
+	if key == ExtensionSourcesKey {
+		return strings.Join(c.data.ExtensionSources, ",")
+	}
 	if v, ok := c.data.Hosts[host][key]; ok && host != "" {
 		return v
 	}
@@ -106,8 +124,12 @@ func ProjectScope(org, project string) string {
 	return strings.ToLower("dev.azure.com/" + org + "/" + project)
 }
 
-// Set stores key under host, or globally when host is "".
+// Set stores key under host, or globally when host is "". extension_sources is always global.
 func (c *Config) Set(host, key, value string) {
+	if key == ExtensionSourcesKey {
+		c.data.ExtensionSources = SplitList(value)
+		return
+	}
 	if host == "" {
 		if c.data.Global == nil {
 			c.data.Global = map[string]string{}

@@ -2,9 +2,12 @@ package get
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
@@ -56,6 +59,25 @@ func TestGet(t *testing.T) {
 				t.Errorf("out = %q, err = %v; want %q", out, err, tt.want)
 			}
 		})
+	}
+}
+
+func TestGetExtensionSources(t *testing.T) {
+	d := t.TempDir()
+	t.Setenv("ADO_CONFIG_DIR", d)
+	yml := "extension_sources:\n  - github.com/myco/*\n  - local\n"
+	if err := os.WriteFile(filepath.Join(d, "config.yml"), []byte(yml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := run(cfg, nil, "extension_sources"); err != nil || out != "github.com/myco/*,local\n" {
+		t.Errorf("out = %q, err = %v", out, err)
+	}
+	if _, err := run(cfg, nil, "extension_sources", "--host", "dev.azure.com"); err == nil || !strings.Contains(err.Error(), "global setting") {
+		t.Errorf("--host err = %v", err)
 	}
 }
 

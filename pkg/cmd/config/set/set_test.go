@@ -2,9 +2,12 @@ package set
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	"github.com/snake-in-prod/ado-gh/pkg/iostreams"
 )
@@ -64,6 +67,32 @@ func TestSet(t *testing.T) {
 	}
 }
 
+// extension_sources is a YAML list in config.yml, read and written as one comma-separated value.
+func TestSetGetExtensionSources(t *testing.T) {
+	d := t.TempDir()
+	t.Setenv("ADO_CONFIG_DIR", d)
+	load := func() cmdutil.Config {
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg
+	}
+	if _, err := run(load(), nil, "extension_sources", "github.com/myco/*, dev.azure.com/myorg/**,local"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(d, "config.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "extension_sources:\n    - github.com/myco/*\n    - dev.azure.com/myorg/**\n    - local\n"; string(raw) != want {
+		t.Errorf("config.yml = %q; want %q", raw, want)
+	}
+	if got := load().Get("", "extension_sources"); got != "github.com/myco/*,dev.azure.com/myorg/**,local" {
+		t.Errorf("get = %q", got)
+	}
+}
+
 func TestSetErrors(t *testing.T) {
 	boom := errors.New("boom")
 	tests := []struct {
@@ -81,6 +110,8 @@ func TestSetErrors(t *testing.T) {
 		{"missing value", &fakeConfig{}, nil, []string{"editor"}, "accepts 2 arg(s)"},
 		{"bad project", &fakeConfig{}, nil, []string{"team", "T", "--project", "proj"}, `invalid --project "proj": expected ORG/PROJECT`},
 		{"project for a host key", &fakeConfig{}, nil, []string{"editor", "vim", "--project", "o/p"}, "--project is only supported for: team"},
+		{"extension_sources per host", &fakeConfig{}, nil, []string{"extension_sources", "local", "--host", "dev.azure.com"}, "extension_sources is a global setting; --host is not supported"},
+		{"bad extension_sources pattern", &fakeConfig{}, nil, []string{"extension_sources", "local,github.com/[x"}, `invalid extension_sources pattern "github.com/[x"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

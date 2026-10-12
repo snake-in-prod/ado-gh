@@ -25,6 +25,19 @@ type Token struct {
 	Bearer bool
 }
 
+// Authorization returns the Authorization header value for t: Bearer for Entra, Basic
+// base64(":"+PAT) otherwise, "" for an empty token.
+func (t Token) Authorization() string {
+	switch {
+	case t.Value == "":
+		return ""
+	case t.Bearer:
+		return "Bearer " + t.Value
+	default:
+		return "Basic " + base64.StdEncoding.EncodeToString([]byte(":"+t.Value))
+	}
+}
+
 // ClientOptions configures NewHTTPClient.
 type ClientOptions struct {
 	// AppVersion goes into the User-Agent "ado-cli/<AppVersion>".
@@ -115,12 +128,8 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch {
-		case tok.Value == "":
-		case tok.Bearer:
-			req.Header.Set("Authorization", "Bearer "+tok.Value)
-		default:
-			req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(":"+tok.Value)))
+		if a := tok.Authorization(); a != "" {
+			req.Header.Set("Authorization", a)
 		}
 	}
 

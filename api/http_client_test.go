@@ -75,6 +75,19 @@ func TestTransportHeaders(t *testing.T) {
 	}
 }
 
+func TestTokenAuthorization(t *testing.T) {
+	for tok, want := range map[Token]string{
+		{Value: "my-pat"}:            "Basic " + base64.StdEncoding.EncodeToString([]byte(":my-pat")),
+		{Value: "jwt", Bearer: true}: "Bearer jwt",
+		{}:                           "",
+		{Bearer: true}:               "",
+	} {
+		if got := tok.Authorization(); got != want {
+			t.Errorf("%+v.Authorization() = %q, want %q", tok, got, want)
+		}
+	}
+}
+
 func TestTransportTokenError(t *testing.T) {
 	reg := &httpmock.Registry{}
 	boom := errors.New("keychain locked")

@@ -112,3 +112,15 @@ func TestRunnerStreamAndDirs(t *testing.T) {
 	require.NoError(t, r.Stream(ctx, "", git.Streams{}, "rev-parse", "--git-dir"), "nil streams are skipped")
 	require.Error(t, r.Stream(ctx, "", git.Streams{}, "clone", "--", "u", "d"), "nil ErrOut is skipped")
 }
+
+func TestRunnerRecordsEnv(t *testing.T) {
+	r := &Runner{}
+	ctx := context.Background()
+	c := &git.Client{Env: []string{"A=1"}, Run: r.Run, Stream: r.Stream}
+	_, err := c.Exec(ctx, "status")
+	require.NoError(t, err)
+	require.NoError(t, c.ExecStream(ctx, git.Streams{}, "fetch"))
+	_, err = (&git.Client{Run: r.Run}).Exec(ctx, "log")
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"A=1"}, {"A=1"}, nil}, r.Envs)
+}

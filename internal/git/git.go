@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -50,10 +52,53 @@ type Remote struct {
 // Client runs git in Dir ("" = current directory).
 type Client struct {
 	Dir string
+	// Env holds KEY=value pairs added to the inherited environment of every git process
+	// (later pairs win). Run and Stream hooks read it with EnvFrom(ctx).
+	Env []string
 	// Run executes git and returns stdout; nil runs the git binary. Tests replace it.
 	Run func(ctx context.Context, dir string, args ...string) ([]byte, error)
 	// Stream executes git with s attached; nil runs the git binary. Tests replace it.
 	Stream func(ctx context.Context, dir string, s Streams, args ...string) error
+}
+
+type envKey struct{}
+
+// EnvFrom returns the Client.Env a Run or Stream hook was called with.
+func EnvFrom(ctx context.Context) []string {
+	env, _ := ctx.Value(envKey{}).([]string)
+	return env
+}
+
+func (c *Client) ctx(ctx context.Context) context.Context {
+	if c.Env == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, envKey{}, c.Env)
+}
+
+func (c *Client) command(ctx context.Context, args []string) *exec.Cmd {
+	// exec.LookPath refuses a git binary from the current directory (ErrDot).
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = c.Dir
+	if c.Env != nil {
+		cmd.Env = append(os.Environ(), c.Env...) // exec keeps the last of duplicate keys
+	}
+	return cmd
+}
+
+// ConfigEnv returns the GIT_CONFIG_COUNT/KEY_n/VALUE_n pairs (git >= 2.31) that set key to
+// value for one git process, appended after an inherited GIT_CONFIG_COUNT. Unlike `git -c`, the
+// value stays out of argv; unlike `clone -c`, it is never written to a config file.
+func ConfigEnv(key, value string) ([]string, error) {
+	n := 0
+	if v := os.Getenv("GIT_CONFIG_COUNT"); v != "" {
+		var err error
+		if n, err = strconv.Atoi(v); err != nil || n < 0 {
+			return nil, fmt.Errorf("invalid GIT_CONFIG_COUNT %q", v)
+		}
+	}
+	i := strconv.Itoa(n)
+	return []string{"GIT_CONFIG_COUNT=" + strconv.Itoa(n+1), "GIT_CONFIG_KEY_" + i + "=" + key, "GIT_CONFIG_VALUE_" + i + "=" + value}, nil
 }
 
 // Streams are the standard streams a streamed git command is attached to.
@@ -66,10 +111,9 @@ type Streams struct {
 // Failures are *Error with an empty Stderr: git already wrote it to s.ErrOut.
 func (c *Client) ExecStream(ctx context.Context, s Streams, args ...string) error {
 	if c.Stream != nil {
-		return c.Stream(ctx, c.Dir, s, args...)
+		return c.Stream(c.ctx(ctx), c.Dir, s, args...)
 	}
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = c.Dir
+	cmd := c.command(ctx, args)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = s.In, s.Out, s.ErrOut
 	err := cmd.Run()
 	var exitErr *exec.ExitError
@@ -82,15 +126,9 @@ func (c *Client) ExecStream(ctx context.Context, s Streams, args ...string) erro
 // Exec runs git with args and returns stdout; failures are *Error.
 func (c *Client) Exec(ctx context.Context, args ...string) ([]byte, error) {
 	if c.Run != nil {
-		return c.Run(ctx, c.Dir, args...)
+		return c.Run(c.ctx(ctx), c.Dir, args...)
 	}
-	return run(ctx, c.Dir, args...)
-}
-
-func run(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	// exec.LookPath refuses a git binary from the current directory (ErrDot).
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
+	cmd := c.command(ctx, args)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

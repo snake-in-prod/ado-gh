@@ -23,7 +23,7 @@ func TestFind(t *testing.T) {
 		t.Errorf("Find(prompt) = %v, %v", o, err)
 	}
 	_, err := Find("nope")
-	if err == nil || !strings.Contains(err.Error(), `unknown config key "nope"`) || !strings.Contains(err.Error(), "alias_shell, browser, editor, entra_client_id, git_protocol, org, prompt, team") {
+	if err == nil || !strings.Contains(err.Error(), `unknown config key "nope"`) || !strings.Contains(err.Error(), "alias_shell, browser, editor, entra_client_id, extension_sources, git_protocol, org, prompt, team") {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -91,6 +91,7 @@ func TestGitProtocolValue(t *testing.T) {
 func TestScope(t *testing.T) {
 	team, _ := Find("team")
 	editor, _ := Find("editor")
+	sources, _ := Find("extension_sources")
 	tests := []struct {
 		name          string
 		o             Option
@@ -103,6 +104,8 @@ func TestScope(t *testing.T) {
 		{name: "host and project", o: team, host: "dev.azure.com", project: "o/p", wantErr: "specify only one of --host or --project"},
 		{name: "bad project", o: team, project: "proj", wantErr: `invalid --project "proj": expected ORG/PROJECT`},
 		{name: "not per project", o: editor, project: "o/p", wantErr: "--project is only supported for: team"},
+		{name: "global only", o: sources, host: "dev.azure.com", wantErr: "extension_sources is a global setting; --host is not supported"},
+		{name: "global only, global", o: sources},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

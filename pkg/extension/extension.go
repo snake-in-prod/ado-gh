@@ -161,6 +161,24 @@ func ParseManifest(data []byte, repoName string) (*Manifest, error) {
 	return &m, nil
 }
 
+// ReadManifest reads and parses ado-extension.yml at the root of dir, an extension checkout
+// for repoName, never following a symlink out of dir. A missing manifest is an empty one.
+func ReadManifest(dir, repoName string) (*Manifest, error) {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	b, err := root.ReadFile(ManifestFile)
+	if errors.Is(err, fs.ErrNotExist) {
+		b, err = nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", ManifestFile, err)
+	}
+	return ParseManifest(b, repoName)
+}
+
 // Record is the install record ado writes to .records/<name>.yml.
 type Record struct {
 	Source       string `yaml:"source"`

@@ -10,6 +10,7 @@ import (
 	"github.com/snake-in-prod/ado-gh/internal/adocontext"
 	"github.com/snake-in-prod/ado-gh/internal/config"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
+	"github.com/snake-in-prod/ado-gh/pkg/extension"
 )
 
 // Option is a user-settable config key.
@@ -20,6 +21,10 @@ type Option struct {
 	AllowedValues []string
 	// PerProject options can be set for one project with --project ORG/PROJECT.
 	PerProject bool
+	// GlobalOnly options can't be set per host.
+	GlobalOnly bool
+	// check validates a value instead of AllowedValues.
+	check func(value string) error
 }
 
 // Options are the keys known to `ado config`, sorted by key.
@@ -28,6 +33,12 @@ var Options = []Option{
 	{Key: "browser", Description: "the web browser to use for opening URLs"},
 	{Key: "editor", Description: "the text editor program to use for authoring text"},
 	{Key: "entra_client_id", Description: "the Microsoft Entra ID app client ID used by Entra login"},
+	{
+		Key:         config.ExtensionSourcesKey,
+		Description: "comma-separated sources extensions may be installed from, e.g. github.com/myco/*,dev.azure.com/myorg/**,local (* = one path segment, ** = any number; empty allows any)",
+		GlobalOnly:  true,
+		check:       func(v string) error { return extension.ValidateSourcePatterns(config.SplitList(v)) },
+	},
 	{Key: "git_protocol", Description: "the protocol to use for git clone and push operations", Default: "https", AllowedValues: []string{"https", "ssh"}},
 	{Key: "org", Description: "the default Azure DevOps organization for repository names without one"},
 	{Key: "prompt", Description: "toggle interactive prompting in the terminal", Default: "enabled", AllowedValues: []string{"enabled", "disabled"}},
@@ -46,8 +57,12 @@ func Find(key string) (Option, error) {
 	return Option{}, fmt.Errorf("unknown config key %q; valid keys: %s", key, strings.Join(keys, ", "))
 }
 
-// Validate rejects values outside AllowedValues, when the option has any.
+// Validate rejects values the option's check refuses, or values outside AllowedValues, when
+// the option has any.
 func (o Option) Validate(value string) error {
+	if o.check != nil {
+		return o.check(value)
+	}
 	if len(o.AllowedValues) == 0 || slices.Contains(o.AllowedValues, value) {
 		return nil
 	}
@@ -57,6 +72,9 @@ func (o Option) Validate(value string) error {
 // Scope returns the config scope of the --host and --project flags: the host, the project's
 // scope key (config.ProjectScope) for a PerProject option, or "" for the global value.
 func (o Option) Scope(host, project string) (string, error) {
+	if o.GlobalOnly && host != "" {
+		return "", fmt.Errorf("%s is a global setting; --host is not supported", o.Key)
+	}
 	if project == "" {
 		return host, nil
 	}

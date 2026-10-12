@@ -1,17 +1,16 @@
-// Package extension implements `ado extension list/remove/exec`.
+// Package extension implements `ado extension install/list/remove/exec`.
 package extension
 
 import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/snake-in-prod/ado-gh/internal/tableprinter"
+	"github.com/snake-in-prod/ado-gh/pkg/cmd/extension/install"
 	"github.com/snake-in-prod/ado-gh/pkg/cmdutil"
 	extpkg "github.com/snake-in-prod/ado-gh/pkg/extension"
 )
@@ -29,7 +28,7 @@ extension, and an installed extension wins over an ado-<name> executable on PATH
 "ado extension exec <name>" runs an installed extension even when an alias shadows it.`,
 		GroupID: "additional",
 	}
-	cmd.AddCommand(newCmdList(f), newCmdRemove(f), newCmdExec(f))
+	cmd.AddCommand(install.NewCmdInstall(f), newCmdList(f), newCmdRemove(f), newCmdExec(f))
 	return cmd
 }
 
@@ -125,29 +124,12 @@ link to the directory is removed, never the directory itself.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
-			if err := extpkg.ValidateName(name); err != nil {
-				return err
-			}
-			root := extpkg.Dir()
-			path := filepath.Join(root, extpkg.Prefix+name)
-			// Lstat, not Lookup: a link is removed itself, and a broken pointer file is removable.
-			fi, err := os.Lstat(path)
+			err := extpkg.Remove(extpkg.Dir(), name)
 			if errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("extension %q is not installed", name)
 			}
 			if err != nil {
 				return err
-			}
-			if fi.IsDir() {
-				err = os.RemoveAll(path)
-			} else {
-				err = os.Remove(path) // symlink or pointer file, not its target
-			}
-			if err != nil {
-				return fmt.Errorf("removing extension %q: %w", name, err)
-			}
-			if err := os.Remove(extpkg.RecordPath(root, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("removing the install record of %q: %w", name, err)
 			}
 			if ios := f.IOStreams; ios.IsStderrTTY() {
 				fmt.Fprintf(ios.ErrOut, "%s Removed extension %s\n", ios.ColorScheme().Green("✓"), name)

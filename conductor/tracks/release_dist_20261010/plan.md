@@ -108,7 +108,9 @@ Workflow: TDD (Red → Green → Refactor), >90% coverage, one commit per phase 
 - [x] Task: Release checklist `bb50f60`
     - [x] Write `docs/releasing.md` per spec: git-cliff prep PR, push one tag at a time, winget PR check, CLA, Defender false positives and `@wingetbot run`, Intel macOS runner retirement (fall 2027), `[bump] breaking_always_bump_major = false` if `--bumped-version` is mentioned, user-facing fix subjects (no "address … review findings" commits)
     - [x] (main session) Shrink `conductor/workflow.md` Release Workflow to a pointer to `docs/releasing.md` plus a short checklist; replace "CHANGELOG updated" with the git-cliff prep PR; reword the hotfix flow: merge hotfixes to main first and tag from main
-- [ ] Task: Dry-run release
-    - [ ] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
-    - [ ] Fix issues found; record outcome in plan
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)
+- [x] Task: Dry-run release `a2d3cfb` `3e60138`
+    - [x] Tag `v0.1.0-rc.1`: confirm prerelease assets, signatures, attestations and bundle asset, non-empty notes, no package-manager updates, binary smoke green
+    - [x] Fix issues found; record outcome in plan
+    - Outcome (2026-10-13): `v0.1.0-rc.1` failed in the guard's test gate (setup-go `go-version-file` read the `go 1.25.8` line, not `toolchain`); fixed in `a2d3cfb` (workflows parse the toolchain line). `v0.1.0-rc.2`: release, cosign + GPG signatures, SBOMs, attestations bundle, notes and binary smoke on all 6 platforms green; tap/bucket/winget untouched, but it was published as a normal release (no `release.prerelease`); marked prerelease by hand and fixed in `3e60138` (`release.prerelease: auto`). Before both rcs, the first GitHub CI run found cross-platform test and reproducibility issues, fixed in `c94e4b3`.
+    - First stable release `v0.1.0` (`d6082a2`, prep commit `chore(release): prepare v0.1.0`): release, docs deploy, binary smoke on 6 platforms and all channel jobs (brew, Scoop, deb, rpm, install.sh, install.ps1, go install) green; tap and bucket updated; winget PR microsoft/winget-pkgs#451388 open (CLA and moderation pending); docs at https://snake-in-prod.github.io/ado-gh/.
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Smoke Tests, README, Release Checklist, First Release' (Protocol in workflow.md)

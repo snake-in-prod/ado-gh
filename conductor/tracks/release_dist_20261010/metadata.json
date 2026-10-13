@@ -1,8 +1,8 @@
 {
   "track_id": "release_dist_20261010",
   "type": "feature",
-  "status": "new",
+  "status": "completed",
   "created_at": "2026-10-10T17:19:54Z",
-  "updated_at": "2026-10-10T17:19:54Z",
+  "updated_at": "2026-10-13T00:30:00Z",
   "description": "Set up release engineering and distribution: GoReleaser (6 targets, ldflags metadata, checksums, SBOM, cosign + GPG signatures, attestations), tag-triggered GitHub Actions release, GitHub Releases + Homebrew tap + Scoop bucket + winget + deb/rpm + install scripts + go install, git-cliff changelog, ado --version with build metadata, opt-out update notifier, ado help reference + manpages + MkDocs Pages site, README install docs, release checklist and smoke tests"
 }

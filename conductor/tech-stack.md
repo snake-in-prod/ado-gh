@@ -62,7 +62,7 @@
 - **Docs site:** MkDocs 1.6.1 + Material for MkDocs 9.7.7 (two exact pins, plugin-free), deployed to GitHub Pages.
 - **Workflow and script linting:** actionlint v1.7.12, shellcheck, PSScriptAnalyzer; install-script tests with a POSIX sh harness over python3 `http.server` and Pester 5 (CI).
 - **Go libraries:** `golang.org/x/mod/semver` (update notifier) and `github.com/spf13/cobra/doc` (manpages and reference pages; brings `cpuguy83/go-md2man/v2` v2.0.6 and `russross/blackfriday/v2` v2.1.0).
-  - *2026-10-12:* versions pinned by the release_dist research (`tracks/release_dist_20261010/research.md`); Material for MkDocs reaches end of life on 2026-11-05, move to Zensical once it is stable.
+  - *2026-10-12:* versions pinned by the release_dist research (`archive/release_dist_20261010/research.md`); Material for MkDocs reaches end of life on 2026-11-05, move to Zensical once it is stable.
 
 ## Architecture (gh-inspired layout)
 - `cmd/ado/`: main.

@@ -30,15 +30,18 @@ Today's Azure DevOps terminal tooling (`az devops` extension, raw REST) is verbo
 - **Scripting output:** `--json <fields>`, `--jq`, `--template`. TTY-aware formatting (tables for humans, plain/tab-separated when piped). `ado api <path>` for raw authenticated REST calls.
 - **Aliases & extensions:** `ado alias set/list/delete/import` (`$1` placeholders, `--shell` via sh or PowerShell). `ado extension install/list/upgrade/remove/exec/create/search/browse` for `ado-<name>` executables, matching gh's extension model: GitHub, Azure DevOps or local sources; script, GitHub Release and Azure Artifacts binaries; checksums, pinning, an `extension_sources` allowlist and token consent. Author guide in `docs/extensions.md`.
 - **Browse:** `--web` / `ado browse` opens the matching page in the browser.
+- **Version and updates:** `ado version` / `--version` with build metadata; an opt-out daily update notifier that prints the upgrade command for the way `ado` was installed.
+- **Reference docs:** `ado help reference` prints the command reference as Markdown, with per-command pages and manpages for the docs site and packages.
 
 ## Scope & Targets
 - **Phase 1:** Azure DevOps Services (cloud: `dev.azure.com`, `*.visualstudio.com`).
 - **Later:** Azure DevOps Server (on-prem), via a configurable host.
 
 ## Distribution
-- Open source.
-- Single, dependency-free cross-platform binary (Windows, macOS, Linux; amd64/arm64).
-- Shipped through GitHub Releases, Homebrew, winget and Scoop.
+- Open source, developed at https://github.com/snake-in-prod/ado-gh.
+- Single, dependency-free cross-platform binary (Windows, macOS, Linux; amd64/arm64), built reproducibly.
+- Shipped through GitHub Releases (checksums signed with cosign and GPG, SBOMs, build provenance attestations), a Homebrew cask (`snake-in-prod/tap/ado`), Scoop, winget (`SnakeInProd.Ado`), `.deb`/`.rpm` packages, `install.sh` / `install.ps1` and `go install`.
+- Documentation site: https://snake-in-prod.github.io/ado-gh/.
 
 ## Success Criteria
 - A `gh` user can do the core PR loop (create, review, checkout, merge) without reading docs.

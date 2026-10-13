@@ -11,8 +11,9 @@ import (
 )
 
 func TestDir(t *testing.T) {
-	t.Setenv("XDG_DATA_HOME", "/xdg")
-	assert.Equal(t, filepath.Join("/xdg", "ado", "extensions"), Dir())
+	xdg := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", xdg)
+	assert.Equal(t, filepath.Join(xdg, "ado", "extensions"), Dir())
 }
 
 func TestValidateName(t *testing.T) {

@@ -28,7 +28,7 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
 - Message: `A new release of ado is available: 1.2.3 → 1.3.0`, then an upgrade command matched to how `ado` was installed (detected from the resolved executable path plus build info: `go install` builds are recognised by `Main.Sum`, so a custom GOBIN works):
   - Homebrew: `brew upgrade --cask ado` (Caskroom path); `brew upgrade ado` for a formula install (Cellar path)
   - Scoop: `scoop update ado`
-  - winget: `winget upgrade <Owner>.Ado`
+  - winget: `winget upgrade --id <Owner>.Ado`
   - `go install`: `go install …@latest`
   - install script: re-run command
   - anything else: release URL.
@@ -92,7 +92,7 @@ Ship `ado` as a signed, reproducible, single static binary for windows/darwin/li
   - Downloads the release archive.
   - Verifies checksum, cosign bundle (`--certificate-identity` = release workflow, issuer = GitHub OIDC), GPG signature and `gh attestation verify`.
   - Asserts `ado --version` matches the tag and commit, `ado --help` exits 0, and `ado auth status` without credentials exits 4 with the login hint.
-  - If secret `SMOKE_ADO_TOKEN` is set, also runs `ado api _apis/projects` and `ado pr list -R <test repo>`.
+  - If secret `SMOKE_ADO_TOKEN` is set, also runs `ado api _apis/projects` and `ado pr list -R <test repo>`, where the test repo is the repository variable `SMOKE_ADO_REPO` (`ORG/PROJECT/REPO`); the token without the variable fails the job.
 - **Channel jobs (stable only):** `brew install --cask <owner>/tap/ado` (macOS), Scoop (Windows), `.deb` (ubuntu), `.rpm` (fedora container), `install.sh`, `install.ps1`, `go install …@<tag>`. Each asserts `ado --version`. winget is checked by hand (moderation queue).
 
 ### FR10: README and release checklist

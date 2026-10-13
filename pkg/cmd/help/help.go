@@ -62,6 +62,9 @@ func newCmdReference(f *cmdutil.Factory) *cobra.Command {
 		Long: "Print the reference of every ado command as Markdown.\n\n" +
 			"With --dir, write one Markdown page per command plus index.md; with --man, write\n" +
 			"section 1 manpages. Aliases and extensions are left out.",
+		Example: `  ado help reference > reference.md
+  ado help reference --dir docs/reference
+  ado help reference --man share/man/man1`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			root := c.Root()

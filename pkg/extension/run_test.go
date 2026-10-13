@@ -403,8 +403,24 @@ func TestRunMissingExecutable(t *testing.T) {
 	f, _ := extFactory(adocontext.Repo{}, errors.New("no repo"))
 	err := Run(f, Extension{Name: "gone", Path: filepath.Join(t.TempDir(), "ado-gone"), Dir: t.TempDir()}, nil)
 	var exitErr *cmdutil.ExternalExitError
-	require.Error(t, err)
+	require.EqualError(t, err, `extension "gone" has no executable ado-gone; reinstall it with ado extension install --force`)
 	assert.False(t, errors.As(err, &exitErr), "a start failure is reported, not passed through")
+
+	t.Run("local install not built yet", func(t *testing.T) {
+		dir := t.TempDir()
+		err := Run(f, Extension{Name: "gone", Path: filepath.Join(t.TempDir(), "ado-gone"), Dir: dir, Kind: KindLocal}, nil)
+		require.EqualError(t, err, `extension "gone" has no executable ado-gone in `+dir+` yet; build it there`)
+	})
+	t.Run("other stat errors are kept", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("a path through a file is ERROR_PATH_NOT_FOUND on Windows")
+		}
+		file := filepath.Join(t.TempDir(), "file")
+		require.NoError(t, os.WriteFile(file, nil, 0o600))
+		err := Run(f, Extension{Name: "gone", Path: filepath.Join(t.TempDir(), "ado-gone"), Dir: file}, nil)
+		require.ErrorContains(t, err, `extension "gone": stat `+filepath.Join(file, "ado-gone"))
+		assert.NotContains(t, err.Error(), "reinstall")
+	})
 }
 
 func TestRunCommandError(t *testing.T) {

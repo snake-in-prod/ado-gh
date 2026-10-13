@@ -82,7 +82,10 @@ func TestReferenceDir(t *testing.T) {
 	var names []string
 	for _, e := range entries {
 		names = append(names, e.Name())
-		b, _ := os.ReadFile(filepath.Join(dir, e.Name()))
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if strings.Contains(string(b), "Auto generated") {
 			t.Errorf("%s has the autogen tag", e.Name())
 		}
@@ -90,7 +93,10 @@ func TestReferenceDir(t *testing.T) {
 	if got := strings.Join(names, " "); got != "ado.md ado_pr.md ado_pr_list.md index.md" {
 		t.Errorf("files = %s", got)
 	}
-	index, _ := os.ReadFile(filepath.Join(dir, "index.md"))
+	index, err := os.ReadFile(filepath.Join(dir, "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := "# ado reference\n\n- [ado](ado.md): Azure DevOps CLI\n- [ado pr](ado_pr.md): Manage pull requests\n- [ado pr list](ado_pr_list.md): List pull requests\n"
 	if string(index) != want {
 		t.Errorf("index.md = %q, want %q", index, want)

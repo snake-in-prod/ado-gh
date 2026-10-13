@@ -22,11 +22,12 @@ examples use version `1.2.3`, replace it with the release you want.
 | `.deb` / `.rpm` (Linux) | [Linux packages](#linux-packages) | install the newer package | `sudo apt remove ado` / `sudo dnf remove ado` |
 | `install.sh` (Linux, macOS) | [Install script](#install-script-linux-macos) | run it again | `rm ~/.local/bin/ado` |
 | `install.ps1` (Windows) | [PowerShell script](#powershell-script-windows) | run it again | [PowerShell script](#powershell-script-windows) |
-| `go install` | [Go](#go) | run it again | `rm "$(go env GOPATH)/bin/ado"` |
+| `go install` | [Go](#go) | run it again | `rm "$(command -v ado)"` |
 
 `ado` checks GitHub for a newer release once a day and prints the upgrade
-command for the way you installed it. Set `ADO_NO_UPDATE_NOTIFIER=1` to turn
-that off.
+command for the way you installed it, or only the release URL when it can't
+tell (`.deb`/`.rpm`, a custom directory, a manual download). Set
+`ADO_NO_UPDATE_NOTIFIER=1` to turn that off.
 
 ### Homebrew (macOS)
 
@@ -100,7 +101,7 @@ archive against `checksums.txt` and, when `cosign` is installed, checks
 `checksums.txt` against its signature. Pick a version or directory with:
 
 ```sh
-curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh -s -- --version 1.2.3 --bin-dir /usr/local/bin
+curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh -s -- --version 1.2.3 --bin-dir ~/bin
 ```
 
 Run it again to upgrade. To uninstall, delete `ado` from `~/.local/bin` (or the

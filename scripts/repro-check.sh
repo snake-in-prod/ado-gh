@@ -5,6 +5,14 @@
 # with goreleaser and jq on PATH.
 set -eu
 
+# The first build uses the working tree, the second a worktree of HEAD: both
+# must be the same source.
+if [ -n "$(git status --porcelain)" ]; then
+	echo "the working tree has changes or untracked files: commit or stash them first, the second build uses HEAD" >&2
+	git status --short >&2
+	exit 1
+fi
+
 tmp=$(mktemp -d)
 trap 'git worktree remove --force "$tmp/b" >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
 
@@ -19,6 +27,8 @@ git worktree add --detach "$tmp/b" HEAD >&2
 mkdir "$tmp/gocache"
 (cd "$tmp/b" && GOCACHE="$tmp/gocache" goreleaser build --snapshot --clean >&2 && sums) >"$tmp/b.sum"
 
+# 6 = 3 goos x 2 goarch in .goreleaser.yaml builds; update it with that matrix.
+# Guards against an empty or partial artifacts.json making the diff pass.
 n=$(wc -l <"$tmp/a.sum")
 if [ "$n" -ne 6 ]; then
 	echo "expected 6 binaries in dist/artifacts.json, got $n" >&2

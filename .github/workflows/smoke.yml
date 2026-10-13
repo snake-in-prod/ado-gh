@@ -251,6 +251,10 @@ jobs:
           fi
           # The cask's postflight hook must have removed the quarantine attribute.
           bin="$(brew --caskroom)/ado/$VERSION/ado"
+          if [ ! -x "$bin" ]; then
+            echo "::error::$bin not found: cannot check the quarantine attribute"
+            exit 1
+          fi
           if xattr -p com.apple.quarantine "$bin" 2>/dev/null; then
             echo "::error::$bin still has com.apple.quarantine"
             exit 1
@@ -388,6 +392,7 @@ jobs:
           for i in 1 2 3; do
             go install "github.com/snake-in-prod/ado-gh/cmd/ado@$TAG" && break
             if [ "$i" = 3 ]; then
+              echo "::error::go install github.com/snake-in-prod/ado-gh/cmd/ado@$TAG failed 3 times; check the module proxy and the log above"
               exit 1
             fi
             sleep 60

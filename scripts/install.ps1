@@ -46,11 +46,19 @@ function Get-AdoArch {
 function Invoke-AdoDownload {
     param(
         [Parameter(Mandatory = $true)][string]$Uri,
-        [Parameter(Mandatory = $true)][string]$OutFile
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        # Follows the file name in the error, e.g. ' for v1.2.3 (does the release exist?)'.
+        [string]$Hint
     )
-    # -UseBasicParsing: without it Windows PowerShell 5.1 shows a security prompt
-    # that hangs `irm | iex`.
-    Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    try {
+        # -UseBasicParsing: without it Windows PowerShell 5.1 shows a security
+        # prompt that hangs `irm | iex`.
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    }
+    catch {
+        $name = $Uri.Substring($Uri.LastIndexOf('/') + 1)
+        throw "ado-install: cannot download $name${Hint}: $($_.Exception.Message)"
+    }
 }
 
 # Get-AdoChecksum returns a name -> sha256 table from a GoReleaser checksums.txt.
@@ -118,6 +126,8 @@ function Install-Ado {
     if (-not $Version) { $Version = $env:ADO_VERSION }
     if (-not $BinDir) { $BinDir = $env:ADO_INSTALL_DIR }
     if (-not $BinDir) { $BinDir = Join-Path $env:LOCALAPPDATA 'Programs\ado' }
+    # Absolute, so a relative -BinDir never lands in the user PATH as is.
+    $BinDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($BinDir)
 
     # .NET 4.7+ picks TLS versions from the OS (SystemDefault); only older
     # frameworks need Tls12 switched on.
@@ -138,11 +148,11 @@ function Install-Ado {
         if ($Version) {
             $Version = $Version.TrimStart('v')
             if ($Version -notmatch '^[0-9A-Za-z.-]+$') { throw "ado-install: invalid version: $Version" }
-            Invoke-AdoDownload -Uri "$base/download/v$Version/checksums.txt" -OutFile $sumsFile
+            Invoke-AdoDownload -Uri "$base/download/v$Version/checksums.txt" -OutFile $sumsFile -Hint " for v$Version (does the release exist?)"
             $sums = Get-AdoChecksum -Path $sumsFile
         }
         else {
-            Invoke-AdoDownload -Uri "$base/latest/download/checksums.txt" -OutFile $sumsFile
+            Invoke-AdoDownload -Uri "$base/latest/download/checksums.txt" -OutFile $sumsFile -Hint ' of the latest release'
             $sums = Get-AdoChecksum -Path $sumsFile
             $latest = $sums.Keys | Where-Object { $_ -like "ado_*$suffix" } | Select-Object -First 1
             if (-not $latest) { throw "ado-install: latest release has no ado_*$suffix archive" }
@@ -158,7 +168,9 @@ function Install-Ado {
             & cosign verify-blob --bundle $bundle `
                 --certificate-identity "https://github.com/$repo/.github/workflows/release.yml@refs/tags/$tag" `
                 --certificate-oidc-issuer https://token.actions.githubusercontent.com $sumsFile
-            if ($LASTEXITCODE -ne 0) { throw 'ado-install: cosign verification of checksums.txt failed' }
+            if ($LASTEXITCODE -ne 0) {
+                throw "ado-install: cosign verification of checksums.txt failed for $tag; nothing was installed. Update cosign and retry; if it still fails, the download may have been tampered with: report it at https://github.com/$repo/issues"
+            }
         }
 
         $want = $sums[$asset]
@@ -172,8 +184,22 @@ function Install-Ado {
         $x = Join-Path $tmp 'x'
         Expand-Archive -LiteralPath $zip -DestinationPath $x
         New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
-        Copy-Item -LiteralPath (Join-Path $x 'ado.exe') -Destination (Join-Path $BinDir 'ado.exe') -Force
-        Write-Host "ado-install: installed ado $Version to $(Join-Path $BinDir 'ado.exe')"
+        # A running ado.exe can't be overwritten but can be renamed: move it
+        # aside first, and back if the copy fails.
+        $exe = Join-Path $BinDir 'ado.exe'
+        $old = "$exe.old"
+        Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $exe) { Move-Item -LiteralPath $exe -Destination $old -Force }
+        try {
+            Copy-Item -LiteralPath (Join-Path $x 'ado.exe') -Destination $exe -Force
+        }
+        catch {
+            if (Test-Path -LiteralPath $old) { Move-Item -LiteralPath $old -Destination $exe -Force }
+            throw
+        }
+        # Fails while the old ado.exe still runs; the next install removes it.
+        Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
+        Write-Host "ado-install: installed ado $Version to $exe"
     }
     finally {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue

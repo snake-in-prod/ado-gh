@@ -2,7 +2,7 @@
 # Installs ado from GitHub Releases.
 #
 #   curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh
-#   curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh -s -- --version 1.2.3 --bin-dir /usr/local/bin
+#   curl -fsSL https://snake-in-prod.github.io/ado-gh/install.sh | sh -s -- --version 1.2.3 --bin-dir ~/bin
 #
 # Verifies the archive against checksums.txt (SHA-256), and checksums.txt
 # against its cosign bundle when cosign is installed. No sudo needed.
@@ -70,7 +70,7 @@ download() {
 			curl -fsSL -o "$2" "$1"
 		fi
 	elif command -v wget >/dev/null 2>&1; then
-		if [ "$https_only" = 1 ]; then
+		if [ "$https_only" = 1 ] && wget_has_https_only; then
 			wget --https-only --secure-protocol=TLSv1_2 -q -O "$2" "$1"
 		else
 			wget -q -O "$2" "$1"
@@ -78,6 +78,15 @@ download() {
 	else
 		die "curl or wget is required"
 	fi
+}
+
+# BusyBox wget (Alpine and other minimal images) has neither --https-only nor
+# --secure-protocol and fails on them; the default URL is https there anyway.
+wget_has_https_only() {
+	case $(wget --help 2>&1 || true) in
+	*--https-only*) return 0 ;;
+	esac
+	return 1
 }
 
 sha256() {
@@ -165,7 +174,8 @@ main() {
 		cosign verify-blob --bundle "$tmp/checksums.txt.sigstore.json" \
 			--certificate-identity "https://github.com/$repo/.github/workflows/release.yml@refs/tags/$tag" \
 			--certificate-oidc-issuer https://token.actions.githubusercontent.com \
-			"$tmp/checksums.txt" >&2 || die "cosign verification of checksums.txt failed"
+			"$tmp/checksums.txt" >&2 ||
+			die "cosign verification of checksums.txt failed for $tag; nothing was installed. Update cosign and retry; if it still fails, the download may have been tampered with: report it at https://github.com/$repo/issues"
 	fi
 
 	want=$(checksum_for "$tmp/checksums.txt" "$asset")

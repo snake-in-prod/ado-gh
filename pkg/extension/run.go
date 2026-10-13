@@ -2,7 +2,9 @@ package extension
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"os/exec"
@@ -28,8 +30,13 @@ func Run(f *cmdutil.Factory, ext Extension, args []string) error {
 	exe := ext.Executable()
 	// Checked here, not by exec: on Windows a file with no known extension runs through sh,
 	// which would report a missing file as the extension's own exit code 127.
-	if _, err := os.Stat(exe); err != nil {
+	if _, err := os.Stat(exe); errors.Is(err, fs.ErrNotExist) {
+		if ext.Kind == KindLocal { // reinstalling recreates the same link
+			return fmt.Errorf("extension %q has no executable %s in %s yet; build it there", ext.Name, filepath.Base(exe), ext.Dir)
+		}
 		return fmt.Errorf("extension %q has no executable %s; reinstall it with ado extension install --force", ext.Name, filepath.Base(exe))
+	} else if err != nil {
+		return fmt.Errorf("extension %q: %w", ext.Name, err)
 	}
 	return launcher{}.launch(f, ext.Name, exe, consent, args)
 }

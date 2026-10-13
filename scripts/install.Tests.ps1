@@ -14,6 +14,7 @@ BeforeAll {
     foreach ($f in $functions) { . ([scriptblock]::Create($f.Extent.Text)) }
 
     $script:defaultBase = 'https://github.com/snake-in-prod/ado-gh/releases'
+    $script:cosignStub = $null # set by the cosign Context
     $script:srv = Join-Path $TestDrive 'srv'
 
     # Fixture releases: <srv>/download/v<version>/ado_<version>_windows_<arch>.zip
@@ -67,6 +68,11 @@ Describe 'install.ps1' {
             [pscustomobject]@{ PROCESSOR_ARCHITECTURE = 'AMD64' }
         }
         Mock Add-AdoUserPath { $true }
+        # A real cosign on PATH would verify the fake bundle and fail: only the
+        # cosign Context's stub is found.
+        Mock Get-Command -ParameterFilter { $Name -eq 'cosign' } {
+            if ($script:cosignStub) { Microsoft.PowerShell.Core\Get-Command -Name $script:cosignStub }
+        }
     }
 
     AfterEach {
@@ -156,17 +162,51 @@ Describe 'install.ps1' {
         { Install-Ado -Version '../../x' -BinDir $script:bin } | Should -Throw '*invalid version*'
     }
 
+    It 'names the file and the likely cause when a download fails' {
+        { Install-Ado -Version 4.5.6 -BinDir $script:bin } |
+            Should -Throw 'ado-install: cannot download checksums.txt for v4.5.6 (does the release exist?): 404 *'
+    }
+
+    It 'resolves a relative -BinDir before adding it to the PATH' {
+        Push-Location -LiteralPath $TestDrive
+        try {
+            Install-Ado -BinDir 'relative-bin'
+        }
+        finally {
+            Pop-Location
+        }
+        $script:relativeBin = Join-Path $TestDrive 'relative-bin'
+        Get-Installed $script:relativeBin | Should -Be 'ado 1.2.3 windows_amd64'
+        Should -Invoke Add-AdoUserPath -Times 1 -Exactly -ParameterFilter { $Dir -eq $script:relativeBin }
+    }
+
+    It 'upgrades an ado.exe that is running' -Skip:($env:OS -ne 'Windows_NT') {
+        Install-Ado -Version 1.0.0 -BinDir $script:bin
+        $exe = Join-Path $script:bin 'ado.exe'
+        # What a running image allows: renaming, not writing.
+        $lock = [IO.File]::Open($exe, 'Open', 'Read', 'Read, Delete')
+        try {
+            Install-Ado -BinDir $script:bin
+        }
+        finally {
+            $lock.Dispose()
+        }
+        Get-Installed $script:bin | Should -Be 'ado 1.2.3 windows_amd64'
+    }
+
     It 'adds the bin dir to the user PATH and the session' {
         Install-Ado -BinDir $script:bin
         Should -Invoke Add-AdoUserPath -Times 1 -Exactly -ParameterFilter { $Dir -eq $script:bin }
         $env:Path -split ';' | Should -Contain $script:bin
     }
 
-    It '-NoModifyPath leaves the user PATH untouched' {
+    It '-NoModifyPath leaves the user PATH untouched and prints a hint' {
+        Mock Write-Host { }
         Install-Ado -BinDir $script:bin -NoModifyPath
         Get-Installed $script:bin | Should -Be 'ado 1.2.3 windows_amd64'
         Should -Invoke Add-AdoUserPath -Times 0 -Exactly
         $env:Path | Should -Be $script:savedPath
+        Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { "$Object" -like '*is not on your PATH*' }
     }
 
     # A real cosign.cmd on PATH: checks the exact arguments a native cosign gets.
@@ -179,12 +219,14 @@ Describe 'install.ps1' {
                 'echo %*> "%STUB_COSIGN_LOG%"'
                 'exit /b %STUB_COSIGN_EXIT%'
             )
+            $script:cosignStub = Join-Path $script:cosignDir 'cosign.cmd'
             $script:pathBeforeCosign = $env:Path
             $env:Path = "$script:cosignDir;$env:Path"
             $env:STUB_COSIGN_LOG = Join-Path $TestDrive 'cosign.log'
         }
 
         AfterAll {
+            $script:cosignStub = $null
             $env:Path = $script:pathBeforeCosign
             Remove-Item -Path Env:STUB_COSIGN_LOG, Env:STUB_COSIGN_EXIT -ErrorAction SilentlyContinue
         }

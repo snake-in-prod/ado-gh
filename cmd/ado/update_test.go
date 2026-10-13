@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/snake-in-prod/ado-gh/internal/build"
 	"github.com/snake-in-prod/ado-gh/internal/config"
@@ -32,12 +36,10 @@ func stubUpdateCheck(t *testing.T, tag string) *httpmock.Registry {
 	return reg
 }
 
-func ttyTestStreams() (*iostreams.IOStreams, *strings.Builder) {
-	ios, _, _, _ := iostreams.Test()
+func ttyTestStreams() (*iostreams.IOStreams, *bytes.Buffer) {
+	ios, _, _, errOut := iostreams.Test()
 	ios.SetStdoutTTY(true)
 	ios.SetStderrTTY(true)
-	errOut := &strings.Builder{}
-	ios.ErrOut = errOut
 	return ios, errOut
 }
 
@@ -97,6 +99,35 @@ func TestRunUpdateNotifier(t *testing.T) {
 				t.Errorf("requests = %d, want %d", len(reg.Requests), tt.wantCalls)
 			}
 		})
+	}
+}
+
+func TestRunNoticeAfterFailedCommandNotLost(t *testing.T) {
+	isolate(t)
+	reg := stubUpdateCheck(t, "")
+	// What a check that finished during a failed command leaves behind: no notice printed yet.
+	dir := filepath.Join(os.Getenv("XDG_STATE_HOME"), "ado")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	state := "checked_for_update_at: " + time.Now().Add(-time.Hour).UTC().Format(time.RFC3339) + "\n" +
+		"latest_release:\n    version: 1.1.0\n    url: https://github.com/snake-in-prod/ado-gh/releases/tag/v1.1.0\n"
+	if err := os.WriteFile(filepath.Join(dir, "state.yml"), []byte(state), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const notice = "A new release of ado is available: 1.0.0 → 1.1.0"
+
+	for i, want := range []bool{true, false} { // shown on the next command, then once per check
+		ios, errOut := ttyTestStreams()
+		if got := run([]string{"version"}, ios); got != cmdutil.ExitOK {
+			t.Fatalf("run %d: code = %d, stderr = %q", i, got, errOut)
+		}
+		if got := strings.Contains(errOut.String(), notice); got != want {
+			t.Errorf("run %d: notice shown = %v, want %v, stderr = %q", i, got, want, errOut)
+		}
+	}
+	if len(reg.Requests) != 0 {
+		t.Errorf("requests = %d, want 0 within the interval", len(reg.Requests))
 	}
 }
 

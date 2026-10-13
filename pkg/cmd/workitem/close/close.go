@@ -24,7 +24,7 @@ the target state and overrides both.
 --reason sets the Reason field; --comment adds a Markdown comment with the change. An
 item already in a target state is left alone with a warning. When the process requires
 another field to close, set it with --field.`,
-		Example: `  ado workitem close 123 -c "Fixed in !45"
+		Example: `  ado workitem close 123 -c 'Fixed in !45'
   ado wi close 123 124 --resolve -f "Resolved Reason=Fixed"
   ado wi close 123 --removed -r Cut`,
 		Args: cobra.MinimumNArgs(1),

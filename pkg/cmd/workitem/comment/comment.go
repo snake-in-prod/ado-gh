@@ -35,9 +35,9 @@ opens on its current text. --delete-last deletes it after a confirmation, unless
 given.
 
 The URL of the comment is printed.`,
-		Example: `  ado workitem comment 123 --body "Fixed in !45"
+		Example: `  ado workitem comment 123 --body 'Fixed in !45'
   ado wi comment 123 -F notes.md
-  ado wi comment 123 --edit-last -b "Fixed in !46"
+  ado wi comment 123 --edit-last -b 'Fixed in !46'
   ado wi comment 123 --delete-last --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

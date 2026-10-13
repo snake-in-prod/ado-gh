@@ -68,9 +68,11 @@ func StateDir() string { return stateDir(runtime.GOOS) }
 
 func stateDir(goos string) string { return xdgDir(goos, "XDG_STATE_HOME", "state") }
 
-// xdgDir returns $env/ado, else %LocalAppData%\ado on Windows, else ~/.local/<sub>/ado.
+// xdgDir returns $env/ado, else %LocalAppData%\ado on Windows, else ~/.local/<sub>/ado. A
+// relative $env is ignored, as the XDG Base Directory spec requires: it would put files under
+// whatever directory ado runs in.
 func xdgDir(goos, env, sub string) string {
-	if d := os.Getenv(env); d != "" {
+	if d := os.Getenv(env); filepath.IsAbs(d) {
 		return filepath.Join(d, "ado")
 	}
 	if d := os.Getenv("LocalAppData"); goos == "windows" && d != "" {

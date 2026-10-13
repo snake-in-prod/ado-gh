@@ -64,6 +64,7 @@ server_pid=$!
 port=
 i=0
 while [ -z "$port" ] && [ "$i" -lt 600 ]; do # up to 60 s: python3 starts slowly on fresh macOS runners
+	kill -0 "$server_pid" 2>/dev/null || break # exited: no point in waiting
 	port=$(sed -n 's/.*Serving HTTP on 127\.0\.0\.1 port \([0-9]*\).*/\1/p' "$tmp/http.log")
 	[ -n "$port" ] || sleep 0.1
 	i=$((i + 1))
@@ -74,6 +75,7 @@ if [ -z "$port" ]; then
 	exit 1
 fi
 base="http://127.0.0.1:$port"
+run_base=$base # "" runs install.sh against its default GitHub URL
 
 # sandbox [tool-to-omit...]: a fresh case dir ($case_dir) with home, tmp and a
 # bin dir ($sb) holding stubs and links to the real tools minus the omitted ones.
@@ -111,6 +113,46 @@ EOF
 	chmod 755 "$1/cosign"
 }
 
+# add_downloader <dir> <curl|wget>: a stub for the default GitHub URL that logs
+# its arguments to $STUB_DL_LOG and serves the fixtures. With STUB_BUSYBOX set it
+# acts like BusyBox wget and rejects the GNU-only options.
+add_downloader() {
+	cat >"$1/$2" <<'EOF'
+#!/bin/sh
+if [ -n "${STUB_BUSYBOX:-}" ]; then
+	for a; do
+		case $a in --help | --https-only | --secure-protocol=*)
+			echo "wget: unrecognized option '$a'" >&2
+			exit 1
+			;;
+		esac
+	done
+elif [ "${1:-}" = --help ]; then
+	echo "  --https-only                only follow secure HTTPS links"
+	exit 0
+fi
+echo "$*" >>"$STUB_DL_LOG"
+file= url= prev=
+for a; do
+	case $prev in -o | -O) file=$a ;; esac
+	prev=$a url=$a
+done
+cat "$STUB_SRV/${url#https://github.com/snake-in-prod/ado-gh/releases/}" >"$file"
+EOF
+	chmod 755 "$1/$2"
+}
+
+# expect_all_dl <args>: every download logged by add_downloader passed <args>.
+expect_all_dl() {
+	if [ ! -s "$case_dir/dl.log" ]; then
+		fail "nothing downloaded"
+	elif awk -v a="$1" 'index($0, a) == 0 {bad = 1} END {exit bad}' "$case_dir/dl.log"; then
+		pass
+	else
+		fail "a download lacks: $1 ($(cat "$case_dir/dl.log"))"
+	fi
+}
+
 # run <shell> <sandbox> [args...]: runs install.sh, output in $out, status in $rc.
 # Each case gets its own HOME and TMPDIR so leftovers are detectable.
 run() {
@@ -120,10 +162,11 @@ run() {
 	rc=0
 	# shellcheck disable=SC2086 # $sh_cmd may be "bash --posix"
 	out=$(env -i PATH="$sb" HOME="$case_dir/home" TMPDIR="$case_dir/tmp" \
-		ADO_INSTALL_BASE_URL="$base" \
+		ADO_INSTALL_BASE_URL="$run_base" \
 		STUB_UNAME_S="${STUB_UNAME_S:-Linux}" STUB_UNAME_M="${STUB_UNAME_M:-x86_64}" \
 		STUB_SYSCTL_ARM64="${STUB_SYSCTL_ARM64:-}" STUB_COSIGN_EXIT="${STUB_COSIGN_EXIT:-0}" \
-		STUB_COSIGN_LOG="$case_dir/cosign.log" \
+		STUB_COSIGN_LOG="$case_dir/cosign.log" STUB_DL_LOG="$case_dir/dl.log" STUB_SRV="$tmp/srv" \
+		STUB_BUSYBOX="${STUB_BUSYBOX:-}" \
 		$sh_cmd "$script" "$@" 2>&1) || rc=$?
 }
 
@@ -142,6 +185,9 @@ expect_out() {
 # expect_bin <file> <want-output>
 expect_bin() {
 	if [ -x "$1" ] && [ "$("$1")" = "$2" ]; then pass; else fail "$1 missing or not '$2'"; fi
+}
+expect_no_out() {
+	case "$out" in *"$1"*) fail "output has: $1" ;; *) pass ;; esac
 }
 expect_no_file() { if [ ! -e "$1" ]; then pass; else fail "$1 exists"; fi; }
 expect_clean_tmp() {
@@ -162,7 +208,6 @@ for shell_name in $shells; do
 	sh) sh_cmd=/bin/sh ;;
 	esac
 
-	name="arch detection"
 	for row in Linux:x86_64::linux_amd64 Linux:amd64::linux_amd64 Linux:aarch64::linux_arm64 \
 		Linux:arm64::linux_arm64 Darwin:arm64::darwin_arm64 Darwin:x86_64::darwin_amd64 \
 		Darwin:x86_64:0:darwin_amd64 Darwin:x86_64:1:darwin_arm64; do
@@ -198,9 +243,12 @@ EOF
 	name="upgrade replaces an existing binary"
 	sandbox
 	run "$sh_cmd" "$sb" --version 1.0.0 --bin-dir "$case_dir/out"
+	expect_ok
+	expect_bin "$case_dir/out/ado" "ado 1.0.0 linux_amd64"
 	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
 	expect_ok
 	expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
+	expect_no_file "$case_dir/out/.ado.new"
 
 	name="piped: curl | sh -s -- --version"
 	sandbox
@@ -240,6 +288,41 @@ EOF
 		expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
 	fi
 
+	# The default GitHub URL (no ADO_INSTALL_BASE_URL) forces https and TLS 1.2.
+	name="default URL: curl forces https"
+	sandbox curl wget
+	add_downloader "$sb" curl
+	run_base=
+	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
+	run_base=$base
+	expect_ok
+	expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
+	expect_all_dl "--proto =https --tlsv1.2"
+	out=$(cat "$case_dir/dl.log")
+	expect_out "https://github.com/snake-in-prod/ado-gh/releases/latest/download/checksums.txt"
+
+	name="default URL: GNU wget forces https"
+	sandbox curl wget
+	add_downloader "$sb" wget
+	run_base=
+	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
+	run_base=$base
+	expect_ok
+	expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
+	expect_all_dl "--https-only --secure-protocol=TLSv1_2"
+
+	name="default URL: BusyBox wget gets no GNU-only options"
+	sandbox curl wget
+	add_downloader "$sb" wget
+	run_base=
+	STUB_BUSYBOX=1
+	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
+	run_base=$base
+	STUB_BUSYBOX=
+	expect_ok
+	expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
+	expect_all_dl "-q -O"
+
 	name="no downloader"
 	sandbox curl wget
 	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
@@ -277,6 +360,7 @@ EOF
 	run "$sh_cmd" "$sb" --version 1.0.0 --bin-dir "$case_dir/out"
 	expect_ok
 	expect_bin "$case_dir/out/ado" "ado 1.0.0 linux_amd64"
+	expect_out "verifying checksums.txt with cosign"
 	log=$(cat "$case_dir/cosign.log" 2>/dev/null || true)
 	out=$log
 	expect_out "verify-blob"
@@ -292,7 +376,8 @@ EOF
 	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
 	STUB_COSIGN_EXIT=0
 	expect_fail
-	expect_out "cosign"
+	expect_out "cosign verification of checksums.txt failed for v1.2.3"
+	expect_out "https://github.com/snake-in-prod/ado-gh/issues"
 	expect_no_file "$case_dir/out/ado"
 	expect_clean_tmp
 
@@ -300,7 +385,8 @@ EOF
 	sandbox
 	run "$sh_cmd" "$sb" --bin-dir "$case_dir/out"
 	expect_ok
-	expect_no_file "$case_dir/cosign.log"
+	expect_bin "$case_dir/out/ado" "ado 1.2.3 linux_amd64"
+	expect_no_out "with cosign"
 
 	for os in MINGW64_NT-10.0-26100 MSYS_NT-10.0-26100 CYGWIN_NT-10.0-26100 Windows_NT; do
 		name="windows shell $os points to install.ps1"
@@ -339,6 +425,7 @@ EOF
 	sandbox
 	run "$sh_cmd" "$sb" --version
 	expect_fail
+	expect_out "--version needs a value"
 
 	name="--help"
 	sandbox

@@ -539,9 +539,15 @@ func referenceOutput(t *testing.T, debug string, args ...string) string {
 	}
 	var b strings.Builder
 	b.WriteString(stdout.String())
-	entries, _ := os.ReadDir(out)
+	entries, err := os.ReadDir(out)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, e := range entries {
-		data, _ := os.ReadFile(filepath.Join(out, e.Name()))
+		data, err := os.ReadFile(filepath.Join(out, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
 		fmt.Fprintf(&b, "== %s\n%s", e.Name(), data)
 	}
 	return b.String()

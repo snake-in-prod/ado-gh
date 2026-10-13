@@ -34,7 +34,7 @@ func NewCmdClose(f *cmdutil.Factory) *cobra.Command {
 With --delete-branch, the source branch is deleted from the remote (unless it is in a fork),
 together with every local branch tracking it. When one of them is checked out, the default
 branch is checked out first.`,
-		Example: `  ado pr close 123 --comment "Superseded by !124"
+		Example: `  ado pr close 123 --comment 'Superseded by !124'
   ado pr close 123 --delete-branch --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

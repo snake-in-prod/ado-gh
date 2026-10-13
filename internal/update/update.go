@@ -38,12 +38,18 @@ type Release struct {
 type state struct {
 	CheckedForUpdateAt time.Time `yaml:"checked_for_update_at"`
 	LatestRelease      Release   `yaml:"latest_release"`
+	// NotifiedAt is when the notice for the last check was printed. Until then the cached
+	// LatestRelease is still offered, so a notice withheld after a failed command or a timed-out
+	// Print shows on the next command instead of a day later.
+	NotifiedAt time.Time `yaml:"notified_at,omitempty"`
 }
 
 // Result is the outcome of a background check: a newer release, or none, or an error.
 type Result struct {
 	Release *Release
 	Err     error
+	// stateFile is where Print records the notice; "" records nothing.
+	stateFile string
 }
 
 // disableEnv are the variables that turn the notifier off: the opt-out, an ado started by an
@@ -81,25 +87,27 @@ func Start(ctx context.Context, ios *iostreams.IOStreams, current string, base h
 			ch <- Result{Err: err}
 			return
 		}
-		rel, err := Check(ctx, hc, filepath.Join(config.StateDir(), "state.yml"), current, time.Now())
-		ch <- Result{Release: rel, Err: err}
+		file := filepath.Join(config.StateDir(), "state.yml")
+		rel, err := Check(ctx, hc, file, current, time.Now())
+		ch <- Result{Release: rel, Err: err, stateFile: file}
 	}()
 	return ch
 }
 
 // Check returns the latest stable release when it is newer than current, else nil. GitHub is
 // asked at most once per interval: the state file records each successful check, so failures
-// and rate limits retry on the next command.
+// and rate limits retry on the next command. Within the interval the cached release is
+// returned until Print has shown its notice.
 func Check(ctx context.Context, hc *http.Client, stateFile, current string, now time.Time) (*Release, error) {
 	cur := "v" + strings.TrimPrefix(current, "v")
 	if !semver.IsValid(cur) {
 		return nil, nil
 	}
-	var st state
-	if b, err := os.ReadFile(stateFile); err == nil {
-		_ = yaml.Unmarshal(b, &st) // a broken state file means: check now
-	}
+	st := readState(stateFile)
 	if now.Sub(st.CheckedForUpdateAt) < interval {
+		if st.NotifiedAt.Before(st.CheckedForUpdateAt) && newer("v"+st.LatestRelease.Version, cur) {
+			return &st.LatestRelease, nil
+		}
 		return nil, nil
 	}
 	rel, err := extension.FetchRelease(ctx, hc, repo, "")
@@ -111,18 +119,47 @@ func Check(ctx context.Context, hc *http.Client, stateFile, current string, now 
 		return nil, fmt.Errorf("latest release has an invalid version %q", extension.Sanitize(rel.Tag))
 	}
 	st = state{CheckedForUpdateAt: now, LatestRelease: Release{Version: latest[1:], URL: build.RepoURL + "/releases/tag/" + latest}}
-	b, err := yaml.Marshal(&st)
-	if err == nil {
-		err = config.WriteFileAtomic(stateFile, b)
-	}
-	if err != nil {
+	if err := writeState(stateFile, st); err != nil {
 		return nil, err
 	}
 	// releases/latest is never a prerelease; skip one anyway.
-	if rel.Prerelease || semver.Prerelease(latest) != "" || semver.Compare(latest, cur) <= 0 {
+	if rel.Prerelease || !newer(latest, cur) {
 		return nil, nil
 	}
 	return &st.LatestRelease, nil
+}
+
+// newer reports whether latest is a valid stable version above cur (both with the v prefix).
+func newer(latest, cur string) bool {
+	return semver.IsValid(latest) && semver.Prerelease(latest) == "" && semver.Compare(latest, cur) > 0
+}
+
+// readState reads the state file; a missing or broken one is empty, which means: check now.
+func readState(file string) state {
+	var st state
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return state{}
+	}
+	if err := yaml.Unmarshal(b, &st); err != nil {
+		return state{} // a partial decode must not skip the check
+	}
+	return st
+}
+
+func writeState(file string, st state) error {
+	b, err := yaml.Marshal(&st)
+	if err != nil {
+		return err
+	}
+	return config.WriteFileAtomic(file, b)
+}
+
+// markNotified records in the state file that the notice for the last check was printed.
+func markNotified(file string, now time.Time) error {
+	st := readState(file)
+	st.NotifiedAt = now
+	return writeState(file, st)
 }
 
 // Print waits for the result on ch until ctx ends and prints the notice to stderr; with
@@ -146,6 +183,12 @@ func Print(ctx context.Context, ios *iostreams.IOStreams, ch <-chan Result, curr
 		fmt.Fprintf(ios.ErrOut, "warning: checking for update failed: %v\n", r.Err)
 	case r.Release != nil:
 		fmt.Fprint(ios.ErrOut, Message(ios.ColorScheme(), current, r.Release, upgradeCommand()))
+		if r.stateFile == "" {
+			return
+		}
+		if err := markNotified(r.stateFile, time.Now()); err != nil && debug {
+			fmt.Fprintf(ios.ErrOut, "warning: recording the update notice failed: %v\n", err)
+		}
 	}
 }
 
@@ -164,12 +207,14 @@ func Message(cs *iostreams.ColorScheme, current string, rel *Release, upgrade st
 
 // upgradeCommand detects how the running ado was installed (see detectInstallMethod).
 func upgradeCommand() string {
-	exe, err := os.Executable()
-	if err == nil {
-		exe, err = filepath.EvalSymlinks(exe)
-	}
-	if err != nil {
-		exe = ""
+	var exe string
+	if e, err := os.Executable(); err == nil {
+		exe = e
+		// Keep the unresolved path when resolving fails (some Windows reparse points): the
+		// rules still match it.
+		if r, err := filepath.EvalSymlinks(e); err == nil {
+			exe = r
+		}
 	}
 	bi, _ := debug.ReadBuildInfo()
 	return detectInstallMethod(exe, runtime.GOOS, os.Getenv, bi, build.Stamped)

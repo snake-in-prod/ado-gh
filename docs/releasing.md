@@ -17,15 +17,17 @@ changelog, pushes the tag and follows the winget pull request.
 
 ## One-time setup
 
-Done on 2026-10-13. Listed here so it can be checked or rebuilt.
+Done on 2026-10-13, except the steps marked *pending*. Listed here so it can
+be checked or rebuilt.
 
 - **Repositories:** GitHub `snake-in-prod/ado-gh` is canonical and public.
   `snake-in-prod/homebrew-tap` (cask `ado`) and `snake-in-prod/scoop-bucket`
   exist, and `microsoft/winget-pkgs` is forked as `snake-in-prod/winget-pkgs`
   (package `SnakeInProd.Ado`).
-- **Microsoft CLA:** the account that owns `WINGET_PR_PAT` signs it once,
-  through the CLA bot comment on its first winget-pkgs pull request. Until then
-  the PR is labelled `Needs-CLA` and is not reviewed.
+- **Microsoft CLA** (*pending*: v0.1.0's pull request waits on it): the
+  account that owns `WINGET_PR_PAT` signs it once, through the CLA bot comment
+  on its first winget-pkgs pull request. Until then the PR is labelled
+  `Needs-CLA` and is not reviewed.
 - **Tokens,** stored as secrets in the `release` environment:
     - `PACKAGES_PAT`, fine-grained, owner `snake-in-prod`, repositories
       `homebrew-tap`, `scoop-bucket` and `winget-pkgs`: Contents read/write
@@ -37,11 +39,12 @@ Done on 2026-10-13. Listed here so it can be checked or rebuilt.
       before then: an expired token fails the release after the GitHub release
       is already published.
 - **GPG:** the primary key `E8CC 041B D0BE BDC1 3ADB 967E EC1E F53E 7EF8 CA48`
-  (`ado release signing <f.dziewiatowski@gmail.com>`) is certify-only and kept
-  offline with its revocation certificate. It is published and email-verified
-  on [keys.openpgp.org](https://keys.openpgp.org) (web upload; `gpg
-  --send-keys` skips the email verification and GnuPG refuses keys without an
-  identity). CI holds only the signing subkey
+  (`ado release signing <f.dziewiatowski@gmail.com>`) is certify-only and must
+  be kept offline with its revocation certificate (*pending*: move
+  `~/ado-release-keys` off the maintainer's machine). It is published and
+  email-verified on [keys.openpgp.org](https://keys.openpgp.org) (web upload;
+  `gpg --send-keys` skips the email verification and GnuPG refuses keys
+  without an identity). CI holds only the signing subkey
   `9236 1482 2D64 5B37 06B7 56E7 F621 5CEA 43F8 A59C`, exported with
   `gpg --armor --export-secret-subkeys 923614822D645B3706B756E7F6215CEA43F8A59C!`, as
   `GPG_PRIVATE_KEY`, with its passphrase as `GPG_PASSPHRASE`. The subkey
@@ -52,8 +55,10 @@ Done on 2026-10-13. Listed here so it can be checked or rebuilt.
 - **Pages:** source "GitHub Actions". The `github-pages` and `release`
   environments allow `v*` tags (deployment branch and tag rules), and a `v*`
   tag ruleset blocks deleting and moving release tags.
-- **Optional:** a `SMOKE_ADO_TOKEN` secret enables the authenticated smoke
-  checks.
+- **Optional:** a `SMOKE_ADO_TOKEN` secret plus a `SMOKE_ADO_REPO` repository
+  variable (`ORG/PROJECT/REPO` of a test repository the token can read) enable
+  the authenticated smoke checks. Setting the secret without the variable
+  fails every binary smoke job.
 
 ## Versioning
 
@@ -148,6 +153,11 @@ git push origin vX.Y.Z
 Push one tag per `git push`. GitHub creates no push events when more than three
 tags are pushed at once, so `git push --tags` can silently release nothing.
 
+Wait for the release run to finish before pushing the next tag. Release runs
+share one concurrency group, and GitHub keeps only one pending run per group:
+a third tag cancels the second tag's queued run, which leaves that tag without
+a release. If a run shows as cancelled, re-run it.
+
 ## Monitor the release
 
 Watch the run with `gh run watch` or on the Actions tab. Its jobs:
@@ -158,7 +168,9 @@ Watch the run with `gh run watch` or on the Actions tab. Its jobs:
   doesn't match the tag), runs GoReleaser (archives, `.deb`/`.rpm`,
   `checksums.txt`, SBOMs, cosign and GPG signatures, GitHub release, Homebrew
   cask, Scoop manifest, winget pull request), then creates build provenance and
-  uploads `attestations.jsonl`.
+  uploads `attestations.jsonl`. Provenance is created whenever the build
+  produced `checksums.txt`, even if a publisher failed, and the bundle is
+  uploaded whenever the GitHub release exists.
 - **smoke:** downloads the release on all six platforms, verifies checksum,
   cosign, GPG and attestations, and runs `ado --version`, `ado --help` and
   `ado auth status`. Stable tags also install through every channel
@@ -179,10 +191,14 @@ gh workflow run smoke.yml -f version=vX.Y.Z
 gh workflow run docs.yml --ref vX.Y.Z
 ```
 
-A failed winget pull request (for example an expired `WINGET_PR_PAT`) turns
-the release job red after everything else was published. The branch
-`ado-X.Y.Z` is already on the fork, so open the PR by hand, titled with the
-branch's commit message:
+A publisher that fails after the GitHub release exists (for example an
+expired `PACKAGES_PAT` or `WINGET_PR_PAT`) turns the release job red. The
+GitHub release with its assets and signatures, the build provenance and
+`attestations.jsonl` are still published, and so is every publisher that ran
+before the failed one; the smoke and docs jobs are skipped. Push what is
+missing by hand, then run smoke and docs as above. For a failed winget pull
+request the branch `ado-X.Y.Z` is already on the fork, so open the PR by hand,
+titled with the branch's commit message:
 
 ```sh
 gh pr create --repo microsoft/winget-pkgs --base master \

@@ -104,7 +104,7 @@ nfpms:
     vendor: snake-in-prod
     homepage: https://github.com/snake-in-prod/ado-gh
     maintainer: snake-in-prod <snake-in-prod@users.noreply.github.com>
-    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI.
+    description: &description Command-line tool for Azure DevOps, modeled on the GitHub CLI
     license: MIT
     section: utils
     bindir: /usr/bin
@@ -138,7 +138,7 @@ nfpms:
 homebrew_casks:
   - name: ado
     ids: [ado]
-    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    description: *description
     homepage: https://github.com/snake-in-prod/ado-gh
     license: MIT
     skip_upload: auto
@@ -174,7 +174,7 @@ homebrew_casks:
 scoops:
   - name: ado
     ids: [ado]
-    description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    description: *description
     homepage: https://github.com/snake-in-prod/ado-gh
     license: MIT
     skip_upload: auto
@@ -194,7 +194,7 @@ winget:
     package_identifier: SnakeInProd.Ado
     publisher: snake-in-prod
     publisher_url: https://github.com/snake-in-prod
-    short_description: Command-line tool for Azure DevOps, modeled on the GitHub CLI
+    short_description: *description
     homepage: https://github.com/snake-in-prod/ado-gh
     license: MIT
     license_url: https://github.com/snake-in-prod/ado-gh/blob/main/LICENSE

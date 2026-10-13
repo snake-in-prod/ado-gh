@@ -10,7 +10,7 @@ for project-level commands).
 ```sh
 ado issue create --type bug -t "Crash on save" -a @me --iteration @current
 ado wi list -a @me --iteration @current
-ado wi close 123 -c "Fixed in !45"
+ado wi close 123 -c 'Fixed in !45'
 ado wi query "Shared Queries/Team/Active Bugs" --json id,title
 ado sprint view
 ado board

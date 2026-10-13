@@ -45,7 +45,9 @@ func run(args []string, ios *iostreams.IOStreams) cmdutil.ExitCode {
 	if code == cmdutil.ExitOK {
 		update.Print(ctx, ios, updates, build.Version, f.Debug) // f.Debug is final after ExecuteC
 	} else if updates != nil {
-		cancel() // no notice after a failure: stop the check and wait for it
+		// No notice after a failure: stop the check and wait for it. A newer release it already
+		// found stays in the state file and is shown after the next successful command.
+		cancel()
 		<-updates
 	}
 	return code

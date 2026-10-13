@@ -116,6 +116,7 @@ func TestCheckOncePerDay(t *testing.T) {
 	rel, err := Check(context.Background(), hc, file, "1.2.3", now)
 	require.NoError(t, err)
 	require.NotNil(t, rel)
+	require.NoError(t, markNotified(file, now)) // Print showed it
 
 	// Within 24 h: no request, no notice (once a day).
 	rel, err = Check(context.Background(), hc, file, "1.2.3", now.Add(23*time.Hour))
@@ -130,6 +131,37 @@ func TestCheckOncePerDay(t *testing.T) {
 	require.NotNil(t, rel)
 	assert.Equal(t, "1.4.0", rel.Version)
 	assert.Len(t, reg.Requests, 2)
+}
+
+func TestCheckWithheldNoticeShownNextCommand(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "state.yml")
+	now := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
+	reg := &httpmock.Registry{}
+	hc := &http.Client{Transport: reg}
+	releaseStub(reg, "v1.3.0")
+
+	// The command failed: the result is dropped and the notice never printed.
+	_, err := Check(context.Background(), hc, file, "1.2.3", now)
+	require.NoError(t, err)
+
+	// The next command gets the cached release without asking GitHub again.
+	rel, err := Check(context.Background(), hc, file, "1.2.3", now.Add(time.Hour))
+	require.NoError(t, err)
+	require.NotNil(t, rel)
+	assert.Equal(t, "1.3.0", rel.Version)
+
+	// Once shown, it is quiet for the rest of the interval.
+	require.NoError(t, markNotified(file, now.Add(time.Hour)))
+	rel, err = Check(context.Background(), hc, file, "1.2.3", now.Add(2*time.Hour))
+	require.NoError(t, err)
+	assert.Nil(t, rel)
+	assert.Len(t, reg.Requests, 1)
+
+	// A withheld notice is dropped once ado was upgraded in the meantime.
+	require.NoError(t, writeState(file, state{CheckedForUpdateAt: now, LatestRelease: Release{Version: "1.3.0"}}))
+	rel, err = Check(context.Background(), hc, file, "1.3.0", now.Add(time.Hour))
+	require.NoError(t, err)
+	assert.Nil(t, rel)
 }
 
 func TestCheckFailuresRetryNextCommand(t *testing.T) {
@@ -176,13 +208,23 @@ func TestCheckSkipsInvalidCurrent(t *testing.T) {
 }
 
 func TestCheckBrokenStateFile(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "state.yml")
-	require.NoError(t, os.WriteFile(file, []byte("checked_for_update_at: [nope"), 0o600))
-	reg := &httpmock.Registry{}
-	releaseStub(reg, "v1.3.0")
-	rel, err := Check(context.Background(), &http.Client{Transport: reg}, file, "1.2.3", time.Now())
-	require.NoError(t, err)
-	assert.NotNil(t, rel)
+	now := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
+	for name, content := range map[string]string{
+		"syntax error": "checked_for_update_at: [nope",
+		// yaml.v3 still fills checked_for_update_at before it reports the type error.
+		"type error": "checked_for_update_at: 2026-10-12T07:00:00Z\nlatest_release: [nope]\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			file := filepath.Join(t.TempDir(), "state.yml")
+			require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+			reg := &httpmock.Registry{}
+			releaseStub(reg, "v1.3.0")
+			rel, err := Check(context.Background(), &http.Client{Transport: reg}, file, "1.2.3", now)
+			require.NoError(t, err)
+			assert.NotNil(t, rel)
+			reg.Verify(t)
+		})
+	}
 }
 
 func TestStateFileRoundTrip(t *testing.T) {
@@ -284,6 +326,30 @@ func TestPrint(t *testing.T) {
 		ios, errOut := ttyStreams()
 		Print(context.Background(), ios, nil, "1.2.3", true) // a nil channel never blocks
 		assert.Empty(t, errOut.String())
+	})
+}
+
+func TestPrintRecordsNotice(t *testing.T) {
+	rel := &Release{Version: "1.3.0", URL: "https://github.com/snake-in-prod/ado-gh/releases/tag/v1.3.0"}
+	file := filepath.Join(t.TempDir(), "state.yml")
+	checked := time.Now().Add(-time.Hour)
+	require.NoError(t, writeState(file, state{CheckedForUpdateAt: checked, LatestRelease: *rel}))
+
+	ios, _ := ttyStreams()
+	ch := make(chan Result, 1)
+	ch <- Result{Release: rel, stateFile: file}
+	Print(context.Background(), ios, ch, "1.2.3", false)
+
+	st := readState(file)
+	assert.True(t, st.NotifiedAt.After(checked), "notified_at = %v", st.NotifiedAt)
+	assert.Equal(t, *rel, st.LatestRelease)
+
+	t.Run("failure shown with debug", func(t *testing.T) {
+		ios, errOut := ttyStreams()
+		ch := make(chan Result, 1)
+		ch <- Result{Release: rel, stateFile: filepath.Join(file, "not-a-dir", "state.yml")}
+		Print(context.Background(), ios, ch, "1.2.3", true)
+		assert.Contains(t, errOut.String(), "warning: recording the update notice failed")
 	})
 }
 

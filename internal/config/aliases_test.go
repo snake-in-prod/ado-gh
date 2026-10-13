@@ -12,6 +12,7 @@ import (
 func TestDataDir(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
+	xdg := filepath.Join(home, "xdg") // absolute on every OS
 
 	tests := []struct {
 		name string
@@ -19,9 +20,10 @@ func TestDataDir(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"xdg on linux", "linux", map[string]string{"XDG_DATA_HOME": "/xdg", "LocalAppData": `C:\local`}, filepath.Join("/xdg", "ado")},
-		{"xdg wins on windows", "windows", map[string]string{"XDG_DATA_HOME": "/xdg", "LocalAppData": `C:\local`}, filepath.Join("/xdg", "ado")},
+		{"xdg on linux", "linux", map[string]string{"XDG_DATA_HOME": xdg, "LocalAppData": `C:\local`}, filepath.Join(xdg, "ado")},
+		{"xdg wins on windows", "windows", map[string]string{"XDG_DATA_HOME": xdg, "LocalAppData": `C:\local`}, filepath.Join(xdg, "ado")},
 		{"localappdata on windows", "windows", map[string]string{"LocalAppData": `C:\local`}, filepath.Join(`C:\local`, "ado")},
+		{"relative xdg ignored", "linux", map[string]string{"XDG_DATA_HOME": "data"}, filepath.Join(home, ".local", "share", "ado")},
 		{"localappdata ignored on linux", "linux", map[string]string{"LocalAppData": `C:\local`}, filepath.Join(home, ".local", "share", "ado")},
 		{"home fallback on darwin", "darwin", nil, filepath.Join(home, ".local", "share", "ado")},
 		{"home fallback on windows", "windows", nil, filepath.Join(home, ".local", "share", "ado")},
@@ -37,13 +39,15 @@ func TestDataDir(t *testing.T) {
 }
 
 func TestDataDirUsesRuntimeOS(t *testing.T) {
-	t.Setenv("XDG_DATA_HOME", "/xdg")
-	assert.Equal(t, filepath.Join("/xdg", "ado"), DataDir())
+	xdg := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", xdg)
+	assert.Equal(t, filepath.Join(xdg, "ado"), DataDir())
 }
 
 func TestStateDir(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
+	xdg := filepath.Join(home, "xdg") // absolute on every OS
 
 	tests := []struct {
 		name string
@@ -51,10 +55,11 @@ func TestStateDir(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"xdg on linux", "linux", map[string]string{"XDG_STATE_HOME": "/xdg", "LocalAppData": `C:\local`}, filepath.Join("/xdg", "ado")},
-		{"xdg wins on windows", "windows", map[string]string{"XDG_STATE_HOME": "/xdg", "LocalAppData": `C:\local`}, filepath.Join("/xdg", "ado")},
+		{"xdg on linux", "linux", map[string]string{"XDG_STATE_HOME": xdg, "LocalAppData": `C:\local`}, filepath.Join(xdg, "ado")},
+		{"xdg wins on windows", "windows", map[string]string{"XDG_STATE_HOME": xdg, "LocalAppData": `C:\local`}, filepath.Join(xdg, "ado")},
 		{"data home ignored", "linux", map[string]string{"XDG_DATA_HOME": "/data"}, filepath.Join(home, ".local", "state", "ado")},
 		{"localappdata on windows", "windows", map[string]string{"LocalAppData": `C:\local`}, filepath.Join(`C:\local`, "ado")},
+		{"relative xdg ignored", "windows", map[string]string{"XDG_STATE_HOME": "state", "LocalAppData": `C:\local`}, filepath.Join(`C:\local`, "ado")},
 		{"localappdata ignored on linux", "linux", map[string]string{"LocalAppData": `C:\local`}, filepath.Join(home, ".local", "state", "ado")},
 		{"home fallback on darwin", "darwin", nil, filepath.Join(home, ".local", "state", "ado")},
 		{"home fallback on windows", "windows", nil, filepath.Join(home, ".local", "state", "ado")},
@@ -67,8 +72,8 @@ func TestStateDir(t *testing.T) {
 			assert.Equal(t, tt.want, stateDir(tt.goos))
 		})
 	}
-	t.Setenv("XDG_STATE_HOME", "/xdg")
-	assert.Equal(t, filepath.Join("/xdg", "ado"), StateDir())
+	t.Setenv("XDG_STATE_HOME", xdg)
+	assert.Equal(t, filepath.Join(xdg, "ado"), StateDir())
 }
 
 func TestAliasesAndExtensionSourcesRoundTrip(t *testing.T) {

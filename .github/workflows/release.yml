@@ -141,24 +141,35 @@ jobs:
           rm -rf "$GNUPGHOME"
 
       # Build provenance for every archive and package listed in checksums.txt,
-      # then for checksums.txt itself.
+      # then for checksums.txt itself. checksums.txt exists before any publisher
+      # runs, so a failed Homebrew/Scoop/winget push still gets attestations:
+      # actions/attest needs this workflow's OIDC identity and cannot be redone
+      # by hand.
       - id: attest-artifacts
+        if: ${{ !cancelled() && hashFiles('dist/checksums.txt') != '' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-checksums: dist/checksums.txt
       - id: attest-checksums
+        if: ${{ !cancelled() && steps.attest-artifacts.outcome == 'success' }}
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/checksums.txt
       # Lets users verify offline: gh attestation verify --bundle attestations.jsonl.
+      # --clobber: a re-run of this job replaces the bundle instead of failing.
       - name: Upload attestation bundle
+        if: ${{ !cancelled() && steps.attest-checksums.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ARTIFACTS_BUNDLE: ${{ steps.attest-artifacts.outputs.bundle-path }}
           CHECKSUMS_BUNDLE: ${{ steps.attest-checksums.outputs.bundle-path }}
         run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null; then
+            echo "::error::no GitHub release for $TAG, attestations.jsonl not uploaded"
+            exit 1
+          fi
           jq -c . "$ARTIFACTS_BUNDLE" "$CHECKSUMS_BUNDLE" >"$RUNNER_TEMP/attestations.jsonl"
-          gh release upload "$TAG" "$RUNNER_TEMP/attestations.jsonl" --repo "$GITHUB_REPOSITORY"
+          gh release upload --clobber "$TAG" "$RUNNER_TEMP/attestations.jsonl" --repo "$GITHUB_REPOSITORY"
 
   # Releases created with GITHUB_TOKEN trigger no workflows: call them directly.
   smoke:
